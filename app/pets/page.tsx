@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Header from "@/components/Header";
+import PetFace from "@/components/PetFace";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
 import { Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
@@ -11,6 +12,13 @@ import { useStore } from "@/lib/store";
 /* One main slot gets a floating + button on the avatar's head; the rest live in "Other accessories" */
 const MAIN_SLOTS: { slot: CosmeticSlot; label: string; hint: string; pos: string }[] = [
   { slot: "head", label: "Hat", hint: "Hats & headwear", pos: "left-1/2 -top-4 -translate-x-1/2" },
+];
+
+/* Equipped accessories rendered directly on the big pet (the head/hat shows on its + button) */
+const LAYER_SLOTS: { slot: CosmeticSlot; pos: string; fontSize: number }[] = [
+  { slot: "face", pos: "left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2", fontSize: 40 },
+  { slot: "neck", pos: "left-1/2 bottom-[14%] -translate-x-1/2", fontSize: 34 },
+  { slot: "body", pos: "left-1/2 -bottom-1 -translate-x-1/2", fontSize: 30 },
 ];
 
 const OTHER_SLOTS: { slot: CosmeticSlot; hint: string }[] = [
@@ -99,11 +107,27 @@ export default function PetsPage() {
         <div className="flex flex-col items-center">
           <div className="relative my-8" style={{ width: 168, height: 168 }}>
             <div
-              className="flex h-full w-full items-center justify-center rounded-full text-white shadow-[inset_0_2px_2px_rgba(255,255,255,0.45),inset_0_-4px_10px_rgba(0,0,0,0.12),0_10px_30px_rgba(0,0,0,0.14)]"
+              className="flex h-full w-full items-center justify-center overflow-hidden rounded-full text-white shadow-[inset_0_2px_2px_rgba(255,255,255,0.45),inset_0_-4px_10px_rgba(0,0,0,0.12),0_10px_30px_rgba(0,0,0,0.14)]"
               style={{ background: `linear-gradient(150deg, ${pet.gradient[0]}, ${pet.gradient[1]})` }}
             >
-              <Icon name="paw" size={84} strokeWidth={1.5} className="opacity-95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]" />
+              <PetFace species={pet.species} size={150} />
             </div>
+
+            {/* Equipped items layered on the pet (face over eyes, collar under chin, outfit low) */}
+            {LAYER_SLOTS.map((l) => {
+              const id = pet.equipped[l.slot];
+              const item = id ? cosmetic(id) : undefined;
+              if (!item) return null;
+              return (
+                <span
+                  key={l.slot}
+                  className={`pointer-events-none absolute z-[5] leading-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.2)] ${l.pos}`}
+                  style={{ fontSize: l.fontSize }}
+                >
+                  {item.emoji}
+                </span>
+              );
+            })}
 
             {/* Main slot buttons — see-through glass "+" */}
             {MAIN_SLOTS.map((s) => {

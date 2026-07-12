@@ -1,27 +1,27 @@
 @import "tailwindcss";
 
 @theme {
-  /* iOS semantic palette */
-  --color-bg: oklch(0.965 0.002 264);            /* grouped background ~#F2F2F7 */
-  --color-card: oklch(1 0 0);
-  --color-label: oklch(0.22 0.01 264);           /* ~#1C1C1E */
-  --color-label-2: oklch(0.47 0.012 264);        /* secondary label */
-  --color-label-3: oklch(0.62 0.01 264);         /* tertiary label */
-  --color-sep: oklch(0.22 0.01 264 / 0.09);
-  --color-fill: oklch(0.22 0.01 264 / 0.05);     /* subtle fill */
-  --color-accent: oklch(0.55 0.19 258);          /* iOS blue */
-  --color-accent-soft: oklch(0.55 0.19 258 / 0.1);
-  --color-green: oklch(0.64 0.17 150);
-  --color-green-soft: oklch(0.64 0.17 150 / 0.12);
-  --color-red: oklch(0.6 0.21 25);
-  --color-orange: oklch(0.72 0.16 60);
-  --color-orange-soft: oklch(0.72 0.16 60 / 0.14);
+  /* iOS semantic palette — warmed toward indigo/violet for friendlier feel */
+  --color-bg: oklch(0.966 0.006 292);            /* grouped background, faint warm tint */
+  --color-card: oklch(0.998 0.003 292);          /* near-white with a hair of warmth */
+  --color-label: oklch(0.23 0.014 288);          /* ink */
+  --color-label-2: oklch(0.48 0.016 288);        /* secondary label */
+  --color-label-3: oklch(0.63 0.014 288);        /* tertiary label */
+  --color-sep: oklch(0.23 0.014 288 / 0.09);
+  --color-fill: oklch(0.35 0.02 288 / 0.06);     /* subtle warm fill */
+  --color-accent: oklch(0.55 0.2 285);           /* warm indigo/violet */
+  --color-accent-soft: oklch(0.55 0.2 285 / 0.12);
+  --color-green: oklch(0.63 0.16 155);
+  --color-green-soft: oklch(0.63 0.16 155 / 0.13);
+  --color-red: oklch(0.6 0.21 22);
+  --color-orange: oklch(0.7 0.16 55);
+  --color-orange-soft: oklch(0.7 0.16 55 / 0.15);
 
   --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
 
-  --radius-ios: 0.875rem;   /* 14px – buttons, rows */
-  --radius-card: 1.125rem;  /* 18px – cards */
-  --radius-sheet: 1.625rem; /* 26px – sheets, hero */
+  --radius-ios: 1rem;       /* 16px – buttons, rows */
+  --radius-card: 1.375rem;  /* 22px – cards */
+  --radius-sheet: 1.75rem;  /* 28px – sheets, hero */
 
   --animate-toast-in: toast-in 0.45s cubic-bezier(0.34, 1.3, 0.44, 1);
   --animate-sheet-in: sheet-in 0.38s cubic-bezier(0.32, 0.92, 0.35, 1);
@@ -66,14 +66,20 @@ body {
     0 1px 1px oklch(0.2 0.01 264 / 0.04);
 }
 .glass-strong {
-  background: oklch(1 0 0 / 0.78);
+  background: oklch(1 0.004 292 / 0.78);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
   backdrop-filter: blur(28px) saturate(190%);
   border: 0.5px solid oklch(1 0 0 / 0.65);
   box-shadow:
     inset 0 0.5px 0 oklch(1 0 0 / 0.8),
-    0 8px 32px oklch(0.2 0.02 264 / 0.14),
-    0 1px 2px oklch(0.2 0.01 264 / 0.06);
+    0 10px 36px oklch(0.35 0.05 288 / 0.13),
+    0 1px 2px oklch(0.35 0.03 288 / 0.05);
+}
+
+/* Soft warm surface wash — used sparingly on hero/stat areas */
+.tint-surface {
+  background:
+    linear-gradient(150deg, oklch(0.55 0.2 285 / 0.05), oklch(0.7 0.16 55 / 0.04));
 }
 
 /* Hairline separators inside grouped lists */
