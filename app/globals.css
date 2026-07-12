@@ -18,7 +18,9 @@
   --color-orange-soft: oklch(0.7 0.16 55 / 0.15);
 
   --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
-  --font-pixel: var(--font-pixel), "Courier New", monospace;
+  /* NB: do NOT redeclare --font-pixel here — next/font/local owns that var.
+     Redeclaring it as var(--font-pixel) is self-referential and kills the font. */
+  --font-pixel-stack: var(--font-pixel), "Courier New", monospace;
 
   --radius-ios: 1rem;       /* 16px – buttons, rows */
   --radius-card: 1.375rem;  /* 22px – cards */
@@ -102,7 +104,7 @@ body {
 
 /* Retro pixel type — headings, numbers, coin/level HUD. Small sizes only. */
 .font-pixel {
-  font-family: var(--font-pixel);
+  font-family: var(--font-pixel-stack);
   letter-spacing: 0;
   line-height: 1.4;
 }

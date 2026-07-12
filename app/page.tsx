@@ -144,6 +144,27 @@ export default function Home() {
         })}
       </div>
 
+      {/* Quick shortcuts to the deeper features */}
+      <SectionHeader>Manage</SectionHeader>
+      <div className="grid grid-cols-3 gap-2.5">
+        {[
+          { href: `/pet/${pet.id}`, icon: "box" as const, label: "Supplies", tint: "text-accent", bg: "bg-accent-soft" },
+          { href: "/vets", icon: "cross" as const, label: "Find a Vet", tint: "text-green", bg: "bg-green-soft" },
+          { href: `/pet/${pet.id}`, icon: "chart" as const, label: "Weight", tint: "text-orange", bg: "bg-orange-soft" },
+        ].map((s) => (
+          <Link
+            key={s.label}
+            href={s.href}
+            className="flex flex-col items-start gap-2.5 rounded-card bg-card p-3.5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform duration-150 active:scale-[0.96]"
+          >
+            <span className={`flex h-9 w-9 items-center justify-center rounded-full ${s.bg} ${s.tint}`}>
+              <Icon name={s.icon} size={19} />
+            </span>
+            <span className="text-[13px] font-semibold text-label">{s.label}</span>
+          </Link>
+        ))}
+      </div>
+
       {/* Supplies running low */}
       {lowSupplies.length > 0 && (
         <>
