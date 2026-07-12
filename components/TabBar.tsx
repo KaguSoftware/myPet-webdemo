@@ -28,8 +28,8 @@ export default function TabBar() {
                 active ? "text-accent" : "text-label-2 active:text-label"
               }`}
             >
-              <Icon name={t.icon} size={23} strokeWidth={active ? 2.2 : 1.7} className={active ? "scale-105" : ""} />
-              <span className={`text-[10.5px] leading-none ${active ? "font-semibold" : "font-medium"}`}>{t.label}</span>
+              <Icon name={t.icon} size={22} className={`transition-transform duration-200 ${active ? "scale-110" : "opacity-80"}`} />
+              <span className={`font-pixel text-[7px] leading-none ${active ? "opacity-100" : "opacity-80"}`}>{t.label}</span>
             </Link>
           );
         })}
