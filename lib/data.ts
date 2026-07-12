@@ -20,6 +20,7 @@ export interface Pet {
   weightKg: number;
   owned: string[];
   equipped: Partial<Record<CosmeticSlot, string>>;
+  gradient: [string, string];
 }
 
 export interface Member {
@@ -27,6 +28,7 @@ export interface Member {
   name: string;
   emoji: string;
   role: string;
+  gradient: [string, string];
 }
 
 export interface Activity {
@@ -146,10 +148,10 @@ export const SEED: AppState = {
   streak: 4,
   bookedVet: false,
   members: [
-    { id: "you", name: "Parsa", emoji: "🧑‍💻", role: "Pet parent" },
-    { id: "mom", name: "Mom", emoji: "👩‍🦰", role: "Chief treat officer" },
-    { id: "dad", name: "Dad", emoji: "👨‍🦳", role: "Walk specialist" },
-    { id: "sara", name: "Sara", emoji: "👧", role: "Cuddle department" },
+    { id: "you", name: "Parsa", emoji: "🧑‍💻", role: "Owner", gradient: ["oklch(0.62 0.16 258)", "oklch(0.5 0.18 280)"] },
+    { id: "mom", name: "Mom", emoji: "👩‍🦰", role: "Admin", gradient: ["oklch(0.68 0.15 350)", "oklch(0.56 0.17 20)"] },
+    { id: "dad", name: "Dad", emoji: "👨‍🦳", role: "Member", gradient: ["oklch(0.66 0.13 165)", "oklch(0.54 0.13 200)"] },
+    { id: "sara", name: "Sara", emoji: "👧", role: "Member", gradient: ["oklch(0.72 0.14 85)", "oklch(0.62 0.16 50)"] },
   ],
   pets: [
     {
@@ -162,6 +164,7 @@ export const SEED: AppState = {
       weightKg: 4.8,
       owned: ["bowtie", "glasses"],
       equipped: { neck: "bowtie" },
+      gradient: ["oklch(0.65 0.13 230)", "oklch(0.5 0.15 265)"],
     },
     {
       id: "biscuit",
@@ -173,6 +176,7 @@ export const SEED: AppState = {
       weightKg: 29.5,
       owned: ["cap"],
       equipped: { head: "cap" },
+      gradient: ["oklch(0.74 0.13 75)", "oklch(0.6 0.15 45)"],
     },
   ],
   activities: [

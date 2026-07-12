@@ -1,47 +1,61 @@
 "use client";
 
 import { useStore } from "@/lib/store";
+import { Icon, IconName } from "./Icons";
 import Sheet from "./Sheet";
+import { AccentButton } from "./ui";
 
-const PERKS = [
-  { emoji: "🩺", text: "Vet-built care plan for every breed" },
-  { emoji: "🔔", text: "Smart reminders — we do the thinking" },
-  { emoji: "📅", text: "Vet visit scheduling & booking help" },
-  { emoji: "📈", text: "Weight & health tracking insights" },
+const PERKS: { icon: IconName; title: string; body: string }[] = [
+  { icon: "heart-text", title: "Vet-built care plans", body: "Breed-specific feeding, grooming and health schedules." },
+  { icon: "bell", title: "Smart reminders", body: "We watch the calendar so you don't have to." },
+  { icon: "calendar", title: "Vet booking", body: "One-tap appointment requests with trusted local vets." },
+  { icon: "arrow-up", title: "Health insights", body: "Weight tracking and early warning signs." },
 ];
 
 export default function Paywall({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { setPremium, toast } = useStore();
   return (
     <Sheet open={open} onClose={onClose}>
-      <div className="text-center">
-        <span className="text-5xl">✨</span>
-        <h2 className="mt-2 text-2xl font-black text-ink">PetPal Plus</h2>
-        <p className="mt-1 text-sm font-semibold text-ink-soft">
-          A vet in your pocket. We tell you what your pet needs, before you have to think about it.
+      <div className="flex flex-col items-center pt-2 text-center">
+        <span className="flex h-[64px] w-[64px] items-center justify-center rounded-[16px] bg-gradient-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.48_0.19_262)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_8px_20px_oklch(0.55_0.19_258/0.35)]">
+          <Icon name="sparkles" size={32} />
+        </span>
+        <h2 className="mt-3 text-[24px] font-bold tracking-[-0.02em] text-label">PetPal+</h2>
+        <p className="mt-1 max-w-[280px] text-[14px] leading-relaxed text-label-2">
+          A vet in your pocket. We tell you what your pet needs — before you have to think about it.
         </p>
       </div>
-      <ul className="mt-5 space-y-3">
+
+      <div className="mt-6 space-y-4">
         {PERKS.map((p) => (
-          <li key={p.text} className="flex items-center gap-3 rounded-2xl bg-brand-soft px-4 py-3">
-            <span className="text-xl">{p.emoji}</span>
-            <span className="text-sm font-bold text-ink">{p.text}</span>
-          </li>
+          <div key={p.title} className="flex items-start gap-3.5">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+              <Icon name={p.icon} size={17} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-label">{p.title}</p>
+              <p className="text-[13px] leading-snug text-label-2">{p.body}</p>
+            </div>
+          </div>
         ))}
-      </ul>
-      <button
-        onClick={() => {
-          setPremium(true);
-          onClose();
-          toast("✨", "Welcome to PetPal Plus!", "Care plans and smart reminders unlocked");
-        }}
-        className="mt-6 w-full rounded-2xl bg-brand px-4 py-4 text-base font-black text-white shadow-lg shadow-brand/40 transition active:scale-95"
-      >
-        Start free trial — then $4.99/mo
-      </button>
-      <p className="mt-3 text-center text-xs font-semibold text-ink-soft">
-        Demo: this unlocks instantly, no payment. Cancel anytime.
-      </p>
+      </div>
+
+      <div className="mt-7">
+        <AccentButton
+          onClick={() => {
+            setPremium(true);
+            onClose();
+            toast("✨", "Welcome to PetPal+", "Care plans and smart reminders unlocked");
+          }}
+        >
+          Try free for 1 month
+        </AccentButton>
+        <p className="mt-2.5 text-center text-[12px] leading-relaxed text-label-3">
+          Then $4.99/month. Cancel anytime.
+          <br />
+          Demo — unlocks instantly, no payment.
+        </p>
+      </div>
     </Sheet>
   );
 }

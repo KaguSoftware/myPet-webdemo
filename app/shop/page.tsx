@@ -1,98 +1,84 @@
 "use client";
 
 import { useState } from "react";
-import Confetti from "@/components/Confetti";
+import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
-import { COSMETICS } from "@/lib/data";
+import { Icon } from "@/components/Icons";
+import { CoinPill, SectionHeader, Segmented } from "@/components/ui";
+import { COSMETICS, cosmetic } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
 export default function ShopPage() {
   const { state, buyCosmetic, toggleEquip, toast } = useStore();
-  const [petIndex, setPetIndex] = useState(0);
-  const [burst, setBurst] = useState(0);
+  const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
 
-  const pet = state.pets[Math.min(petIndex, state.pets.length - 1)];
+  const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
+  const equippedNames = Object.values(pet.equipped)
+    .map((id) => cosmetic(id!)?.name)
+    .filter(Boolean);
 
   return (
-    <div className="relative px-5 pt-6 pb-6">
-      <Confetti burst={burst} />
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-ink">Pet Boutique</h1>
-          <p className="text-sm font-semibold text-ink-soft">Earn coins by caring. Spend them on drip.</p>
-        </div>
-        <div className="flex items-center gap-1.5 rounded-full bg-gold-soft px-3 py-1.5">
-          <span aria-hidden>🪙</span>
-          <span className="text-sm font-black text-ink">{state.coins}</span>
-        </div>
-      </div>
+    <div className="px-4">
+      <Header title="Boutique" subtitle="Earned by caring" trailing={<CoinPill amount={state.coins} />} />
 
       {/* Dressing room */}
-      <section className="mt-4 rounded-card bg-berry-soft p-5 ring-1 ring-berry/15">
+      <div className="rounded-sheet bg-card p-5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)]">
         <div className="flex items-center gap-4">
-          <div className="rounded-2xl bg-white p-3 shadow-sm animate-pop" key={JSON.stringify(pet.equipped)}>
-            <PetAvatar pet={pet} size="lg" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-black text-ink">{pet.name}&apos;s fit</h2>
-            <p className="text-xs font-semibold text-ink-soft">
-              {Object.keys(pet.equipped).length > 0
-                ? "Looking absolutely iconic. Screenshot-worthy."
-                : "Naked! Quick, buy something fabulous."}
+          <PetAvatar pet={pet} size="xl" />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">{pet.name}</h2>
+            <p className="mt-0.5 text-[13px] leading-snug text-label-2">
+              {equippedNames.length > 0 ? `Wearing: ${equippedNames.join(", ")}` : "Nothing equipped yet"}
             </p>
-            {state.pets.length > 1 && (
-              <div className="mt-2 flex gap-2">
-                {state.pets.map((p, i) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setPetIndex(i)}
-                    className={`rounded-full px-3 py-1 text-xs font-black transition ${
-                      i === petIndex ? "bg-berry text-white" : "bg-white text-ink ring-1 ring-line"
-                    }`}
-                  >
-                    {p.emoji} {p.name}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </div>
-      </section>
+        {state.pets.length > 1 && (
+          <div className="mt-4">
+            <Segmented
+              options={state.pets.map((p) => ({ value: p.id, label: p.name }))}
+              value={pet.id}
+              onChange={setPetId}
+            />
+          </div>
+        )}
+      </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3">
+      <SectionHeader>Accessories</SectionHeader>
+      <div className="grid grid-cols-2 gap-2.5 pb-2">
         {COSMETICS.map((c) => {
           const owned = pet.owned.includes(c.id);
           const equipped = pet.equipped[c.slot] === c.id;
           const affordable = state.coins >= c.price;
           return (
-            <div key={c.id} className="flex flex-col items-center rounded-card bg-white p-4 ring-1 ring-line">
-              <span className="text-4xl">{c.emoji}</span>
-              <p className="mt-2 text-sm font-extrabold text-ink">{c.name}</p>
-              <p className="text-[11px] font-bold capitalize text-ink-soft">{c.slot}</p>
+            <div key={c.id} className="flex flex-col rounded-card bg-card p-3.5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)]">
+              <div className="flex aspect-[2/1] items-center justify-center rounded-ios bg-fill text-[40px]">
+                {c.emoji}
+              </div>
+              <p className="mt-2.5 truncate text-[14px] font-semibold text-label">{c.name}</p>
+              <p className="text-[12px] font-medium capitalize text-label-3">{c.slot}</p>
               {owned ? (
                 <button
                   onClick={() => {
                     toggleEquip(pet.id, c.id);
-                    if (!equipped) toast("😻", `${pet.name} is wearing the ${c.name}!`, "Share-worthy.");
+                    if (!equipped) toast("🛍️", `${pet.name} is wearing the ${c.name}`, "Looking sharp");
                   }}
-                  className={`mt-3 w-full rounded-xl px-3 py-2 text-xs font-black transition active:scale-95 ${
-                    equipped ? "bg-mint text-white" : "bg-mint-soft text-ink"
+                  className={`mt-2.5 flex h-[34px] items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold transition-all active:scale-95 ${
+                    equipped ? "bg-green-soft text-green" : "bg-fill text-label"
                   }`}
                 >
-                  {equipped ? "Wearing ✓" : "Put it on"}
+                  {equipped && <Icon name="check" size={14} strokeWidth={2.6} />}
+                  {equipped ? "Equipped" : "Equip"}
                 </button>
               ) : (
                 <button
                   disabled={!affordable}
                   onClick={() => {
                     buyCosmetic(pet.id, c.id);
-                    setBurst((b) => b + 1);
-                    toast("🛍️", `Bought the ${c.name}!`, `${pet.name} is wearing it now`);
+                    toast("🛍️", `${c.name} purchased`, `${pet.name} is wearing it now`);
                   }}
-                  className="mt-3 w-full rounded-xl bg-brand px-3 py-2 text-xs font-black text-white shadow-sm shadow-brand/40 transition active:scale-95 disabled:bg-line disabled:text-ink-soft disabled:shadow-none"
+                  className="mt-2.5 flex h-[34px] items-center justify-center gap-1 rounded-full bg-accent-soft text-[13px] font-semibold text-accent transition-all active:scale-95 disabled:bg-fill disabled:text-label-3"
                 >
-                  🪙 {c.price}
+                  <Icon name="coin" size={13} strokeWidth={2.2} /> {c.price}
                 </button>
               )}
             </div>
@@ -100,8 +86,8 @@ export default function ShopPage() {
         })}
       </div>
 
-      <p className="mt-5 text-center text-xs font-semibold text-ink-soft">
-        Every logged feeding, walk or clean-up earns +5 coins 🪙
+      <p className="pb-2 text-center text-[12px] font-medium text-label-3">
+        Every logged care action earns 5 coins.
       </p>
     </div>
   );

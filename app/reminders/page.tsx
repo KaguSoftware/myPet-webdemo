@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Header from "@/components/Header";
 import Sheet from "@/components/Sheet";
+import { Icon } from "@/components/Icons";
+import { AccentButton, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
 import { VET } from "@/lib/data";
 import { dueLabel, useStore } from "@/lib/store";
 
@@ -12,114 +15,126 @@ export default function RemindersPage() {
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
   const [days, setDays] = useState(1);
 
-  const sorted = [...state.reminders].sort((a, b) => Number(a.done) - Number(b.done) || a.due - b.due);
+  const upcoming = state.reminders.filter((r) => !r.done).sort((a, b) => a.due - b.due);
+  const done = state.reminders.filter((r) => r.done);
   const petOf = (id: string) => state.pets.find((p) => p.id === id);
 
-  return (
-    <div className="px-5 pt-6 pb-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-ink">Reminders</h1>
-          <p className="text-sm font-semibold text-ink-soft">So nothing gets forgotten.</p>
+  const renderRow = (r: (typeof state.reminders)[number]) => {
+    const pet = petOf(r.petId);
+    return (
+      <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 min-h-[52px]">
+        <button
+          onClick={() => {
+            toggleReminder(r.id);
+            if (!r.done) toast("✅", `Done: ${r.title}`, "Marked complete for the family");
+          }}
+          aria-label={r.done ? "Mark as not done" : "Mark as done"}
+          className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-all duration-200 active:scale-90 ${
+            r.done ? "border-accent bg-accent text-white" : "border-[oklch(0.22_0.01_264/0.25)] bg-transparent"
+          }`}
+        >
+          {r.done && <Icon name="check" size={14} strokeWidth={2.6} />}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className={`truncate text-[16px] font-medium ${r.done ? "text-label-3 line-through" : "text-label"}`}>
+            {r.title}
+          </p>
+          <p className="text-[13px] text-label-2">
+            {pet ? `${pet.name} · ` : ""}
+            {r.done ? "completed" : dueLabel(r.due)}
+          </p>
         </div>
         <button
-          onClick={() => setAddOpen(true)}
-          className="rounded-full bg-brand px-4 py-2.5 text-sm font-black text-white shadow-md shadow-brand/40 transition active:scale-90"
+          onClick={() => deleteReminder(r.id)}
+          aria-label={`Delete ${r.title}`}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-label-3 transition-colors active:bg-fill active:text-red"
         >
-          + Add
+          <Icon name="xmark" size={15} strokeWidth={2.2} />
         </button>
       </div>
+    );
+  };
+
+  return (
+    <div className="px-4">
+      <Header
+        title="Reminders"
+        trailing={
+          <button
+            onClick={() => setAddOpen(true)}
+            aria-label="Add reminder"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white shadow-[0_3px_10px_oklch(0.55_0.19_258/0.35)] transition-transform active:scale-90"
+          >
+            <Icon name="plus" size={19} strokeWidth={2.2} />
+          </button>
+        }
+      />
 
       {state.premium && (
-        <div className="mt-4 rounded-card bg-mint-soft p-4 ring-1 ring-mint/25">
-          <p className="text-xs font-black uppercase tracking-wide text-mint">Smart reminder · PetPal Plus</p>
-          <p className="mt-1 text-sm font-extrabold text-ink">
-            🩺 In a week, Whiskers is due for a 6-month vet checkup
-          </p>
-          <p className="mt-1 text-xs font-semibold text-ink-soft">
-            From the British Shorthair care plan. We suggest {VET.name} — book from the Activity tab.
-          </p>
+        <div className="rounded-card bg-card p-4 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05)] ring-1 ring-accent/15">
+          <div className="flex items-start gap-3">
+            <IconCircle icon="stethoscope" tint="text-accent" bg="bg-accent-soft" />
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">Smart reminder · PetPal+</p>
+              <p className="mt-1 text-[15px] font-semibold leading-snug text-label">
+                Whiskers&apos; 6-month vet checkup — in one week
+              </p>
+              <p className="mt-0.5 text-[13px] leading-snug text-label-2">
+                From the British Shorthair care plan. We suggest {VET.name} — book from Activity.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
-      <ul className="mt-4 space-y-2.5">
-        {sorted.map((r) => {
-          const pet = petOf(r.petId);
-          return (
-            <li
-              key={r.id}
-              className={`flex items-center gap-3 rounded-card p-3.5 ring-1 ${
-                r.done ? "bg-white/60 ring-line opacity-60" : "bg-white ring-line"
-              }`}
-            >
-              <button
-                onClick={() => {
-                  toggleReminder(r.id);
-                  if (!r.done) toast("✅", `Done: ${r.title}`, "Nice work, pet parent!");
-                }}
-                aria-label={r.done ? "Mark as not done" : "Mark as done"}
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-sm transition active:scale-90 ${
-                  r.done ? "border-mint bg-mint text-white" : "border-line bg-white"
-                }`}
-              >
-                {r.done ? "✓" : ""}
-              </button>
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-extrabold text-ink ${r.done ? "line-through" : ""}`}>
-                  {r.emoji} {r.title}
-                </p>
-                <p className="text-xs font-semibold text-ink-soft">
-                  {pet ? `${pet.emoji} ${pet.name} · ` : ""}
-                  {r.done ? "done" : dueLabel(r.due)}
-                </p>
-              </div>
-              <button
-                onClick={() => deleteReminder(r.id)}
-                aria-label={`Delete ${r.title}`}
-                className="shrink-0 rounded-full px-2 py-1 text-ink-soft transition hover:text-berry active:scale-90"
-              >
-                ✕
-              </button>
-            </li>
-          );
-        })}
-        {sorted.length === 0 && (
-          <li className="rounded-card bg-white p-6 text-center ring-1 ring-line">
-            <span className="text-4xl">🌤️</span>
-            <p className="mt-2 text-sm font-extrabold text-ink">All clear!</p>
-            <p className="text-xs font-semibold text-ink-soft">Add a reminder so the whole family sees it.</p>
-          </li>
+      <SectionHeader>Upcoming</SectionHeader>
+      <Group flush>
+        {upcoming.length > 0 ? (
+          upcoming.map(renderRow)
+        ) : (
+          <div className="flex flex-col items-center px-6 py-9 text-center">
+            <IconCircle icon="check" tint="text-green" bg="bg-green-soft" size={48} iconSize={22} />
+            <p className="mt-3 text-[15px] font-semibold text-label">All clear</p>
+            <p className="mt-0.5 text-[13px] text-label-2">Add a reminder and the whole family sees it.</p>
+          </div>
         )}
-      </ul>
+      </Group>
+
+      {done.length > 0 && (
+        <>
+          <SectionHeader>Completed</SectionHeader>
+          <Group flush>{done.map(renderRow)}</Group>
+        </>
+      )}
 
       <Sheet open={addOpen} onClose={() => setAddOpen(false)}>
-        <h2 className="text-xl font-black text-ink">New reminder</h2>
-        <label className="mt-4 block text-xs font-black uppercase tracking-wide text-ink-soft" htmlFor="rem-title">
-          What needs doing?
-        </label>
+        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">New reminder</h2>
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Task</p>
         <input
-          id="rem-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. Buy litter, flea treatment…"
-          className="mt-1.5 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm font-bold text-ink placeholder:text-ink-soft/70 focus:border-brand focus:outline-none"
+          className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60"
         />
-        <p className="mt-4 text-xs font-black uppercase tracking-wide text-ink-soft">For which pet?</p>
-        <div className="mt-1.5 flex gap-2">
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Pet</p>
+        <div className="flex gap-2">
           {state.pets.map((p) => (
             <button
               key={p.id}
               onClick={() => setPetId(p.id)}
-              className={`rounded-full px-3 py-1.5 text-xs font-black transition ${
-                petId === p.id ? "bg-brand text-white" : "bg-white text-ink ring-1 ring-line"
+              className={`rounded-full px-4 py-2 text-[14px] font-semibold transition-all ${
+                petId === p.id ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
               }`}
             >
-              {p.emoji} {p.name}
+              {p.name}
             </button>
           ))}
         </div>
-        <p className="mt-4 text-xs font-black uppercase tracking-wide text-ink-soft">When?</p>
-        <div className="mt-1.5 flex gap-2">
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Due</p>
+        <div className="flex flex-wrap gap-2">
           {[
             { d: 0, label: "Today" },
             { d: 1, label: "Tomorrow" },
@@ -129,26 +144,28 @@ export default function RemindersPage() {
             <button
               key={o.d}
               onClick={() => setDays(o.d)}
-              className={`rounded-full px-3 py-1.5 text-xs font-black transition ${
-                days === o.d ? "bg-brand text-white" : "bg-white text-ink ring-1 ring-line"
+              className={`rounded-full px-4 py-2 text-[14px] font-semibold transition-all ${
+                days === o.d ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
               }`}
             >
               {o.label}
             </button>
           ))}
         </div>
-        <button
-          disabled={!title.trim() || !petId}
-          onClick={() => {
-            addReminder({ petId, title: title.trim(), emoji: "📝", due: Date.now() + days * 86_400_000 });
-            setAddOpen(false);
-            setTitle("");
-            toast("⏰", "Reminder added", "The whole family can see it");
-          }}
-          className="mt-6 w-full rounded-2xl bg-brand px-4 py-4 text-base font-black text-white shadow-lg shadow-brand/40 transition active:scale-95 disabled:opacity-40 disabled:shadow-none"
-        >
-          Add reminder
-        </button>
+
+        <div className="mt-7">
+          <AccentButton
+            disabled={!title.trim() || !petId}
+            onClick={() => {
+              addReminder({ petId, title: title.trim(), emoji: "📝", due: Date.now() + days * 86_400_000 });
+              setAddOpen(false);
+              setTitle("");
+              toast("⏰", "Reminder added", "Visible to the whole family");
+            }}
+          >
+            Add reminder
+          </AccentButton>
+        </div>
       </Sheet>
     </div>
   );

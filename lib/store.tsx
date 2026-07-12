@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ACTIONS, ActionType, AppState, CosmeticSlot, Reminder, SEED, cosmetic } from "./data";
 
-const STORAGE_KEY = "petpal-state-v1";
+const STORAGE_KEY = "petpal-state-v2";
 
 export interface Toast {
   id: number;
@@ -185,6 +185,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           weightKg: species === "cat" ? 4 : 20,
           owned: [],
           equipped: {},
+          gradient:
+            species === "cat"
+              ? (["oklch(0.66 0.13 165)", "oklch(0.52 0.14 200)"] as [string, string])
+              : (["oklch(0.68 0.15 350)", "oklch(0.55 0.17 20)"] as [string, string]),
         },
       ],
     }));

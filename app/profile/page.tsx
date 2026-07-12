@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Header from "@/components/Header";
 import Paywall from "@/components/Paywall";
-import PetAvatar from "@/components/PetAvatar";
+import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
+import { Icon } from "@/components/Icons";
+import { AccentButton, Group, Row, SectionHeader } from "@/components/ui";
 import { level, useStore } from "@/lib/store";
 
 export default function ProfilePage() {
@@ -15,132 +18,138 @@ export default function ProfilePage() {
   const [breed, setBreed] = useState("British Shorthair");
 
   return (
-    <div className="px-5 pt-6 pb-6">
-      <h1 className="text-2xl font-black text-ink">The Family</h1>
-      <p className="text-sm font-semibold text-ink-soft">Everyone pulling their weight (mostly).</p>
+    <div className="px-4">
+      <Header title="Family" subtitle="The Mansouri household" />
 
-      {/* Premium status */}
+      {/* Plus banner */}
       {state.premium ? (
-        <div className="mt-4 flex items-center justify-between rounded-card bg-mint-soft p-4 ring-1 ring-mint/25">
-          <div>
-            <p className="text-sm font-black text-ink">✨ PetPal Plus is active</p>
-            <p className="text-xs font-semibold text-ink-soft">Care plans, smart reminders & vet booking unlocked</p>
-          </div>
-          <button
-            onClick={() => {
-              setPremium(false);
-              toast("👋", "Plus deactivated", "You can re-enable it anytime");
-            }}
-            className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-ink ring-1 ring-line transition active:scale-90"
-          >
-            Turn off
-          </button>
-        </div>
+        <Group>
+          <Row
+            leading={
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.48_0.19_262)] text-white">
+                <Icon name="sparkles" size={18} />
+              </span>
+            }
+            title="PetPal+ is active"
+            subtitle="Care plans, smart reminders & vet booking"
+            trailing={
+              <button
+                onClick={() => {
+                  setPremium(false);
+                  toast("👋", "PetPal+ deactivated", "You can re-enable it anytime");
+                }}
+                className="rounded-full bg-fill px-3 py-1.5 text-[13px] font-semibold text-label transition-transform active:scale-95"
+              >
+                Turn off
+              </button>
+            }
+          />
+        </Group>
       ) : (
         <button
           onClick={() => setPaywallOpen(true)}
-          className="mt-4 w-full rounded-card bg-brand p-4 text-left text-white shadow-lg shadow-brand/30 transition active:scale-[0.98]"
+          className="w-full rounded-card bg-gradient-to-br from-[oklch(0.6_0.19_258)] to-[oklch(0.45_0.19_268)] p-4 text-left shadow-[0_8px_24px_oklch(0.55_0.19_258/0.3)] transition-transform active:scale-[0.98]"
         >
-          <p className="text-sm font-black">✨ Upgrade to PetPal Plus</p>
-          <p className="mt-0.5 text-xs font-bold text-white/85">
-            Vet-built care plans + smart reminders. We do the thinking for you.
-          </p>
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)]">
+              <Icon name="sparkles" size={20} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[16px] font-bold text-white">Upgrade to PetPal+</span>
+              <span className="block text-[13px] font-medium text-white/80">
+                Vet-built plans · smart reminders · booking
+              </span>
+            </span>
+            <Icon name="chevron-right" size={16} strokeWidth={2.4} className="text-white/70" />
+          </div>
         </button>
       )}
 
       {/* Members */}
-      <h2 className="mt-6 text-base font-black text-ink">Members</h2>
-      <p className="text-xs font-semibold text-ink-soft">Tap someone to view the demo as them.</p>
-      <ul className="mt-2 space-y-2">
+      <SectionHeader>Members</SectionHeader>
+      <Group>
         {state.members.map((m) => {
           const active = m.id === state.currentMemberId;
           return (
-            <li key={m.id}>
-              <button
-                onClick={() => {
+            <Row
+              key={m.id}
+              onClick={() => {
+                if (!active) {
                   switchMember(m.id);
-                  if (!active) toast(m.emoji, `You're now ${m.name}`, "Actions will be logged as them");
-                }}
-                className={`flex w-full items-center gap-3 rounded-card p-3.5 text-left ring-1 transition active:scale-[0.98] ${
-                  active ? "bg-brand-soft ring-brand/30" : "bg-white ring-line"
-                }`}
-              >
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-soft text-xl">
-                  {m.emoji}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-extrabold text-ink">
-                    {m.name} {active && <span className="text-brand-deep">· you</span>}
-                  </span>
-                  <span className="block text-xs font-semibold text-ink-soft">{m.role}</span>
-                </span>
-                {active && <span className="text-brand-deep">✓</span>}
-              </button>
-            </li>
+                  toast("👤", `Viewing as ${m.name}`, "Actions will be logged as them");
+                }
+              }}
+              leading={<InitialAvatar name={m.name} gradient={m.gradient} size={38} />}
+              title={m.name}
+              subtitle={m.role}
+              trailing={
+                active ? (
+                  <Icon name="check" size={18} strokeWidth={2.4} className="text-accent" />
+                ) : (
+                  <span className="text-[13px] font-medium text-label-3">Switch</span>
+                )
+              }
+            />
           );
         })}
-      </ul>
+      </Group>
+      <p className="mt-1.5 px-1 text-[12px] text-label-3">Tap a member to view the demo as them.</p>
 
       {/* Pets */}
-      <div className="mt-6 flex items-center justify-between">
-        <h2 className="text-base font-black text-ink">Pets</h2>
-        <button
-          onClick={() => setAddPetOpen(true)}
-          className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-ink ring-1 ring-line transition active:scale-90"
-        >
-          + Add pet
-        </button>
-      </div>
-      <ul className="mt-2 space-y-2">
-        {state.pets.map((p) => (
-          <li key={p.id} className="flex items-center gap-3 rounded-card bg-white p-3.5 ring-1 ring-line">
-            <PetAvatar pet={p} size="sm" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-extrabold text-ink">{p.name}</p>
-              <p className="text-xs font-semibold text-ink-soft">
-                {p.breed} · {p.ageYears} yrs · {p.weightKg} kg
-              </p>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {/* Stats + reset */}
-      <div className="mt-6 rounded-card bg-white p-4 ring-1 ring-line">
-        <p className="text-sm font-extrabold text-ink">
-          🔥 {state.streak}-day family streak · 🪙 {state.coins} coins · Level {level(state.xp)}
-        </p>
-        <p className="mt-1 text-xs font-semibold text-ink-soft">
-          Everything in this demo is stored on your device only.
-        </p>
-      </div>
-      <button
-        onClick={resetDemo}
-        className="mt-3 w-full rounded-card bg-white p-3.5 text-sm font-black text-berry ring-1 ring-line transition active:scale-[0.98]"
+      <SectionHeader
+        trailing={
+          <button onClick={() => setAddPetOpen(true)} className="text-[13px] font-semibold text-accent">
+            Add pet
+          </button>
+        }
       >
-        Reset demo data
-      </button>
+        Pets
+      </SectionHeader>
+      <Group>
+        {state.pets.map((p) => (
+          <Row
+            key={p.id}
+            leading={<PetAvatar pet={p} size="sm" />}
+            title={p.name}
+            subtitle={`${p.breed} · ${p.ageYears} yrs · ${p.weightKg} kg`}
+          />
+        ))}
+      </Group>
+
+      {/* About + reset */}
+      <SectionHeader>Demo</SectionHeader>
+      <Group>
+        <Row
+          leading={
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
+              <Icon name="star" size={18} />
+            </span>
+          }
+          title={`Level ${level(state.xp)} · ${state.streak}-day streak`}
+          subtitle="All data is stored on this device only"
+        />
+        <Row destructive onClick={resetDemo} title="Reset demo data" />
+      </Group>
 
       <Paywall open={paywallOpen} onClose={() => setPaywallOpen(false)} />
 
       <Sheet open={addPetOpen} onClose={() => setAddPetOpen(false)}>
-        <h2 className="text-xl font-black text-ink">Add a pet</h2>
-        <label className="mt-4 block text-xs font-black uppercase tracking-wide text-ink-soft" htmlFor="pet-name">
-          Name
-        </label>
+        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">Add a pet</h2>
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Name</p>
         <input
-          id="pet-name"
           value={petName}
           onChange={(e) => setPetName(e.target.value)}
           placeholder="e.g. Mochi"
-          className="mt-1.5 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm font-bold text-ink placeholder:text-ink-soft/70 focus:border-brand focus:outline-none"
+          className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60"
         />
-        <p className="mt-4 text-xs font-black uppercase tracking-wide text-ink-soft">Species</p>
-        <div className="mt-1.5 flex gap-2">
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Species</p>
+        <div className="flex gap-2">
           {(
             [
-              { s: "cat" as const, label: "🐱 Cat", defaultBreed: "British Shorthair" },
-              { s: "dog" as const, label: "🐶 Dog", defaultBreed: "Golden Retriever" },
+              { s: "cat" as const, label: "Cat", defaultBreed: "British Shorthair" },
+              { s: "dog" as const, label: "Dog", defaultBreed: "Golden Retriever" },
             ]
           ).map((o) => (
             <button
@@ -149,35 +158,35 @@ export default function ProfilePage() {
                 setSpecies(o.s);
                 setBreed(o.defaultBreed);
               }}
-              className={`rounded-full px-4 py-2 text-sm font-black transition ${
-                species === o.s ? "bg-brand text-white" : "bg-white text-ink ring-1 ring-line"
+              className={`rounded-full px-5 py-2 text-[14px] font-semibold transition-all ${
+                species === o.s ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
               }`}
             >
               {o.label}
             </button>
           ))}
         </div>
-        <label className="mt-4 block text-xs font-black uppercase tracking-wide text-ink-soft" htmlFor="pet-breed">
-          Breed
-        </label>
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Breed</p>
         <input
-          id="pet-breed"
           value={breed}
           onChange={(e) => setBreed(e.target.value)}
-          className="mt-1.5 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm font-bold text-ink focus:border-brand focus:outline-none"
+          className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
         />
-        <button
-          disabled={!petName.trim()}
-          onClick={() => {
-            addPet(petName.trim(), species, breed.trim() || (species === "cat" ? "House cat" : "Good dog"));
-            setAddPetOpen(false);
-            setPetName("");
-            toast("🐾", `${petName.trim()} joined the family!`, "Welcome to PetPal");
-          }}
-          className="mt-6 w-full rounded-2xl bg-brand px-4 py-4 text-base font-black text-white shadow-lg shadow-brand/40 transition active:scale-95 disabled:opacity-40 disabled:shadow-none"
-        >
-          Add to family
-        </button>
+
+        <div className="mt-7">
+          <AccentButton
+            disabled={!petName.trim()}
+            onClick={() => {
+              addPet(petName.trim(), species, breed.trim() || (species === "cat" ? "House cat" : "Mixed breed"));
+              setAddPetOpen(false);
+              setPetName("");
+              toast("🐾", `${petName.trim()} joined the family`, "Care tracking is ready");
+            }}
+          >
+            Add to family
+          </AccentButton>
+        </div>
       </Sheet>
     </div>
   );
