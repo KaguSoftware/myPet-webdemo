@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: oklch(0.66 0.17 45);
+  --color-brand-deep: oklch(0.52 0.15 42);
+  --color-brand-soft: oklch(0.95 0.035 45);
+  --color-ink: oklch(0.3 0.035 45);
+  --color-ink-soft: oklch(0.48 0.03 45);
+  --color-mint: oklch(0.62 0.11 165);
+  --color-mint-soft: oklch(0.95 0.04 165);
+  --color-sky: oklch(0.62 0.12 240);
+  --color-sky-soft: oklch(0.95 0.03 240);
+  --color-gold: oklch(0.75 0.14 85);
+  --color-gold-soft: oklch(0.96 0.05 90);
+  --color-berry: oklch(0.6 0.16 350);
+  --color-berry-soft: oklch(0.95 0.04 350);
+  --color-line: oklch(0.92 0.01 45);
+
+  --font-sans: var(--font-nunito), ui-rounded, system-ui, sans-serif;
+
+  --radius-card: 1.25rem;
+
+  --animate-pop: pop 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-toast-in: toast-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-sheet-in: sheet-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-fade-in: fade-in 0.25s ease-out;
+
+  @keyframes pop {
+    0% { transform: scale(0.92); }
+    60% { transform: scale(1.03); }
+    100% { transform: scale(1); }
+  }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes sheet-in {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+body {
+  background: oklch(0.97 0.008 45);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  overscroll-behavior: none;
+}
+
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translate(var(--cx), var(--cy)) rotate(540deg) scale(0.6); }
+}
+.confetti-piece {
+  animation: confetti-fall 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
