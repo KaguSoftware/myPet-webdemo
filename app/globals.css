@@ -103,8 +103,8 @@ body {
 /* Retro pixel type — headings, numbers, coin/level HUD. Small sizes only. */
 .font-pixel {
   font-family: var(--font-pixel);
-  letter-spacing: 0.02em;
-  line-height: 1.35;
+  letter-spacing: 0;
+  line-height: 1.4;
 }
 
 /* Pixel-art crispness for any scaled sprite/image */

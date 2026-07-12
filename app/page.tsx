@@ -6,19 +6,20 @@ import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { Chevron, Chip, CoinPill, Group, Row, SectionHeader } from "@/components/ui";
-import { ACTIONS, ActionType, CARE_PLANS } from "@/lib/data";
+import { ACTIONS, ActionType, CARE_PLANS, formatWeight } from "@/lib/data";
 import { dueLabel, level, levelProgress, useStore } from "@/lib/store";
 
 const CAT_ACTIONS: ActionType[] = ["fed", "water", "litter", "groomed", "meds", "vet"];
 const DOG_ACTIONS: ActionType[] = ["fed", "water", "walk", "groomed", "meds", "vet"];
 
 export default function Home() {
-  const { state, logAction } = useStore();
+  const { state, logAction, restockSupply, toast } = useStore();
   const [petIndex, setPetIndex] = useState(0);
   const [justLogged, setJustLogged] = useState<ActionType | null>(null);
 
   const pet = state.pets[Math.min(petIndex, state.pets.length - 1)];
   const me = state.members.find((m) => m.id === state.currentMemberId);
+  const lowSupplies = pet.supplies.filter((s) => s.level < 20);
 
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
@@ -44,17 +45,20 @@ export default function Home() {
 
       {/* Pet hero card */}
       <div className="rounded-sheet bg-card p-5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)]">
-        <div className="flex items-center gap-4">
+        <Link href={`/pet/${pet.id}`} className="flex items-center gap-4 transition-transform active:scale-[0.99]">
           <PetAvatar pet={pet} size="lg" idle />
           <div className="min-w-0 flex-1">
-            <h2 className="text-[22px] font-bold tracking-[-0.01em] text-label">{pet.name}</h2>
+            <h2 className="flex items-center gap-1 text-[22px] font-bold tracking-[-0.01em] text-label">
+              {pet.name}
+              <Icon name="chevron-right" size={14} className="text-label-3" />
+            </h2>
             <p className="text-[14px] font-medium text-label-2">{pet.breed}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Chip>{pet.ageYears} yrs</Chip>
-              <Chip>{pet.weightKg} kg</Chip>
+              <Chip>{formatWeight(pet.weightKg, state.units)}</Chip>
             </div>
           </div>
-        </div>
+        </Link>
         <div className="mt-4">
           <div className="flex items-baseline justify-between">
             <p className="text-[13px] font-semibold text-label-2">Meals today</p>
@@ -139,6 +143,46 @@ export default function Home() {
           );
         })}
       </div>
+
+      {/* Supplies running low */}
+      {lowSupplies.length > 0 && (
+        <>
+          <SectionHeader
+            trailing={
+              <Link href={`/pet/${pet.id}`} className="text-[13px] font-semibold text-accent">
+                Manage
+              </Link>
+            }
+          >
+            Running low
+          </SectionHeader>
+          <Group>
+            {lowSupplies.map((s) => (
+              <Row
+                key={s.id}
+                leading={
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[oklch(0.6_0.21_25/0.1)] text-red">
+                    <Icon name="box" size={18} />
+                  </span>
+                }
+                title={s.name}
+                subtitle={`${s.level}% left · for ${pet.name}`}
+                trailing={
+                  <button
+                    onClick={() => {
+                      restockSupply(pet.id, s.id);
+                      toast("📦", `${s.name} restocked`, "Back to 100%");
+                    }}
+                    className="flex items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1 text-[12px] font-semibold text-accent transition-transform active:scale-95"
+                  >
+                    <Icon name="refresh" size={12} /> Restock
+                  </button>
+                }
+              />
+            ))}
+          </Group>
+        </>
+      )}
 
       {/* Premium: today's care plan on the dashboard */}
       {state.premium && plan && (

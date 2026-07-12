@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import EmptyState from "@/components/EmptyState";
 import Header from "@/components/Header";
 import Paywall from "@/components/Paywall";
-import { InitialAvatar } from "@/components/PetAvatar";
+import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { AccentButton, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
@@ -68,6 +70,9 @@ export default function ActivityPage() {
               <Icon name="calendar" size={17} /> Book appointment
             </AccentButton>
           )}
+          <Link href="/vets" className="mt-2 flex items-center justify-center gap-1 text-[13px] font-semibold text-accent">
+            Browse all vets near you <Icon name="chevron-right" size={13} />
+          </Link>
         </div>
       ) : (
         <button
@@ -86,6 +91,15 @@ export default function ActivityPage() {
       )}
 
       {/* Feed */}
+      {groups.length === 0 && (
+        <div className="mt-4">
+          <EmptyState
+            icon="bell"
+            title="No activity yet"
+            body="Log some care from the Home tab and it'll show up here for the whole family."
+          />
+        </div>
+      )}
       {groups.map((g) => (
         <div key={g.day}>
           <SectionHeader>{g.day}</SectionHeader>
@@ -99,7 +113,14 @@ export default function ActivityPage() {
               return (
                 <Row
                   key={a.id}
-                  leading={<InitialAvatar name={m.name} gradient={m.gradient} size={38} />}
+                  leading={
+                    <span className="relative shrink-0" style={{ width: 40, height: 38 }}>
+                      <InitialAvatar name={m.name} gradient={m.gradient} size={32} />
+                      <span className="absolute -bottom-1 -right-1 rounded-full bg-card p-[1.5px] shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
+                        <PetAvatar pet={p} size="xs" showCosmetics={false} />
+                      </span>
+                    </span>
+                  }
                   title={
                     <>
                       <span className="font-semibold">{isYou ? "You" : m.name}</span>{" "}

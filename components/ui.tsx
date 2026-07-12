@@ -153,7 +153,7 @@ export function CoinPill({ amount }: { amount: number }) {
   return (
     <span className="flex items-center gap-1.5 rounded-full bg-orange-soft px-2.5 py-1.5 text-[oklch(0.5_0.13_60)]">
       <PixelSprite sprite={COIN_SPRITE} size={13} className="pixelated" />
-      <span className="font-pixel text-[9px]">{amount.toLocaleString()}</span>
+      <span className="font-pixel text-[10px]">{amount.toLocaleString()}</span>
     </span>
   );
 }

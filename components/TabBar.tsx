@@ -29,7 +29,7 @@ export default function TabBar() {
               }`}
             >
               <Icon name={t.icon} size={22} className={`transition-transform duration-200 ${active ? "scale-110" : "opacity-80"}`} />
-              <span className={`font-pixel text-[7px] leading-none ${active ? "opacity-100" : "opacity-80"}`}>{t.label}</span>
+              <span className={`font-pixel text-[8px] leading-none ${active ? "opacity-100" : "opacity-80"}`}>{t.label}</span>
             </Link>
           );
         })}

@@ -4,6 +4,7 @@ import { createContext, useContext, useRef, useState } from "react";
 import { StoreProvider } from "@/lib/store";
 import TabBar from "./TabBar";
 import Toasts from "./Toasts";
+import Welcome from "./Welcome";
 
 const ScrollCtx = createContext(0);
 export const useScrollTop = () => useContext(ScrollCtx);
@@ -36,6 +37,7 @@ export default function PhoneShell({ children }: { children: React.ReactNode }) 
 
           <TabBar />
           <Toasts />
+          <Welcome />
         </div>
       </div>
     </StoreProvider>

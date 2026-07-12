@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ACTIONS, ActionType, AppState, CosmeticSlot, Reminder, SEED, cosmetic } from "./data";
 
-const STORAGE_KEY = "petpal-state-v2";
+const STORAGE_KEY = "petpal-state-v3";
 
 export interface Toast {
   id: number;
@@ -28,6 +28,11 @@ interface Store {
   deleteReminder: (id: string) => void;
   addPet: (name: string, species: "cat" | "dog", breed: string) => void;
   bookVet: () => void;
+  bookVetById: (vetId: string) => void;
+  restockSupply: (petId: string, supplyId: string) => void;
+  useSupply: (petId: string, supplyId: string) => void;
+  setSeenWelcome: (seen: boolean) => void;
+  setUnits: (units: "kg" | "lb") => void;
   resetDemo: () => void;
 }
 
@@ -189,12 +194,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             species === "cat"
               ? (["oklch(0.66 0.13 165)", "oklch(0.52 0.14 200)"] as [string, string])
               : (["oklch(0.68 0.15 350)", "oklch(0.55 0.17 20)"] as [string, string]),
+          weights: [{ ts: Date.now(), kg: species === "cat" ? 4 : 20 }],
+          supplies: [
+            { id: "food", name: species === "cat" ? "Dry food" : "Kibble", icon: "bowl", level: 100 },
+            { id: "sanitation", name: species === "cat" ? "Litter" : "Poop bags", icon: "broom", level: 100 },
+            { id: "treats", name: "Treats", icon: "star", level: 100 },
+          ],
         },
       ],
     }));
   }, []);
 
   const bookVet = useCallback(() => setState((p) => ({ ...p, bookedVet: true })), []);
+
+  const bookVetById = useCallback(
+    (vetId: string) =>
+      setState((p) => ({
+        ...p,
+        bookedVet: true,
+        bookedVetIds: p.bookedVetIds.includes(vetId) ? p.bookedVetIds : [...p.bookedVetIds, vetId],
+      })),
+    []
+  );
+
+  const restockSupply = useCallback((petId: string, supplyId: string) => {
+    setState((prev) => ({
+      ...prev,
+      pets: prev.pets.map((p) =>
+        p.id === petId
+          ? { ...p, supplies: p.supplies.map((s) => (s.id === supplyId ? { ...s, level: 100 } : s)) }
+          : p
+      ),
+    }));
+  }, []);
+
+  const useSupply = useCallback((petId: string, supplyId: string) => {
+    setState((prev) => ({
+      ...prev,
+      pets: prev.pets.map((p) =>
+        p.id === petId
+          ? { ...p, supplies: p.supplies.map((s) => (s.id === supplyId ? { ...s, level: Math.max(0, s.level - 15) } : s)) }
+          : p
+      ),
+    }));
+  }, []);
+
+  const setSeenWelcome = useCallback((seen: boolean) => setState((p) => ({ ...p, seenWelcome: seen })), []);
+  const setUnits = useCallback((units: "kg" | "lb") => setState((p) => ({ ...p, units })), []);
 
   const resetDemo = useCallback(() => {
     try {
@@ -221,6 +267,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         deleteReminder,
         addPet,
         bookVet,
+        bookVetById,
+        restockSupply,
+        useSupply,
+        setSeenWelcome,
+        setUnits,
         resetDemo,
       }}
     >

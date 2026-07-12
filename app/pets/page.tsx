@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Header from "@/components/Header";
 import PixelPet, { PixelCosmetic } from "@/components/pixel/PixelPet";
+import Pet3D from "@/components/pixel/Pet3D";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
 import { Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
@@ -69,6 +70,7 @@ export default function PetsPage() {
   const { state, buyCosmetic, toggleEquip, toast } = useStore();
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
   const [openSheet, setOpenSheet] = useState<CosmeticSlot | "other" | null>(null);
+  const [threeD, setThreeD] = useState(false);
 
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
   const mainMeta = MAIN_SLOTS.find((s) => s.slot === openSheet);
@@ -98,34 +100,54 @@ export default function PetsPage() {
       )}
 
       {/* Dressing stage */}
-      <div className="overflow-hidden rounded-sheet bg-card shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)]">
+      <div className="relative overflow-hidden rounded-sheet bg-card shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)]">
+        {/* 3D toggle — liquid glass */}
+        <button
+          onClick={() => setThreeD((v) => !v)}
+          aria-pressed={threeD}
+          className={`glass-strong absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-transform active:scale-95 ${threeD ? "text-accent" : "text-label-2"}`}
+        >
+          <Icon name="cube" size={15} />
+          <span className="font-pixel text-[8px]">3D</span>
+        </button>
+
         <div className="arcade-stage flex flex-col items-center px-5 pb-5 pt-2">
           <div className="relative my-8" style={{ width: 176, height: 176 }}>
-            {/* Pixel pet on a soft platform shadow */}
-            <div className="flex h-full w-full items-center justify-center">
-              <PixelPet pet={pet} size={168} idle />
-            </div>
-            <span className="absolute bottom-1 left-1/2 h-3 w-24 -translate-x-1/2 rounded-[50%] bg-[oklch(0.35_0.05_288/0.18)] blur-[3px]" />
+            {threeD ? (
+              <Pet3D pet={pet} size={176} />
+            ) : (
+              <>
+                {/* Pixel pet on a soft platform shadow */}
+                <div className="flex h-full w-full items-center justify-center">
+                  <PixelPet pet={pet} size={168} idle />
+                </div>
+                <span className="absolute bottom-1 left-1/2 h-3 w-24 -translate-x-1/2 rounded-[50%] bg-[oklch(0.35_0.05_288/0.18)] blur-[3px]" />
 
-            {/* Head slot button — see-through glass "+", shows pixel hat when equipped */}
-            {MAIN_SLOTS.map((s) => {
-              const equippedId = pet.equipped[s.slot];
-              return (
-                <button
-                  key={s.slot}
-                  onClick={() => setOpenSheet(s.slot)}
-                  aria-label={`${s.label}: ${equippedId ? cosmetic(equippedId)?.name : "empty — tap to add"}`}
-                  className={`glass-strong absolute z-10 flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-150 active:scale-90 ${s.pos}`}
-                >
-                  {equippedId ? (
-                    <PixelCosmetic id={equippedId} size={24} />
-                  ) : (
-                    <Icon name="plus" size={19} strokeWidth={2.2} className="text-label-2" />
-                  )}
-                </button>
-              );
-            })}
+                {/* Head slot button — see-through glass "+", shows pixel hat when equipped */}
+                {MAIN_SLOTS.map((s) => {
+                  const equippedId = pet.equipped[s.slot];
+                  return (
+                    <button
+                      key={s.slot}
+                      onClick={() => setOpenSheet(s.slot)}
+                      aria-label={`${s.label}: ${equippedId ? cosmetic(equippedId)?.name : "empty — tap to add"}`}
+                      className={`glass-strong absolute z-10 flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-150 active:scale-90 ${s.pos}`}
+                    >
+                      {equippedId ? (
+                        <PixelCosmetic id={equippedId} size={24} />
+                      ) : (
+                        <Icon name="plus" size={19} strokeWidth={2.2} className="text-label-2" />
+                      )}
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
+
+          {threeD && (
+            <p className="font-pixel -mt-4 mb-2 text-[8px] text-label-3">drag to spin · springs back</p>
+          )}
 
           <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">{pet.name}</h2>
           <p className="text-[13px] font-medium text-label-2">{pet.breed}</p>

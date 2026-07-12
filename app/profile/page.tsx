@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Paywall from "@/components/Paywall";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
 import { AccentButton, Group, Row, SectionHeader } from "@/components/ui";
+import { formatWeight } from "@/lib/data";
 import { level, useStore } from "@/lib/store";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { state, switchMember, setPremium, addPet, resetDemo, toast } = useStore();
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [addPetOpen, setAddPetOpen] = useState(false);
@@ -19,7 +23,19 @@ export default function ProfilePage() {
 
   return (
     <div className="px-4">
-      <Header title="Family" subtitle="The Mansouri household" />
+      <Header
+        title="Family"
+        subtitle="The Mansouri household"
+        trailing={
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            className="glass-strong flex h-9 w-9 items-center justify-center rounded-full text-label-2 transition-transform active:scale-90"
+          >
+            <Icon name="gear" size={18} />
+          </Link>
+        }
+      />
 
       {/* Plus banner */}
       {state.premium ? (
@@ -109,9 +125,11 @@ export default function ProfilePage() {
         {state.pets.map((p) => (
           <Row
             key={p.id}
+            onClick={() => router.push(`/pet/${p.id}`)}
             leading={<PetAvatar pet={p} size="sm" />}
             title={p.name}
-            subtitle={`${p.breed} · ${p.ageYears} yrs · ${p.weightKg} kg`}
+            subtitle={`${p.breed} · ${p.ageYears} yrs · ${formatWeight(p.weightKg, state.units)}`}
+            trailing={<Icon name="chevron-right" size={15} className="text-label-3" />}
           />
         ))}
       </Group>

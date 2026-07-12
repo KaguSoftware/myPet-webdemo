@@ -10,6 +10,18 @@ export interface Cosmetic {
   slot: CosmeticSlot;
 }
 
+export interface WeightPoint {
+  ts: number;
+  kg: number;
+}
+
+export interface Supply {
+  id: string;
+  name: string;
+  icon: string; // IconName (kept as string to avoid a data↔icons import cycle)
+  level: number; // 0-100
+}
+
 export interface Pet {
   id: string;
   name: string;
@@ -21,6 +33,8 @@ export interface Pet {
   owned: string[];
   equipped: Partial<Record<CosmeticSlot, string>>;
   gradient: [string, string];
+  weights: WeightPoint[];
+  supplies: Supply[];
 }
 
 export interface Member {
@@ -61,6 +75,9 @@ export interface AppState {
   activities: Activity[];
   reminders: Reminder[];
   bookedVet: boolean;
+  bookedVetIds: string[];
+  seenWelcome: boolean;
+  units: "kg" | "lb";
 }
 
 export const ACTIONS: Record<ActionType, { label: string; emoji: string; verb: string }> = {
@@ -90,13 +107,67 @@ export const COSMETICS: Cosmetic[] = [
   { id: "cape", name: "Hero Cape", emoji: "🦸", price: 200, slot: "body" },
 ];
 
-export const VET = {
-  name: "Dr. Sarah Chen",
-  clinic: "Sunny Paws Veterinary Clinic",
-  rating: 4.9,
-  distanceKm: 2.3,
-  emoji: "👩‍⚕️",
-};
+export interface Vet {
+  id: string;
+  name: string;
+  clinic: string;
+  rating: number;
+  distanceKm: number;
+  gradient: [string, string];
+  sponsored: boolean;
+  specialties: string[];
+  openNow: boolean;
+}
+
+export const VETS: Vet[] = [
+  {
+    id: "chen",
+    name: "Dr. Sarah Chen",
+    clinic: "Sunny Paws Veterinary Clinic",
+    rating: 4.9,
+    distanceKm: 2.3,
+    gradient: ["oklch(0.6 0.13 200)", "oklch(0.48 0.13 240)"],
+    sponsored: true,
+    specialties: ["General", "Dental", "Cats"],
+    openNow: true,
+  },
+  {
+    id: "okoro",
+    name: "Dr. James Okoro",
+    clinic: "Riverside Animal Hospital",
+    rating: 4.8,
+    distanceKm: 3.1,
+    gradient: ["oklch(0.64 0.14 150)", "oklch(0.5 0.13 175)"],
+    sponsored: true,
+    specialties: ["Surgery", "Dogs", "Orthopedics"],
+    openNow: true,
+  },
+  {
+    id: "patel",
+    name: "Dr. Anaya Patel",
+    clinic: "Little Whiskers Clinic",
+    rating: 4.7,
+    distanceKm: 4.6,
+    gradient: ["oklch(0.68 0.15 350)", "oklch(0.56 0.17 20)"],
+    sponsored: false,
+    specialties: ["General", "Nutrition"],
+    openNow: false,
+  },
+  {
+    id: "mueller",
+    name: "Dr. Lena Müller",
+    clinic: "Parkside Pet Care",
+    rating: 4.6,
+    distanceKm: 5.9,
+    gradient: ["oklch(0.7 0.14 85)", "oklch(0.6 0.16 55)"],
+    sponsored: false,
+    specialties: ["Vaccination", "Exotics"],
+    openNow: true,
+  },
+];
+
+/** Primary suggested vet used by dashboard insight cards. */
+export const VET = VETS[0];
 
 export interface PlanItem {
   emoji: string;
@@ -140,6 +211,26 @@ const now = Date.now();
 const H = 3600_000;
 const D = 24 * H;
 
+const W = 7 * D;
+const catWeights: WeightPoint[] = [
+  { ts: now - 24 * W, kg: 4.2 },
+  { ts: now - 20 * W, kg: 4.3 },
+  { ts: now - 16 * W, kg: 4.5 },
+  { ts: now - 12 * W, kg: 4.6 },
+  { ts: now - 8 * W, kg: 4.9 },
+  { ts: now - 4 * W, kg: 5.0 },
+  { ts: now, kg: 4.8 },
+];
+const dogWeights: WeightPoint[] = [
+  { ts: now - 24 * W, kg: 24.0 },
+  { ts: now - 20 * W, kg: 25.8 },
+  { ts: now - 16 * W, kg: 27.0 },
+  { ts: now - 12 * W, kg: 28.1 },
+  { ts: now - 8 * W, kg: 28.9 },
+  { ts: now - 4 * W, kg: 29.2 },
+  { ts: now, kg: 29.5 },
+];
+
 export const SEED: AppState = {
   currentMemberId: "you",
   premium: false,
@@ -147,6 +238,9 @@ export const SEED: AppState = {
   xp: 260,
   streak: 4,
   bookedVet: false,
+  bookedVetIds: [],
+  seenWelcome: false,
+  units: "kg",
   members: [
     { id: "you", name: "Parsa", emoji: "🧑‍💻", role: "Owner", gradient: ["oklch(0.62 0.16 258)", "oklch(0.5 0.18 280)"] },
     { id: "mom", name: "Mom", emoji: "👩‍🦰", role: "Admin", gradient: ["oklch(0.68 0.15 350)", "oklch(0.56 0.17 20)"] },
@@ -165,6 +259,12 @@ export const SEED: AppState = {
       owned: ["bowtie", "glasses"],
       equipped: { neck: "bowtie" },
       gradient: ["oklch(0.65 0.13 230)", "oklch(0.5 0.15 265)"],
+      weights: catWeights,
+      supplies: [
+        { id: "food", name: "Dry food", icon: "bowl", level: 62 },
+        { id: "litter", name: "Litter", icon: "broom", level: 18 },
+        { id: "treats", name: "Dental treats", icon: "star", level: 80 },
+      ],
     },
     {
       id: "biscuit",
@@ -177,6 +277,12 @@ export const SEED: AppState = {
       owned: ["cap"],
       equipped: { head: "cap" },
       gradient: ["oklch(0.74 0.13 75)", "oklch(0.6 0.15 45)"],
+      weights: dogWeights,
+      supplies: [
+        { id: "food", name: "Kibble", icon: "bowl", level: 45 },
+        { id: "poopbags", name: "Poop bags", icon: "broom", level: 12 },
+        { id: "treats", name: "Training treats", icon: "star", level: 70 },
+      ],
     },
   ],
   activities: [
@@ -201,4 +307,15 @@ export const SEED: AppState = {
 
 export function cosmetic(id: string): Cosmetic | undefined {
   return COSMETICS.find((c) => c.id === id);
+}
+
+/** Breed weight target ranges (kg) for the chart band. */
+export const WEIGHT_TARGETS: Record<string, [number, number]> = {
+  "British Shorthair": [4.5, 5.5],
+  "Golden Retriever": [25, 34],
+};
+
+export function formatWeight(kg: number, units: "kg" | "lb"): string {
+  if (units === "lb") return `${(kg * 2.20462).toFixed(1)} lb`;
+  return `${kg.toFixed(1)} kg`;
 }

@@ -2,9 +2,10 @@ import type { ActionType } from "@/lib/data";
 
 export type IconName =
   | "home" | "bell" | "heart-text" | "bag" | "people"
-  | "plus" | "chevron-right" | "check" | "xmark"
+  | "plus" | "chevron-right" | "chevron-left" | "check" | "xmark"
   | "bowl" | "drop" | "broom" | "paw" | "scissors" | "pill" | "stethoscope"
-  | "calendar" | "clock" | "lock" | "star" | "coin" | "sparkles" | "flame" | "arrow-up";
+  | "calendar" | "clock" | "lock" | "star" | "coin" | "sparkles" | "flame" | "arrow-up"
+  | "chart" | "box" | "gear" | "cross" | "refresh" | "pin" | "cube";
 
 /*
  * Pixel-art icon set. Each icon is a grid of strings; "X" = filled (currentColor),
@@ -275,6 +276,94 @@ const G: Record<IconName, string[]> = {
     "....X....",
     "....X....",
     ".........",
+  ],
+  "chevron-left": [
+    ".....X...",
+    "....XX...",
+    "...XX....",
+    "..XX.....",
+    ".XX......",
+    "..XX.....",
+    "...XX....",
+    "....XX...",
+    ".....X...",
+  ],
+  chart: [
+    "X........",
+    "X........",
+    "X....XX..",
+    "X..XX.XX.",
+    "X.XX...XX",
+    "XXX......",
+    "X........",
+    "X........",
+    "XXXXXXXXX",
+  ],
+  box: [
+    ".XXXXXXX.",
+    "XXXXXXXXX",
+    "XX.....XX",
+    "XX.XXX.XX",
+    "XX.....XX",
+    "XX.....XX",
+    "XX.....XX",
+    "XXXXXXXXX",
+    ".XXXXXXX.",
+  ],
+  gear: [
+    "...XXX...",
+    "X..XXX..X",
+    "XXX.X.XXX",
+    "XX.....XX",
+    "X..XXX..X",
+    "XX.....XX",
+    "XXX.X.XXX",
+    "X..XXX..X",
+    "...XXX...",
+  ],
+  cross: [
+    "...XXX...",
+    "...XXX...",
+    "...XXX...",
+    "XXXXXXXXX",
+    "XXXXXXXXX",
+    "XXXXXXXXX",
+    "...XXX...",
+    "...XXX...",
+    "...XXX...",
+  ],
+  refresh: [
+    "..XXXXX..",
+    ".XX...XX.",
+    "XX.....X.",
+    "XX....XXX",
+    "XX.....X.",
+    "XX.....X.",
+    ".XX...XX.",
+    "..XXXXX..",
+    ".........",
+  ],
+  pin: [
+    "..XXXXX..",
+    ".XX...XX.",
+    "XX.....XX",
+    "XX.XXX.XX",
+    "XX.....XX",
+    ".XX...XX.",
+    "..XX.XX..",
+    "...XXX...",
+    "....X....",
+  ],
+  cube: [
+    "..XXXXX..",
+    ".XX.X.XX.",
+    "XX..X..XX",
+    "X...X...X",
+    "XXXXXXXXX",
+    "X...X...X",
+    "XX..X..XX",
+    ".XX.X.XX.",
+    "..XXXXX..",
   ],
 };
 

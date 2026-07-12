@@ -1,0 +1,99 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import Header from "@/components/Header";
+import { Icon } from "@/components/Icons";
+import { Group, IconCircle, Row, SectionHeader, Segmented } from "@/components/ui";
+import { useStore } from "@/lib/store";
+
+export default function SettingsPage() {
+  const router = useRouter();
+  const { state, setUnits, setSeenWelcome, resetDemo, setPremium, toast } = useStore();
+
+  return (
+    <div className="px-4">
+      <Header title="Settings" />
+
+      <div className="glass sticky top-0 z-10 -mx-4 mb-3 flex items-center gap-2 px-4 py-2.5">
+        <button onClick={() => router.back()} aria-label="Back" className="flex items-center text-accent">
+          <Icon name="chevron-left" size={18} />
+          <span className="text-[16px] font-semibold">Back</span>
+        </button>
+      </div>
+
+      <SectionHeader>Units</SectionHeader>
+      <Group>
+        <div className="flex items-center gap-3 px-4 py-3">
+          <IconCircle icon="arrow-up" tint="text-accent" bg="bg-accent-soft" />
+          <span className="flex-1 text-[16px] font-medium text-label">Weight units</span>
+          <div className="w-28">
+            <Segmented
+              options={[
+                { value: "kg", label: "kg" },
+                { value: "lb", label: "lb" },
+              ]}
+              value={state.units}
+              onChange={(u) => setUnits(u)}
+            />
+          </div>
+        </div>
+      </Group>
+
+      <SectionHeader>Membership</SectionHeader>
+      <Group>
+        <Row
+          leading={<IconCircle icon="sparkles" tint="text-accent" bg="bg-accent-soft" />}
+          title="PetPal+"
+          subtitle={state.premium ? "Active" : "Not subscribed"}
+          trailing={
+            <button
+              onClick={() => {
+                setPremium(!state.premium);
+                toast("✨", state.premium ? "PetPal+ turned off" : "PetPal+ activated", "");
+              }}
+              className="rounded-full bg-fill px-3 py-1.5 text-[13px] font-semibold text-label transition-transform active:scale-95"
+            >
+              {state.premium ? "Turn off" : "Enable"}
+            </button>
+          }
+        />
+      </Group>
+
+      <SectionHeader>Notifications</SectionHeader>
+      <Group>
+        {[
+          { label: "Care reminders", on: true },
+          { label: "Family activity", on: true },
+          { label: "Vet suggestions", on: state.premium },
+        ].map((n) => (
+          <Row
+            key={n.label}
+            leading={<IconCircle icon="bell" tint="text-label-2" bg="bg-fill" />}
+            title={n.label}
+            trailing={
+              <span className={`flex h-6 w-10 items-center rounded-full p-0.5 ${n.on ? "justify-end bg-green" : "justify-start bg-fill"}`}>
+                <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
+              </span>
+            }
+          />
+        ))}
+      </Group>
+      <p className="mt-1.5 px-1 text-[12px] text-label-3">Demo — notification toggles are illustrative.</p>
+
+      <SectionHeader>Demo</SectionHeader>
+      <Group>
+        <Row
+          leading={<IconCircle icon="sparkles" tint="text-label-2" bg="bg-fill" />}
+          title="Replay intro"
+          onClick={() => {
+            setSeenWelcome(false);
+            router.push("/");
+          }}
+          trailing={<Icon name="chevron-right" size={15} className="text-label-3" />}
+        />
+        <Row destructive onClick={resetDemo} title="Reset demo data" />
+      </Group>
+      <div className="h-4" />
+    </div>
+  );
+}

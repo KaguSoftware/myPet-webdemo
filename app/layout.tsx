@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Press_Start_2P } from "next/font/google";
+import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import PhoneShell from "@/components/PhoneShell";
 
@@ -8,10 +9,12 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-const pixel = Press_Start_2P({
+// Geist Pixel — self-hosted (not yet in next/font/google's font list)
+const pixel = localFont({
+  src: "./fonts/GeistPixel.ttf",
   variable: "--font-pixel",
   weight: "400",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
