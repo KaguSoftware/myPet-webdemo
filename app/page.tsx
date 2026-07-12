@@ -45,7 +45,7 @@ export default function Home() {
       {/* Pet hero card */}
       <div className="rounded-sheet bg-card p-5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)]">
         <div className="flex items-center gap-4">
-          <PetAvatar pet={pet} size="lg" />
+          <PetAvatar pet={pet} size="lg" idle />
           <div className="min-w-0 flex-1">
             <h2 className="text-[22px] font-bold tracking-[-0.01em] text-label">{pet.name}</h2>
             <p className="text-[14px] font-medium text-label-2">{pet.breed}</p>
@@ -124,8 +124,13 @@ export default function Home() {
                 setJustLogged(type);
                 setTimeout(() => setJustLogged(null), 700);
               }}
-              className="flex flex-col items-start gap-2.5 rounded-card bg-card p-3.5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform duration-150 active:scale-[0.96]"
+              className="relative flex flex-col items-start gap-2.5 rounded-card bg-card p-3.5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform duration-150 active:scale-[0.96]"
             >
+              {flash && (
+                <span className="font-pixel animate-coin-pop pointer-events-none absolute right-2 top-1 z-10 text-[9px] text-orange">
+                  +5
+                </span>
+              )}
               <span className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-300 ${flash ? "bg-green text-white" : `${a.bg} ${a.tint}`}`}>
                 {flash ? <Icon name="check" size={18} strokeWidth={2.4} className="animate-pop" /> : <Icon name={a.icon} size={19} />}
               </span>

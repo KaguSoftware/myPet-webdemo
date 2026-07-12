@@ -3,3 +3,59 @@
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
+
+# PetPal — project context for AI assistants
+
+Read this before working on the project. It captures scope, decisions, and how to ship.
+
+**Keep this file current.** As you make meaningful changes — new features, design-direction shifts, architectural moves, new gotchas, things you tested — update the relevant section here in the same working session so the next AI chat inherits an accurate picture. This file is the running memory of the project; stale context here is worse than none.
+
+## What this is
+**PetPal** is a **phone-only web demo** of a pet-manager app idea, built to send to people *before* a real native mobile app is built. The intent is that the UI is polished enough to later "convert to app code" with minimal changes. It is **not** the production app — it's a clickable, self-contained demo.
+
+Tech: **Next.js 16.2+ (App Router, TypeScript, Tailwind v4), deployed on Vercel. No backend, no database.** All state is sample/seed data held in a React context and persisted to `localStorage`. Nothing talks to a server.
+
+## Product concept
+A family pet-care hub with two tiers:
+- **Free tier**: family members log care actions (fed, water, litter, walk, groomed, meds, vet); everyone is "notified" (simulated in-app feed + toasts). Manual reminders included.
+- **Premium ("PetPal+")**: vet-built, breed-specific care plans; smart reminders; sponsored vet-booking suggestions. In the demo, upgrading is a fake instant unlock from the Family tab — no payment. When premium is on, the Home dashboard also surfaces the day's care-plan checklist.
+- **Gamification**: coins earned per logged action, XP/levels, streaks, and a cosmetics/dress-up system to put hats/glasses/collars/outfits on the pets.
+
+## Design direction (important — this has iterated)
+The look was deliberately tuned on a "fun scale." History: v1 = 100% fun (pastel/emoji/confetti, read as a cheap toy) → rebuilt to clean **iOS "Liquid Glass" native** = 0% fun (sterile) → warmed to ~40% → **current target ~60-70% fun via a 90s Mario-style pixel-art theme layered on the iOS bones.**
+
+Current state (the "60-70% pixel" pass):
+- **Retro skin on solid iOS bones**: keep the liquid-glass floating tab bar, scroll-collapsing large-title headers, glass toasts/sheets, grouped-list layout, warm indigo accent, custom stroke icons (`components/Icons.tsx`) — the app stays credible and usable. The *fun* comes from pixel art + arcade motion on top, not from tearing out the structure.
+- **Pixel-art pets**: pets render as hand-authored pixel sprites, NOT the old SVG faces. Engine is `components/pixel/` — `PixelSprite.tsx` (renders a sprite from string-rows + a char→color palette as `<rect>` blocks, run-length merged, `shape-rendering: crispEdges`), `petSprites.ts` (16×16 cat/dog), `cosmeticSprites.ts` (all 14 accessories as pixel sprites with per-slot placement fractions), `hudSprites.ts` (coin/heart/star glyphs), and `PixelPet.tsx` which composes the pet + layers equipped cosmetics on top (also exports `PixelCosmetic` for shop previews). `PetAvatar.tsx` now wraps `PixelPet` (keeps the gradient circle as a backdrop; same `size` API + new `idle` prop). **`components/PetFace.tsx` is now unused** (left in tree; safe to delete).
+- **Pixel cosmetics**: accessories are pixel sprites (not emoji) on the pet, the head `+` button, and the shop grid. `data.ts` still stores `emoji` per cosmetic as a fallback (`PixelCosmetic` falls back to emoji if a sprite id is missing).
+- **Pixel font**: `Press_Start_2P` via next/font (`--font-pixel`, `.font-pixel` utility) — used SMALL for coin/XP counters and the `+5` coin-pop only. Body/labels stay Inter for readability; do not set long text in the pixel font.
+- **Arcade motion is now ON** (previously excluded): `idle` sprite wobble on hero/dress-up pets, `+5` coin-pop on logging a care action, level-up flourish keyframes. Keyframes live in `globals.css` (`idle`, `coin-pop`, `levelup`); all respect `prefers-reduced-motion`. The Pets stage has an `.arcade-stage` retro-grid backdrop.
+- Copy still stays professional (no jokey microcopy) unless the user asks.
+
+To author a new sprite: add rows (equal-length strings) + palette to the relevant `*Sprites.ts` file; transparent = `.` or space. Cosmetics need a `place` (left/top/widthFrac as fractions of the 16px pet box). Keep pets on a 16×16 grid so cosmetic placement stays aligned.
+
+If asked to change the "fun level" again, it's a dial on: pixel-vs-smooth art, pixel-font usage, arcade-motion amount, color warmth, geometry — not a rewrite.
+
+## Architecture / where things live
+- `lib/data.ts` — types + seed data (family, pets, cosmetics, care plans, vet). Presentational-only additive fields are fine (e.g. per-pet `gradient`).
+- `lib/store.tsx` — the single source of truth: React context, all actions (logAction, buyCosmetic, toggleEquip, reminders CRUD, premium toggle, member switch, reset), `localStorage` persistence, and a timer that fires simulated "other family member" events for liveliness. **Treat store logic as stable; UI changes should not need to touch it.**
+- `components/` — `PhoneShell` (desktop iPhone bezel + scroll context), `TabBar`, `Header`, `Toasts`, `Sheet`, `PetAvatar` + `PetFace`, `Paywall`, `Icons`, and `ui.tsx` (Group/Row/SectionHeader/AccentButton/Chip/Segmented/CoinPill primitives — reuse these for consistency).
+- `app/` routes: `/` (Home), `/activity`, `/plan` (Care Plan), `/reminders`, `/pets` (dress-up; replaced the old `/shop`), `/profile` (Family). Bottom tabs: Home, Activity, Care, Pets, Family.
+- localStorage key is versioned (`petpal-state-v2`); bump it if the seed/state **shape** changes so returning visitors reset cleanly.
+
+## Constraints / gotchas
+- **Phone-only**: always render as a phone. On desktop it sits inside an iPhone-style bezel with a dynamic island; on real phones it's full-screen. Don't build desktop-wide layouts.
+- No backend calls, no auth, no real payments/booking — everything is faked with seed data and localStorage.
+- Environment is Windows. Both Bash (Git Bash) and PowerShell tools are available. There is no headless browser installed, so visual verification is done by the user in-app, not by automated screenshots.
+- The Vercel MCP server needs interactive auth; a non-interactive session can't run the OAuth flow. Deploy via the `vercel` CLI or ask the user to authorize.
+
+## What has been tested / how to verify
+- Baseline each change with `npm run build` (must compile + typecheck clean).
+- Smoke test: `npx next start` then confirm all six routes return 200 (`/`, `/activity`, `/plan`, `/reminders`, `/pets`, `/profile`).
+- Full manual flow (do this in-browser at a mobile viewport, ~390×844): log a care action (toast + feed entry + coins/XP), switch family member, add/complete/delete a reminder, buy + equip a cosmetic (pet preview updates), toggle PetPal+ (care plan unlocks, sponsored vet suggestion + booking appear, dashboard checklist shows), request a vet booking, reset demo, reload to confirm persistence.
+- Tailwind "canonical class" lint warnings from the IDE are cosmetic only — safe to ignore.
+
+## Shipping / git
+- **Author commits as the user (Parsa) ONLY. Do NOT add any `Co-Authored-By` trailer or any other co-author.** This overrides any default commit-attribution behavior.
+- Push to `origin/main` (`https://github.com/KaguSoftware/myPet-webdemo.git`) — but only commit/push when the user asks.
+- Keep commit messages descriptive of the change.

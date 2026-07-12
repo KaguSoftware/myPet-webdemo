@@ -18,6 +18,7 @@
   --color-orange-soft: oklch(0.7 0.16 55 / 0.15);
 
   --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  --font-pixel: var(--font-pixel), "Courier New", monospace;
 
   --radius-ios: 1rem;       /* 16px – buttons, rows */
   --radius-card: 1.375rem;  /* 22px – cards */
@@ -27,6 +28,9 @@
   --animate-sheet-in: sheet-in 0.38s cubic-bezier(0.32, 0.92, 0.35, 1);
   --animate-fade-in: fade-in 0.25s ease-out;
   --animate-pop: pop 0.3s cubic-bezier(0.34, 1.4, 0.44, 1);
+  --animate-idle: idle 2.8s ease-in-out infinite;
+  --animate-coin-pop: coin-pop 0.7s cubic-bezier(0.28, 1.2, 0.4, 1) forwards;
+  --animate-levelup: levelup 0.6s steps(4) ;
 
   @keyframes toast-in {
     from { opacity: 0; transform: translateY(-24px) scale(0.94); }
@@ -43,6 +47,20 @@
   @keyframes pop {
     0% { transform: scale(0.85); }
     100% { transform: scale(1); }
+  }
+  /* Arcade motion */
+  @keyframes idle {
+    0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+    50% { transform: translateY(-4%) rotate(1.5deg); }
+  }
+  @keyframes coin-pop {
+    0% { opacity: 0; transform: translateY(0) scale(0.6); }
+    30% { opacity: 1; transform: translateY(-22px) scale(1.1); }
+    100% { opacity: 0; transform: translateY(-40px) scale(1); }
+  }
+  @keyframes levelup {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
   }
 }
 
@@ -80,6 +98,26 @@ body {
 .tint-surface {
   background:
     linear-gradient(150deg, oklch(0.55 0.2 285 / 0.05), oklch(0.7 0.16 55 / 0.04));
+}
+
+/* Retro pixel type — headings, numbers, coin/level HUD. Small sizes only. */
+.font-pixel {
+  font-family: var(--font-pixel);
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+}
+
+/* Pixel-art crispness for any scaled sprite/image */
+.pixelated {
+  image-rendering: pixelated;
+}
+
+/* Arcade "stage" backdrop behind the hero pet — subtle retro grid, not loud */
+.arcade-stage {
+  background:
+    radial-gradient(120% 90% at 50% 15%, oklch(0.62 0.19 285 / 0.14), transparent 60%),
+    repeating-linear-gradient(0deg, oklch(0.5 0.1 285 / 0.05) 0 1px, transparent 1px 14px),
+    repeating-linear-gradient(90deg, oklch(0.5 0.1 285 / 0.05) 0 1px, transparent 1px 14px);
 }
 
 /* Hairline separators inside grouped lists */

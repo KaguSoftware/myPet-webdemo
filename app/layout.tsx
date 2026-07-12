@@ -1,10 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 import PhoneShell from "@/components/PhoneShell";
 
 const inter = Inter({
   variable: "--font-inter",
+  subsets: ["latin"],
+});
+
+const pixel = Press_Start_2P({
+  variable: "--font-pixel",
+  weight: "400",
   subsets: ["latin"],
 });
 
@@ -25,7 +31,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased`}>
+      <body className={`${inter.variable} ${pixel.variable} antialiased`}>
         <PhoneShell>{children}</PhoneShell>
       </body>
     </html>

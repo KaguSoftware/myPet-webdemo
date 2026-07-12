@@ -1,6 +1,8 @@
 "use client";
 
 import { Icon, IconName } from "./Icons";
+import PixelSprite from "./pixel/PixelSprite";
+import { COIN_SPRITE } from "./pixel/hudSprites";
 
 /* Inset grouped list container (iOS Settings style) */
 export function Group({ children, className = "", flush = false }: { children: React.ReactNode; className?: string; flush?: boolean }) {
@@ -149,9 +151,9 @@ export function Segmented<T extends string>({
 
 export function CoinPill({ amount }: { amount: number }) {
   return (
-    <span className="flex items-center gap-1 rounded-full bg-orange-soft px-2.5 py-1 text-[13px] font-semibold text-[oklch(0.5_0.13_60)]">
-      <Icon name="coin" size={14} strokeWidth={2} />
-      {amount.toLocaleString()}
+    <span className="flex items-center gap-1.5 rounded-full bg-orange-soft px-2.5 py-1.5 text-[oklch(0.5_0.13_60)]">
+      <PixelSprite sprite={COIN_SPRITE} size={13} className="pixelated" />
+      <span className="font-pixel text-[9px]">{amount.toLocaleString()}</span>
     </span>
   );
 }

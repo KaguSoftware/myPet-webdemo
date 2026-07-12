@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Header from "@/components/Header";
-import PetFace from "@/components/PetFace";
+import PixelPet, { PixelCosmetic } from "@/components/pixel/PixelPet";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
 import { Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
@@ -12,13 +12,6 @@ import { useStore } from "@/lib/store";
 /* One main slot gets a floating + button on the avatar's head; the rest live in "Other accessories" */
 const MAIN_SLOTS: { slot: CosmeticSlot; label: string; hint: string; pos: string }[] = [
   { slot: "head", label: "Hat", hint: "Hats & headwear", pos: "left-1/2 -top-4 -translate-x-1/2" },
-];
-
-/* Equipped accessories rendered directly on the big pet (the head/hat shows on its + button) */
-const LAYER_SLOTS: { slot: CosmeticSlot; pos: string; fontSize: number }[] = [
-  { slot: "face", pos: "left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2", fontSize: 40 },
-  { slot: "neck", pos: "left-1/2 bottom-[14%] -translate-x-1/2", fontSize: 34 },
-  { slot: "body", pos: "left-1/2 -bottom-1 -translate-x-1/2", fontSize: 30 },
 ];
 
 const OTHER_SLOTS: { slot: CosmeticSlot; hint: string }[] = [
@@ -45,7 +38,9 @@ function ItemCard({
   const affordable = coins >= c.price;
   return (
     <div className="flex flex-col rounded-card bg-card p-3.5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]">
-      <div className="flex aspect-[2/1] items-center justify-center rounded-ios bg-fill text-[38px]">{c.emoji}</div>
+      <div className="flex aspect-[2/1] items-center justify-center rounded-ios bg-fill">
+        <PixelCosmetic id={c.id} size={44} />
+      </div>
       <p className="mt-2.5 truncate text-[14px] font-semibold text-label">{c.name}</p>
       {owned ? (
         <button
@@ -103,45 +98,27 @@ export default function PetsPage() {
       )}
 
       {/* Dressing stage */}
-      <div className="rounded-sheet bg-card px-5 pb-5 pt-2 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)]">
-        <div className="flex flex-col items-center">
-          <div className="relative my-8" style={{ width: 168, height: 168 }}>
-            <div
-              className="flex h-full w-full items-center justify-center overflow-hidden rounded-full text-white shadow-[inset_0_2px_2px_rgba(255,255,255,0.45),inset_0_-4px_10px_rgba(0,0,0,0.12),0_10px_30px_rgba(0,0,0,0.14)]"
-              style={{ background: `linear-gradient(150deg, ${pet.gradient[0]}, ${pet.gradient[1]})` }}
-            >
-              <PetFace species={pet.species} size={150} />
+      <div className="overflow-hidden rounded-sheet bg-card shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)]">
+        <div className="arcade-stage flex flex-col items-center px-5 pb-5 pt-2">
+          <div className="relative my-8" style={{ width: 176, height: 176 }}>
+            {/* Pixel pet on a soft platform shadow */}
+            <div className="flex h-full w-full items-center justify-center">
+              <PixelPet pet={pet} size={168} idle />
             </div>
+            <span className="absolute bottom-1 left-1/2 h-3 w-24 -translate-x-1/2 rounded-[50%] bg-[oklch(0.35_0.05_288/0.18)] blur-[3px]" />
 
-            {/* Equipped items layered on the pet (face over eyes, collar under chin, outfit low) */}
-            {LAYER_SLOTS.map((l) => {
-              const id = pet.equipped[l.slot];
-              const item = id ? cosmetic(id) : undefined;
-              if (!item) return null;
-              return (
-                <span
-                  key={l.slot}
-                  className={`pointer-events-none absolute z-[5] leading-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.2)] ${l.pos}`}
-                  style={{ fontSize: l.fontSize }}
-                >
-                  {item.emoji}
-                </span>
-              );
-            })}
-
-            {/* Main slot buttons — see-through glass "+" */}
+            {/* Head slot button — see-through glass "+", shows pixel hat when equipped */}
             {MAIN_SLOTS.map((s) => {
               const equippedId = pet.equipped[s.slot];
-              const item = equippedId ? cosmetic(equippedId) : undefined;
               return (
                 <button
                   key={s.slot}
                   onClick={() => setOpenSheet(s.slot)}
-                  aria-label={`${s.label}: ${item ? item.name : "empty — tap to add"}`}
+                  aria-label={`${s.label}: ${equippedId ? cosmetic(equippedId)?.name : "empty — tap to add"}`}
                   className={`glass-strong absolute z-10 flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-150 active:scale-90 ${s.pos}`}
                 >
-                  {item ? (
-                    <span className="text-[22px] leading-none">{item.emoji}</span>
+                  {equippedId ? (
+                    <PixelCosmetic id={equippedId} size={24} />
                   ) : (
                     <Icon name="plus" size={19} strokeWidth={2.2} className="text-label-2" />
                   )}
