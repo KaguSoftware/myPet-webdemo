@@ -260,6 +260,7 @@ type HouseholdRow = {
   streak: number;
   seen_welcome: boolean;
   units: "kg" | "lb";
+  last_seen_at: number | null;
   members: { id: string; name: string; emoji: string; role: string; gradient_from: string; gradient_to: string; created_at: string }[];
   pets: (PetRow & { created_at: string })[];
   activities: { id: string; pet_id: string; member_id: string; type: ActionType; ts: number; note: string | null }[];
@@ -430,9 +431,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       });
       setHydrated(true);
 
-      // Catch the user up on anything the family logged while they were away.
-      const RECENT_WINDOW = 16 * 60 * 60 * 1000;
-      const cutoff = Date.now() - RECENT_WINDOW;
+      // Catch the user up on anything the family logged since their last
+      // login. Falls back to a 16h window on a household's very first login
+      // (last_seen_at is still null).
+      const FALLBACK_WINDOW = 16 * 60 * 60 * 1000;
+      const now = Date.now();
+      const cutoff = h.last_seen_at != null ? Number(h.last_seen_at) : now - FALLBACK_WINDOW;
       const recent = activities
         .filter((a) => Number(a.ts) >= cutoff)
         .sort((x, y) => Number(x.ts) - Number(y.ts));
@@ -446,6 +450,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           toast(action.emoji, `${member.name} ${action.verb} ${pet.name}`, `${time} · ${timeAgo(Number(a.ts))}`);
         }, i * 1400);
       });
+
+      supabase.from("households").update({ last_seen_at: now }).eq("id", h.id).then();
     }
 
     load();
