@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Icon, IconName } from "./Icons";
 import PixelSprite from "./pixel/PixelSprite";
 import { COIN_SPRITE } from "./pixel/hudSprites";
@@ -82,6 +83,41 @@ export function Row({
   return <div className={cls}>{inner}</div>;
 }
 
+/** Destructive Row that needs a second tap to confirm — arms for `armMs`, then reverts. */
+export function ConfirmRow({
+  label,
+  confirmLabel,
+  onConfirm,
+  armMs = 3000,
+}: {
+  label: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  armMs?: number;
+}) {
+  const [armed, setArmed] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  return (
+    <Row
+      destructive
+      title={armed ? confirmLabel : label}
+      onClick={() => {
+        if (armed) {
+          window.clearTimeout(timer.current);
+          setArmed(false);
+          onConfirm();
+          return;
+        }
+        setArmed(true);
+        timer.current = window.setTimeout(() => setArmed(false), armMs);
+      }}
+    />
+  );
+}
+
 export function Chevron() {
   return <Icon name="chevron-right" size={15} strokeWidth={2.4} className="text-label-3" />;
 }
@@ -127,20 +163,27 @@ export function Segmented<T extends string>({
   options,
   value,
   onChange,
+  scrollable = false,
 }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
+  scrollable?: boolean;
 }) {
+  const overflowing = scrollable && options.length > 4;
   return (
-    <div className="flex rounded-[10px] bg-fill p-0.5">
+    <div
+      className={`flex rounded-[10px] bg-fill p-0.5 ${
+        overflowing ? "overflow-x-auto flex-nowrap scrollbar-none [&::-webkit-scrollbar]:hidden" : ""
+      }`}
+    >
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={`flex-1 rounded-[8.5px] px-3 py-1.5 text-[13px] font-semibold transition-all duration-200 ${
-            value === o.value ? "bg-card text-label shadow-[0_1px_4px_oklch(0.2_0.01_264/0.12)]" : "text-label-2"
-          }`}
+          className={`rounded-[8.5px] px-3 py-1.5 text-[13px] font-semibold transition-all duration-200 ${
+            overflowing ? "basis-1/4 shrink-0" : "flex-1"
+          } ${value === o.value ? "bg-card text-label shadow-[0_1px_4px_oklch(0.2_0.01_264/0.12)]" : "text-label-2"}`}
         >
           {o.label}
         </button>

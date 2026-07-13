@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Pet } from "@/lib/data";
-import PixelPet from "./PixelPet";
+import PixelSprite from "./PixelSprite";
+import { CAT_BODY_SPRITE, DOG_BODY_SPRITE } from "./petBodySprites";
+import { CAT_FUR, DOG_FUR, furSprite } from "./petSprites";
 
 /**
  * "Fake 3D" pet: the pixel sprite lives on a CSS 3D-transformed card. Dragging
@@ -92,7 +94,11 @@ export default function Pet3D({ pet, size }: { pet: Pet; size: number }) {
           className="absolute inset-[12%] rounded-2xl bg-[oklch(0.4_0.05_288/0.25)]"
           style={{ transform: "translateZ(-14px)" }}
         />
-        <PixelPet pet={pet} size={size * 0.86} />
+        {pet.species === "cat" ? (
+          <PixelSprite sprite={furSprite(CAT_BODY_SPRITE, CAT_FUR.body, CAT_FUR.shade)} size={size * 0.55} className="pixelated" />
+        ) : (
+          <PixelSprite sprite={furSprite(DOG_BODY_SPRITE, DOG_FUR.body, DOG_FUR.shade)} size={size * 0.55} className="pixelated" />
+        )}
       </div>
     </div>
   );

@@ -27,6 +27,11 @@ interface Store {
   toggleReminder: (id: string) => void;
   deleteReminder: (id: string) => void;
   addPet: (name: string, species: "cat" | "dog", breed: string) => void;
+  editPet: (petId: string, patch: { name: string; breed: string; ageYears: number; weightKg: number }) => void;
+  deletePet: (petId: string) => void;
+  addMember: (name: string, role: string) => void;
+  editMember: (memberId: string, patch: { name: string; role: string }) => void;
+  removeMember: (memberId: string) => void;
   bookVet: () => void;
   bookVetById: (vetId: string) => void;
   restockSupply: (petId: string, supplyId: string) => void;
@@ -55,6 +60,15 @@ const EMPTY_STATE: AppState = {
 };
 
 type SupabaseClient = ReturnType<typeof createClient>;
+
+const MEMBER_GRADIENTS: [string, string][] = [
+  ["oklch(0.62 0.16 258)", "oklch(0.5 0.18 280)"],
+  ["oklch(0.68 0.15 350)", "oklch(0.56 0.17 20)"],
+  ["oklch(0.66 0.13 165)", "oklch(0.54 0.13 200)"],
+  ["oklch(0.72 0.14 85)", "oklch(0.62 0.16 50)"],
+  ["oklch(0.6 0.13 200)", "oklch(0.48 0.13 240)"],
+  ["oklch(0.64 0.14 150)", "oklch(0.5 0.13 175)"],
+];
 
 /**
  * Fallback for when the on-signup DB trigger didn't create a household (seen
@@ -592,6 +606,93 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [supabase, toast]
   );
 
+  const editPet = useCallback(
+    (petId: string, patch: { name: string; breed: string; ageYears: number; weightKg: number }) => {
+      setState((prev) => ({
+        ...prev,
+        pets: prev.pets.map((p) => (p.id === petId ? { ...p, ...patch } : p)),
+      }));
+      supabase
+        .from("pets")
+        .update({ name: patch.name, breed: patch.breed, age_years: patch.ageYears, weight_kg: patch.weightKg })
+        .eq("id", petId)
+        .then();
+    },
+    [supabase]
+  );
+
+  const deletePet = useCallback(
+    (petId: string) => {
+      setState((prev) => ({ ...prev, pets: prev.pets.filter((p) => p.id !== petId) }));
+      supabase.from("pets").delete().eq("id", petId).then();
+    },
+    [supabase]
+  );
+
+  const addMember = useCallback(
+    (name: string, role: string) => {
+      const h = hid();
+      if (!h) {
+        toast("⚠️", "Couldn't add member", "Your household hasn't finished loading — try again in a moment");
+        return;
+      }
+      const id = crypto.randomUUID();
+      const emoji = "🧑";
+      const gradient = MEMBER_GRADIENTS[stateRef.current.members.length % MEMBER_GRADIENTS.length];
+      setState((prev) => ({
+        ...prev,
+        members: [...prev.members, { id, name, emoji, role, gradient }],
+      }));
+      supabase
+        .from("members")
+        .insert({ id, household_id: h, name, emoji, role, gradient_from: gradient[0], gradient_to: gradient[1] })
+        .then(({ error }) => {
+          if (error) {
+            console.error("[petpal] member insert failed:", error);
+            toast("⚠️", `${name} wasn't saved`, "It'll disappear on reload — please try again");
+            setState((prev) => ({ ...prev, members: prev.members.filter((m) => m.id !== id) }));
+            return;
+          }
+          toast("👤", `${name} joined the household`, "");
+        });
+    },
+    [supabase, toast]
+  );
+
+  const editMember = useCallback(
+    (memberId: string, patch: { name: string; role: string }) => {
+      setState((prev) => ({
+        ...prev,
+        members: prev.members.map((m) => (m.id === memberId ? { ...m, ...patch } : m)),
+      }));
+      supabase.from("members").update({ name: patch.name, role: patch.role }).eq("id", memberId).then();
+    },
+    [supabase]
+  );
+
+  const removeMember = useCallback(
+    (memberId: string) => {
+      if (stateRef.current.members.length <= 1) {
+        toast("⚠️", "Can't remove the last member", "A household needs at least one member");
+        return;
+      }
+      const wasCurrent = stateRef.current.currentMemberId === memberId;
+      const fallbackId = stateRef.current.members.find((m) => m.id !== memberId)?.id;
+      setState((prev) => ({
+        ...prev,
+        members: prev.members.filter((m) => m.id !== memberId),
+        activities: prev.activities.filter((a) => a.memberId !== memberId),
+        currentMemberId: wasCurrent && fallbackId ? fallbackId : prev.currentMemberId,
+      }));
+      supabase.from("members").delete().eq("id", memberId).then();
+      const h = hid();
+      if (h && wasCurrent && fallbackId) {
+        supabase.from("households").update({ current_member_id: fallbackId }).eq("id", h).then();
+      }
+    },
+    [supabase, toast]
+  );
+
   const bookVet = useCallback(() => setState((p) => ({ ...p, bookedVet: true })), []);
 
   const bookVetById = useCallback(
@@ -677,6 +778,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         toggleReminder,
         deleteReminder,
         addPet,
+        editPet,
+        deletePet,
+        addMember,
+        editMember,
+        removeMember,
         bookVet,
         bookVetById,
         restockSupply,

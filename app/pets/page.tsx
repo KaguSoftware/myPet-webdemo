@@ -103,6 +103,7 @@ export default function PetsPage() {
             options={state.pets.map((p) => ({ value: p.id, label: p.name }))}
             value={pet.id}
             onChange={setPetId}
+            scrollable
           />
         </div>
       )}
