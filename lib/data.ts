@@ -63,6 +63,10 @@ export interface Reminder {
   due: number;
   done: boolean;
   source: "manual" | "plan";
+  /** Auto-generated health alert (e.g. over/under-feeding) rather than a manual/plan reminder. */
+  alert?: boolean;
+  /** Vet suggested alongside an alert reminder, for a "Book vet" CTA. */
+  vetId?: string;
 }
 
 export interface AppState {
@@ -79,6 +83,10 @@ export interface AppState {
   bookedVetIds: string[];
   seenWelcome: boolean;
   units: "kg" | "lb";
+  /** Household id, shown to the family as a shareable "Family ID". */
+  familyId: string;
+  /** Whether the family admin has set a password — the hash itself never reaches client state. */
+  familyPasswordSet: boolean;
 }
 
 export const ACTIONS: Record<ActionType, { label: string; emoji: string; verb: string }> = {
@@ -242,6 +250,8 @@ export const SEED: AppState = {
   bookedVetIds: [],
   seenWelcome: false,
   units: "kg",
+  familyId: "demo-family",
+  familyPasswordSet: false,
   members: [
     { id: "you", name: "Parsa", emoji: "🧑‍💻", role: "Owner", gradient: ["oklch(0.62 0.16 258)", "oklch(0.5 0.18 280)"] },
     { id: "mom", name: "Mom", emoji: "👩‍🦰", role: "Admin", gradient: ["oklch(0.68 0.15 350)", "oklch(0.56 0.17 20)"] },
@@ -316,6 +326,16 @@ export const WEIGHT_TARGETS: Record<string, [number, number]> = {
   "British Shorthair": [4.5, 5.5],
   "Golden Retriever": [25, 34],
 };
+
+/** Fallback daily feeding/water targets for cats without a breed-specific care plan. */
+export const DEFAULT_CAT_TARGETS: Partial<Record<ActionType, number>> = { fed: 3, water: 2 };
+
+/** Recommended daily count for an action, from the breed's care plan if present, else the species fallback. */
+export function dailyTarget(species: "cat" | "dog", breed: string, type: ActionType): number | undefined {
+  const fromPlan = CARE_PLANS[breed]?.items.find((i) => i.action === type)?.perDay;
+  if (fromPlan != null) return fromPlan;
+  return species === "cat" ? DEFAULT_CAT_TARGETS[type] : undefined;
+}
 
 export function formatWeight(kg: number, units: "kg" | "lb"): string {
   if (units === "lb") return `${(kg * 2.20462).toFixed(1)} lb`;

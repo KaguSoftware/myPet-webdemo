@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import PixelChart from "@/components/pixel/PixelChart";
+import EditStatSheet from "@/components/EditStatSheet";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { AccentButton, Chip, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
 import { ACTIONS, CARE_PLANS, WEIGHT_TARGETS, formatAge, formatWeight } from "@/lib/data";
@@ -13,8 +14,9 @@ import { timeAgo, useStore } from "@/lib/store";
 export default function PetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { state, restockSupply, toast } = useStore();
+  const { state, restockSupply, addWeight, editPet, toast } = useStore();
   const [scrollTop] = useState(0); // header handled inline here (nested route, simple sticky)
+  const [editing, setEditing] = useState<"weight" | "age" | null>(null);
 
   const pet = state.pets.find((p) => p.id === id);
   if (!pet) {
@@ -50,8 +52,12 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
         <h1 className="mt-3 text-[24px] font-bold tracking-[-0.02em] text-label">{pet.name}</h1>
         <p className="text-[14px] font-medium text-label-2">{pet.breed}</p>
         <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
-          <Chip>{formatAge(pet.ageYears)}</Chip>
-          <Chip>{formatWeight(pet.weightKg, state.units)}</Chip>
+          <button onClick={() => setEditing("age")}>
+            <Chip>{formatAge(pet.ageYears)}</Chip>
+          </button>
+          <button onClick={() => setEditing("weight")}>
+            <Chip>{formatWeight(pet.weightKg, state.units)}</Chip>
+          </button>
           <Chip>{pet.owned.length} items</Chip>
         </div>
         <Link href="/pets" className="mt-4 w-full max-w-55">
@@ -159,6 +165,29 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
         })}
       </Group>
       <div className="h-4" />
+
+      <EditStatSheet
+        open={editing === "weight"}
+        onClose={() => setEditing(null)}
+        title={`${pet.name}'s weight`}
+        label="Weight (kg)"
+        initialValue={pet.weightKg}
+        onSave={(kg) => {
+          addWeight(pet.id, kg);
+          toast("⚖️", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
+        }}
+      />
+      <EditStatSheet
+        open={editing === "age"}
+        onClose={() => setEditing(null)}
+        title={`${pet.name}'s age`}
+        label="Age (years)"
+        initialValue={pet.ageYears}
+        onSave={(ageYears) => {
+          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg });
+          toast("🎂", `${pet.name}'s age updated`, formatAge(ageYears));
+        }}
+      />
     </div>
   );
 }

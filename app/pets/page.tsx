@@ -5,9 +5,10 @@ import Header from "@/components/Header";
 import PixelPet, { PixelCosmetic } from "@/components/pixel/PixelPet";
 import Pet3D from "@/components/pixel/Pet3D";
 import Sheet from "@/components/Sheet";
+import EditStatSheet from "@/components/EditStatSheet";
 import { Icon } from "@/components/Icons";
 import { AccentButton, Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
-import { COSMETICS, Cosmetic, CosmeticSlot, Pet, cosmetic, formatAge } from "@/lib/data";
+import { COSMETICS, Cosmetic, CosmeticSlot, Pet, cosmetic, formatAge, formatWeight } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
 /* One main slot gets a floating + button on the avatar's head; the rest live in "Other accessories" */
@@ -67,7 +68,7 @@ function ItemCard({
 }
 
 export default function PetsPage() {
-  const { state, hydrated, buyCosmetic, toggleEquip, addPet, toast } = useStore();
+  const { state, hydrated, buyCosmetic, toggleEquip, addPet, addWeight, editPet, toast } = useStore();
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
   const [openSheet, setOpenSheet] = useState<CosmeticSlot | "other" | null>(null);
   const [threeD, setThreeD] = useState(false);
@@ -75,6 +76,8 @@ export default function PetsPage() {
   const [petName, setPetName] = useState("");
   const [species, setSpecies] = useState<"cat" | "dog">("cat");
   const [breed, setBreed] = useState("British Shorthair");
+  const [editingStat, setEditingStat] = useState<"weight" | "age" | null>(null);
+  const [namesRef, setNamesRef] = useState<HTMLDivElement | null>(null);
 
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
   const mainMeta = MAIN_SLOTS.find((s) => s.slot === openSheet);
@@ -187,13 +190,32 @@ export default function PetsPage() {
       />
 
       {state.pets.length > 1 && (
-        <div className="mb-4">
+        <div className="mb-4 flex items-center gap-1.5">
+          {state.pets.length > 4 && (
+            <button
+              onClick={() => namesRef?.scrollBy({ left: -namesRef.clientWidth, behavior: "smooth" })}
+              aria-label="Previous pets"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fill text-label-2 transition-transform active:scale-90"
+            >
+              <Icon name="chevron-left" size={15} />
+            </button>
+          )}
           <Segmented
             options={state.pets.map((p) => ({ value: p.id, label: p.name }))}
             value={pet.id}
             onChange={setPetId}
             scrollable
+            containerRef={setNamesRef}
           />
+          {state.pets.length > 4 && (
+            <button
+              onClick={() => namesRef?.scrollBy({ left: namesRef.clientWidth, behavior: "smooth" })}
+              aria-label="Next pets"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fill text-label-2 transition-transform active:scale-90"
+            >
+              <Icon name="chevron-right" size={15} />
+            </button>
+          )}
         </div>
       )}
 
@@ -250,8 +272,12 @@ export default function PetsPage() {
           <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">{pet.name}</h2>
           <p className="text-[13px] font-medium text-label-2">{pet.breed}</p>
           <div className="mt-2.5 flex gap-1.5">
-            <Chip>{formatAge(pet.ageYears)}</Chip>
-            <Chip>{pet.weightKg} kg</Chip>
+            <button onClick={() => setEditingStat("age")}>
+              <Chip>{formatAge(pet.ageYears)}</Chip>
+            </button>
+            <button onClick={() => setEditingStat("weight")}>
+              <Chip>{formatWeight(pet.weightKg, state.units)}</Chip>
+            </button>
             <Chip>{pet.owned.length} items</Chip>
           </div>
 
@@ -321,6 +347,29 @@ export default function PetsPage() {
       </Sheet>
 
       {addPetSheet}
+
+      <EditStatSheet
+        open={editingStat === "weight"}
+        onClose={() => setEditingStat(null)}
+        title={`${pet.name}'s weight`}
+        label="Weight (kg)"
+        initialValue={pet.weightKg}
+        onSave={(kg) => {
+          addWeight(pet.id, kg);
+          toast("⚖️", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
+        }}
+      />
+      <EditStatSheet
+        open={editingStat === "age"}
+        onClose={() => setEditingStat(null)}
+        title={`${pet.name}'s age`}
+        label="Age (years)"
+        initialValue={pet.ageYears}
+        onSave={(ageYears) => {
+          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg });
+          toast("🎂", `${pet.name}'s age updated`, formatAge(ageYears));
+        }}
+      />
     </div>
   );
 }

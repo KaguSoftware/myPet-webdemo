@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
+import EditStatSheet from "@/components/EditStatSheet";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { Chevron, Chip, CoinPill, Group, Row, SectionHeader } from "@/components/ui";
 import { ACTIONS, ActionType, CARE_PLANS, formatAge, formatWeight } from "@/lib/data";
@@ -13,9 +14,10 @@ const CAT_ACTIONS: ActionType[] = ["fed", "water", "litter", "groomed", "meds", 
 const DOG_ACTIONS: ActionType[] = ["fed", "water", "walk", "groomed", "meds", "vet"];
 
 export default function Home() {
-  const { state, hydrated, logAction, restockSupply, toast } = useStore();
+  const { state, hydrated, logAction, restockSupply, addWeight, editPet, toast } = useStore();
   const [petIndex, setPetIndex] = useState(0);
   const [justLogged, setJustLogged] = useState<ActionType | null>(null);
+  const [editingStat, setEditingStat] = useState<"weight" | "age" | null>(null);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const didSwipe = useRef(false);
 
@@ -96,12 +98,16 @@ export default function Home() {
               <Icon name="chevron-right" size={14} className="text-label-3" />
             </h2>
             <p className="text-[14px] font-medium text-label-2">{pet.breed}</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <Chip>{formatAge(pet.ageYears)}</Chip>
-              <Chip>{formatWeight(pet.weightKg, state.units)}</Chip>
-            </div>
           </div>
         </Link>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <button onClick={() => setEditingStat("age")}>
+            <Chip>{formatAge(pet.ageYears)}</Chip>
+          </button>
+          <button onClick={() => setEditingStat("weight")}>
+            <Chip>{formatWeight(pet.weightKg, state.units)}</Chip>
+          </button>
+        </div>
         <div className="mt-4">
           <div className="flex items-baseline justify-between">
             <p className="text-[13px] font-semibold text-label-2">Meals today</p>
@@ -325,6 +331,29 @@ export default function Home() {
           />
         </Link>
       </Group>
+
+      <EditStatSheet
+        open={editingStat === "weight"}
+        onClose={() => setEditingStat(null)}
+        title={`${pet.name}'s weight`}
+        label="Weight (kg)"
+        initialValue={pet.weightKg}
+        onSave={(kg) => {
+          addWeight(pet.id, kg);
+          toast("⚖️", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
+        }}
+      />
+      <EditStatSheet
+        open={editingStat === "age"}
+        onClose={() => setEditingStat(null)}
+        title={`${pet.name}'s age`}
+        label="Age (years)"
+        initialValue={pet.ageYears}
+        onSave={(ageYears) => {
+          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg });
+          toast("🎂", `${pet.name}'s age updated`, formatAge(ageYears));
+        }}
+      />
     </div>
   );
 }

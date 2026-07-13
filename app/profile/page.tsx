@@ -24,10 +24,26 @@ export default function ProfilePage() {
     addMember,
     editMember,
     removeMember,
+    setFamilyPassword,
     signOut,
     toast,
   } = useStore();
   const [paywallOpen, setPaywallOpen] = useState(false);
+
+  const adminMember = state.members.find((m) => m.role.toLowerCase() === "owner") ?? state.members[0];
+  const isAdmin = !!adminMember && state.currentMemberId === adminMember.id;
+
+  const [familyPwOpen, setFamilyPwOpen] = useState(false);
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [pwError, setPwError] = useState("");
+
+  const closeFamilyPw = () => {
+    setFamilyPwOpen(false);
+    setCurrentPw("");
+    setNewPw("");
+    setPwError("");
+  };
 
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [editPetName, setEditPetName] = useState("");
@@ -168,6 +184,60 @@ export default function ProfilePage() {
       </Group>
       <p className="mt-1.5 px-1 text-[12px] text-label-3">Tap a member to view the demo as them, or Edit to manage them.</p>
 
+      {/* Family ID + admin password */}
+      <SectionHeader>Family</SectionHeader>
+      <Group>
+        <Row
+          leading={
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
+              <Icon name="people" size={18} />
+            </span>
+          }
+          title="Family ID"
+          subtitle={state.familyId ? `${state.familyId.slice(0, 8)}…` : "Loading…"}
+          trailing={
+            <button
+              onClick={() => {
+                if (!state.familyId) return;
+                navigator.clipboard.writeText(state.familyId);
+                toast("📋", "Family ID copied", "");
+              }}
+              className="text-[13px] font-semibold text-accent"
+            >
+              Copy
+            </button>
+          }
+        />
+        <Row
+          onClick={() => {
+            if (!isAdmin) {
+              toast("🔒", "Admin only", `Only ${adminMember?.name ?? "the admin"} can manage the family password`);
+              return;
+            }
+            setFamilyPwOpen(true);
+          }}
+          leading={
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
+              <Icon name="lock" size={18} />
+            </span>
+          }
+          title="Family password"
+          subtitle={
+            state.familyPasswordSet
+              ? isAdmin
+                ? "Set — tap to change"
+                : `Set by ${adminMember?.name ?? "the admin"}`
+              : isAdmin
+                ? "Not set — tap to add one"
+                : "Not set"
+          }
+          trailing={isAdmin ? <Icon name="chevron-right" size={15} className="text-label-3" /> : undefined}
+        />
+      </Group>
+      <p className="mt-1.5 px-1 text-[12px] text-label-3">
+        Share the Family ID so others can find this household. {adminMember?.name ?? "The admin"} can lock it with a password.
+      </p>
+
       {/* Pets */}
       <SectionHeader>Pets</SectionHeader>
       <Group>
@@ -289,6 +359,64 @@ export default function ProfilePage() {
               />
             </Group>
           </>
+        )}
+      </Sheet>
+
+      <Sheet open={familyPwOpen} onClose={closeFamilyPw}>
+        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">
+          {state.familyPasswordSet ? "Change family password" : "Set a family password"}
+        </h2>
+        <p className="mt-1 text-[13px] text-label-3">Protects the Family section on shared devices — not a full account login.</p>
+
+        {state.familyPasswordSet && (
+          <>
+            <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Current password</p>
+            <input
+              type="password"
+              value={currentPw}
+              onChange={(e) => setCurrentPw(e.target.value)}
+              className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+            />
+          </>
+        )}
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">New password</p>
+        <input
+          type="password"
+          value={newPw}
+          onChange={(e) => setNewPw(e.target.value)}
+          placeholder="At least 4 characters"
+          className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60"
+        />
+        {pwError && <p className="mt-2 px-1 text-[13px] font-medium text-red-500">{pwError}</p>}
+
+        <div className="mt-7">
+          <AccentButton
+            disabled={newPw.trim().length < 4 || (state.familyPasswordSet && !currentPw)}
+            onClick={async () => {
+              setPwError("");
+              const ok = await setFamilyPassword(newPw.trim(), currentPw || undefined);
+              if (ok) closeFamilyPw();
+              else setPwError("That current password isn't right — try again.");
+            }}
+          >
+            {state.familyPasswordSet ? "Update password" : "Set password"}
+          </AccentButton>
+        </div>
+
+        {state.familyPasswordSet && (
+          <Group className="mt-3">
+            <ConfirmRow
+              label="Remove password"
+              confirmLabel="Tap again to remove"
+              onConfirm={async () => {
+                setPwError("");
+                const ok = await setFamilyPassword(null, currentPw || undefined);
+                if (ok) closeFamilyPw();
+                else setPwError("That current password isn't right — try again.");
+              }}
+            />
+          </Group>
         )}
       </Sheet>
 

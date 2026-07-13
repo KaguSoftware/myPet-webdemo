@@ -5,11 +5,11 @@ import Header from "@/components/Header";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
 import { AccentButton, Group, IconCircle, SectionHeader } from "@/components/ui";
-import { VET } from "@/lib/data";
+import { VET, VETS } from "@/lib/data";
 import { dueLabel, useStore } from "@/lib/store";
 
 export default function RemindersPage() {
-  const { state, addReminder, toggleReminder, deleteReminder, toast } = useStore();
+  const { state, addReminder, toggleReminder, deleteReminder, bookVetById, toast } = useStore();
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
@@ -21,36 +21,53 @@ export default function RemindersPage() {
 
   const renderRow = (r: (typeof state.reminders)[number]) => {
     const pet = petOf(r.petId);
+    const alertVet = r.alert && !r.done ? VETS.find((v) => v.id === r.vetId) ?? VET : null;
     return (
-      <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 min-h-[52px]">
-        <button
-          onClick={() => {
-            toggleReminder(r.id);
-            if (!r.done) toast("✅", `Done: ${r.title}`, "Marked complete for the family");
-          }}
-          aria-label={r.done ? "Mark as not done" : "Mark as done"}
-          className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-all duration-200 active:scale-90 ${
-            r.done ? "border-accent bg-accent text-white" : "border-[oklch(0.22_0.01_264/0.25)] bg-transparent"
-          }`}
-        >
-          {r.done && <Icon name="check" size={14} strokeWidth={2.6} />}
-        </button>
-        <div className="min-w-0 flex-1">
-          <p className={`truncate text-[16px] font-medium ${r.done ? "text-label-3 line-through" : "text-label"}`}>
-            {r.title}
-          </p>
-          <p className="text-[13px] text-label-2">
-            {pet ? `${pet.name} · ` : ""}
-            {r.done ? "completed" : dueLabel(r.due)}
-          </p>
+      <div
+        key={r.id}
+        className={`flex flex-col gap-2 px-4 py-2.5 min-h-13 ${alertVet ? "bg-[oklch(0.6_0.21_25/0.06)]" : ""}`}
+      >
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              toggleReminder(r.id);
+              if (!r.done) toast("✅", `Done: ${r.title}`, "Marked complete for the family");
+            }}
+            aria-label={r.done ? "Mark as not done" : "Mark as done"}
+            className={`flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-all duration-200 active:scale-90 ${
+              r.done ? "border-accent bg-accent text-white" : alertVet ? "border-red" : "border-[oklch(0.22_0.01_264/0.25)] bg-transparent"
+            }`}
+          >
+            {r.done && <Icon name="check" size={14} strokeWidth={2.6} />}
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className={`text-[16px] font-medium ${r.done ? "text-label-3 line-through" : alertVet ? "text-red" : "text-label"}`}>
+              {r.title}
+            </p>
+            <p className="text-[13px] text-label-2">
+              {pet ? `${pet.name} · ` : ""}
+              {r.done ? "completed" : dueLabel(r.due)}
+            </p>
+          </div>
+          <button
+            onClick={() => deleteReminder(r.id)}
+            aria-label={`Delete ${r.title}`}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-label-3 transition-colors active:bg-fill active:text-red"
+          >
+            <Icon name="xmark" size={15} strokeWidth={2.2} />
+          </button>
         </div>
-        <button
-          onClick={() => deleteReminder(r.id)}
-          aria-label={`Delete ${r.title}`}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-label-3 transition-colors active:bg-fill active:text-red"
-        >
-          <Icon name="xmark" size={15} strokeWidth={2.2} />
-        </button>
+        {alertVet && (
+          <button
+            onClick={() => {
+              bookVetById(alertVet.id);
+              toast("🩺", `Vet visit requested`, `${alertVet.name} will follow up about ${pet?.name}`);
+            }}
+            className="ml-9 flex h-8 w-fit items-center gap-1.5 rounded-full bg-red px-3 text-[13px] font-semibold text-white transition-transform active:scale-95"
+          >
+            <Icon name="cross" size={14} /> Book vet — {alertVet.name}
+          </button>
+        )}
       </div>
     );
   };

@@ -1,14 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import { WeightPoint, formatWeight } from "@/lib/data";
+import { Icon } from "@/components/Icons";
+
+const WINDOW_SIZE = 6;
+
+function spanText(fromTs: number, toTs: number) {
+  const days = Math.round((toTs - fromTs) / 86_400_000);
+  if (days < 1) return null;
+  if (days < 14) return `${days}d`;
+  if (days < 60) return `${Math.round(days / 7)}w`;
+  return `${Math.round(days / 30)}mo`;
+}
 
 /**
  * Small pixel-style weight chart: stepped blocky line over gridlines, with an
  * optional target-range band. SVG so it stays crisp; deliberately chunky to
- * match the pixel theme. Not interactive (demo).
+ * match the pixel theme. Shows a sliding 6-point window over the full
+ * history; left/right arrows shift the window one record at a time.
  */
 export default function PixelChart({
-  points,
+  points: allPoints,
   target,
   units,
   height = 120,
@@ -18,7 +31,43 @@ export default function PixelChart({
   units: "kg" | "lb";
   height?: number;
 }) {
-  if (points.length < 2) return null;
+  const maxStart = Math.max(0, allPoints.length - WINDOW_SIZE);
+  // Track the point count alongside the window start so that whenever a new
+  // weight is logged (points array grows/shrinks), the window jumps back to
+  // the newest points during render instead of getting stuck on a stale
+  // spot — manual left/right navigation only changes `start`, not
+  // `pointCount`, so it's unaffected.
+  const [{ pointCount, start: rawStart }, setWindow] = useState({ pointCount: allPoints.length, start: maxStart });
+  if (allPoints.length !== pointCount) {
+    setWindow({ pointCount: allPoints.length, start: Math.max(0, allPoints.length - WINDOW_SIZE) });
+  }
+  const setStart = (updater: (s: number) => number) => setWindow((s) => ({ ...s, start: updater(s.start) }));
+  const start = Math.min(rawStart, maxStart);
+  const points = allPoints.slice(start, start + WINDOW_SIZE);
+
+  // Too little history to draw a line — show the latest weight and a hint
+  // rather than an empty box, so the section is never blank and the user can
+  // confirm a logged weight was recorded.
+  if (allPoints.length < 2) {
+    const latest = allPoints[allPoints.length - 1];
+    return (
+      <div className="flex flex-col items-center py-3 text-center">
+        {latest ? (
+          <>
+            <span className="font-pixel text-[16px] text-label">{formatWeight(latest.kg, units)}</span>
+            <p className="mt-1.5 text-[12px] text-label-2">Log another weight to see the trend.</p>
+          </>
+        ) : (
+          <p className="text-[13px] text-label-2">No weight logged yet — tap the weight chip to add one.</p>
+        )}
+        {target && (
+          <p className="mt-1 text-[12px] text-label-2">
+            Healthy range: <span className="font-semibold text-green">{formatWeight(target[0], units)}–{formatWeight(target[1], units)}</span>
+          </p>
+        )}
+      </div>
+    );
+  }
 
   const W = 100;
   const H = 60;
@@ -47,14 +96,36 @@ export default function PixelChart({
   const last = points[points.length - 1];
   const first = points[0];
   const delta = last.kg - first.kg;
+  const spanLabel = points.length > 1 ? spanText(first.ts, last.ts) : null;
 
   return (
     <div>
-      <div className="mb-2 flex items-baseline justify-between">
+      <div className="mb-2 flex items-center justify-between gap-2">
         <span className="font-pixel text-[10px] text-label">{formatWeight(last.kg, units)}</span>
-        <span className={`text-[12px] font-semibold ${delta >= 0 ? "text-orange" : "text-green"}`}>
-          {delta >= 0 ? "▲" : "▼"} {formatWeight(Math.abs(delta), units)} over 6 mo
+        <span className={`min-w-0 truncate text-[12px] font-semibold ${delta >= 0 ? "text-orange" : "text-green"}`}>
+          {delta >= 0 ? "▲" : "▼"} {formatWeight(Math.abs(delta), units)}
+          {spanLabel ? ` over ${spanLabel}` : ""}
         </span>
+        {maxStart > 0 && (
+          <span className="flex shrink-0 items-center gap-1.5">
+            <button
+              onClick={() => setStart((s) => Math.max(0, s - 1))}
+              disabled={start === 0}
+              aria-label="Older weight"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-fill text-label-2 transition-transform active:scale-90 disabled:opacity-30"
+            >
+              <Icon name="chevron-left" size={13} />
+            </button>
+            <button
+              onClick={() => setStart((s) => Math.min(maxStart, s + 1))}
+              disabled={start === maxStart}
+              aria-label="Newer weight"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-fill text-label-2 transition-transform active:scale-90 disabled:opacity-30"
+            >
+              <Icon name="chevron-right" size={13} />
+            </button>
+          </span>
+        )}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height} shapeRendering="crispEdges" className="overflow-visible">
         {/* gridlines */}

@@ -164,15 +164,18 @@ export function Segmented<T extends string>({
   value,
   onChange,
   scrollable = false,
+  containerRef,
 }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
   scrollable?: boolean;
+  containerRef?: (el: HTMLDivElement | null) => void;
 }) {
   const overflowing = scrollable && options.length > 4;
   return (
     <div
+      ref={containerRef}
       className={`flex rounded-[10px] bg-fill p-0.5 ${
         overflowing ? "overflow-x-auto flex-nowrap scrollbar-none [&::-webkit-scrollbar]:hidden" : ""
       }`}

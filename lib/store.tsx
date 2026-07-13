@@ -2,7 +2,13 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ACTIONS, ActionType, AppState, CosmeticSlot, Pet, Reminder, cosmetic } from "./data";
+import { ACTIONS, ActionType, Activity, AppState, CosmeticSlot, Member, Pet, Reminder, VET, cosmetic, dailyTarget } from "./data";
+
+function sameCalendarDay(a: number, b: number) {
+  const da = new Date(a);
+  const db = new Date(b);
+  return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+}
 
 export interface Toast {
   id: number;
@@ -29,6 +35,7 @@ interface Store {
   addPet: (name: string, species: "cat" | "dog", breed: string) => void;
   editPet: (petId: string, patch: { name: string; breed: string; ageYears: number; weightKg: number }) => void;
   deletePet: (petId: string) => void;
+  addWeight: (petId: string, kg: number) => void;
   addMember: (name: string, role: string) => void;
   editMember: (memberId: string, patch: { name: string; role: string }) => void;
   removeMember: (memberId: string) => void;
@@ -38,6 +45,8 @@ interface Store {
   useSupply: (petId: string, supplyId: string) => void;
   setSeenWelcome: (seen: boolean) => void;
   setUnits: (units: "kg" | "lb") => void;
+  /** Set, change, or remove (pass null) the family password. Verifies `currentPassword` against the stored hash first if one is already set — returns false and toasts on mismatch. */
+  setFamilyPassword: (newPassword: string | null, currentPassword?: string) => Promise<boolean>;
   signOut: () => void;
 }
 
@@ -57,7 +66,17 @@ const EMPTY_STATE: AppState = {
   bookedVetIds: [],
   seenWelcome: true,
   units: "kg",
+  familyId: "",
+  familyPasswordSet: false,
 };
+
+/** SHA-256 hex digest — used to avoid storing the family password in plaintext. */
+async function sha256Hex(text: string) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -261,10 +280,11 @@ type HouseholdRow = {
   seen_welcome: boolean;
   units: "kg" | "lb";
   last_seen_at: number | null;
+  family_password_hash: string | null;
   members: { id: string; name: string; emoji: string; role: string; gradient_from: string; gradient_to: string; created_at: string }[];
   pets: (PetRow & { created_at: string })[];
   activities: { id: string; pet_id: string; member_id: string; type: ActionType; ts: number; note: string | null }[];
-  reminders: { id: string; pet_id: string; title: string; emoji: string; due: number; done: boolean; source: "manual" | "plan" }[];
+  reminders: { id: string; pet_id: string; title: string; emoji: string; due: number; done: boolean; source: "manual" | "plan"; alert: boolean | null; vet_id: string | null }[];
   booked_vets: { vet_id: string }[];
 };
 
@@ -279,6 +299,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+  const notifiedActivityIdsRef = useRef<Set<string>>(new Set());
+  const hid = () => householdIdRef.current;
 
   const dismissToast = useCallback((id: number) => {
     setToasts((t) => t.filter((x) => x.id !== id));
@@ -291,6 +313,59 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setTimeout(() => dismissToast(id), 4200);
     },
     [dismissToast]
+  );
+
+  // Toast the given member about what everyone *else* logged in the last 16h
+  // — never their own actions. Used both on login/reload and on switching
+  // which family member is "active". A ref-backed id set keeps re-runs
+  // within the same session (e.g. flipping between members) from replaying
+  // the same toast twice.
+  const notifyRecentActivity = useCallback(
+    (forMemberId: string, activitiesList: Activity[], petsList: Pet[], membersList: Member[]) => {
+      const cutoff = Date.now() - 16 * 60 * 60 * 1000;
+      const recent = activitiesList
+        .filter((a) => a.ts >= cutoff && a.memberId !== forMemberId && !notifiedActivityIdsRef.current.has(a.id))
+        .sort((a, b) => a.ts - b.ts);
+      recent.forEach((a, i) => {
+        notifiedActivityIdsRef.current.add(a.id);
+        const pet = petsList.find((p) => p.id === a.petId);
+        const member = membersList.find((m) => m.id === a.memberId);
+        if (!pet || !member) return;
+        const action = ACTIONS[a.type];
+        const time = new Date(a.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setTimeout(() => {
+          toast(action.emoji, `${member.name} ${action.verb} ${pet.name}`, `${time} · ${timeAgo(a.ts)}`);
+        }, i * 1400);
+      });
+    },
+    [toast]
+  );
+
+  // Raises a cat feeding/watering health alert: an auto-generated reminder
+  // (with a suggested vet) plus a toast, at most once per pet per day. Used
+  // both for a same-day overeating/overdrinking spike (from logAction) and a
+  // once-a-day check for the previous day's underfeeding/underwatering (from
+  // the load() catch-up below).
+  const raiseFeedingAlert = useCallback(
+    (pet: Pet, type: "fed" | "water", kind: "over" | "under", remindersSnapshot: Reminder[], ts: number) => {
+      const h = hid();
+      if (!h) return;
+      const already = remindersSnapshot.some((r) => r.alert && r.petId === pet.id && !r.done && sameCalendarDay(r.due, ts));
+      if (already) return;
+      const what = type === "fed" ? "eating" : "drinking";
+      const verb = kind === "over" ? `${what} way more than usual` : `${what} far less than usual`;
+      const title = `${pet.name} is ${verb} today — check the litter box & consider a vet visit`;
+      const id = crypto.randomUUID();
+      const vetId = VET.id;
+      const reminder: Reminder = { id, petId: pet.id, title, emoji: "🩺", due: ts, done: false, source: "manual", alert: true, vetId };
+      setState((prev) => ({ ...prev, reminders: [...prev.reminders, reminder] }));
+      supabase
+        .from("reminders")
+        .insert({ id, household_id: h, pet_id: pet.id, title, emoji: "🩺", due: ts, done: false, source: "manual", alert: true, vet_id: vetId })
+        .then();
+      toast("🚨", title, kind === "over" ? "Litter box may need attention sooner" : "Might be worth a vet check");
+    },
+    [supabase, toast]
   );
 
   // Load the signed-in user's household from Supabase, and reload whenever
@@ -399,59 +474,67 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         role: m.role,
         gradient: [m.gradient_from, m.gradient_to] as [string, string],
       }));
+      const activityList: Activity[] = activities.map((a) => ({
+        id: a.id,
+        petId: a.pet_id,
+        memberId: a.member_id,
+        type: a.type,
+        ts: Number(a.ts),
+        note: a.note ?? undefined,
+      }));
+      const currentMemberId = h.current_member_id ?? members[0]?.id ?? "";
+      const reminderList: Reminder[] = reminders.map((r) => ({
+        id: r.id,
+        petId: r.pet_id,
+        title: r.title,
+        emoji: r.emoji,
+        due: Number(r.due),
+        done: r.done,
+        source: r.source,
+        alert: r.alert ?? false,
+        vetId: r.vet_id ?? undefined,
+      }));
       setState({
-        currentMemberId: h.current_member_id ?? members[0]?.id ?? "",
+        currentMemberId,
         premium: h.premium,
         coins: h.coins,
         xp: h.xp,
         streak: h.streak,
         pets,
         members: mappedMembers,
-        activities: activities.map((a) => ({
-          id: a.id,
-          petId: a.pet_id,
-          memberId: a.member_id,
-          type: a.type,
-          ts: Number(a.ts),
-          note: a.note ?? undefined,
-        })),
-        reminders: reminders.map((r) => ({
-          id: r.id,
-          petId: r.pet_id,
-          title: r.title,
-          emoji: r.emoji,
-          due: Number(r.due),
-          done: r.done,
-          source: r.source,
-        })),
+        activities: activityList,
+        reminders: reminderList,
         bookedVet: bookedVets.length > 0,
         bookedVetIds: bookedVets.map((b) => b.vet_id),
         seenWelcome: h.seen_welcome,
         units: h.units,
+        familyId: h.id,
+        familyPasswordSet: !!h.family_password_hash,
       });
       setHydrated(true);
 
-      // Catch the user up on anything the family logged since their last
-      // login. Falls back to a 16h window on a household's very first login
-      // (last_seen_at is still null).
-      const FALLBACK_WINDOW = 16 * 60 * 60 * 1000;
-      const now = Date.now();
-      const cutoff = h.last_seen_at != null ? Number(h.last_seen_at) : now - FALLBACK_WINDOW;
-      const recent = activities
-        .filter((a) => Number(a.ts) >= cutoff)
-        .sort((x, y) => Number(x.ts) - Number(y.ts));
-      recent.forEach((a, i) => {
-        const pet = pets.find((p) => p.id === a.pet_id);
-        const member = mappedMembers.find((m) => m.id === a.member_id);
-        if (!pet || !member) return;
-        const action = ACTIONS[a.type];
-        const time = new Date(Number(a.ts)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        setTimeout(() => {
-          toast(action.emoji, `${member.name} ${action.verb} ${pet.name}`, `${time} · ${timeAgo(Number(a.ts))}`);
-        }, i * 1400);
-      });
+      // Catch the signed-in member up on what everyone *else* logged in the
+      // last 16h — never their own actions.
+      notifyRecentActivity(currentMemberId, activityList, pets, mappedMembers);
 
-      supabase.from("households").update({ last_seen_at: now }).eq("id", h.id).then();
+      // Once-a-day check: did a cat eat/drink at or under half its daily
+      // target yesterday? Real-time under-detection isn't meaningful
+      // mid-day, so this runs once per load, right after the catch-up above.
+      const yesterday = Date.now() - 24 * 60 * 60 * 1000;
+      pets
+        .filter((p) => p.species === "cat")
+        .forEach((p) => {
+          (["fed", "water"] as const).forEach((type) => {
+            const target = dailyTarget(p.species, p.breed, type);
+            if (!target) return;
+            const count = activityList.filter((a) => a.petId === p.id && a.type === type && sameCalendarDay(a.ts, yesterday)).length;
+            if (count > 0 && count <= target * 0.5) {
+              raiseFeedingAlert(p, type, "under", reminderList, yesterday);
+            }
+          });
+        });
+
+      supabase.from("households").update({ last_seen_at: Date.now() }).eq("id", h.id).then();
     }
 
     load();
@@ -464,9 +547,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, [supabase, toast]);
-
-  const hid = () => householdIdRef.current;
+  }, [supabase, toast, notifyRecentActivity, raiseFeedingAlert]);
 
   const logAction = useCallback(
     (petId: string, type: ActionType) => {
@@ -475,13 +556,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const id = crypto.randomUUID();
       const ts = Date.now();
       const memberId = stateRef.current.currentMemberId;
+      const pet = stateRef.current.pets.find((p) => p.id === petId);
+      // Logging litter actually drains the litter/sanitation supply (matched
+      // by icon rather than a hardcoded id — seed cats use "litter",
+      // generated pets use "sanitation", dogs use "poopbags", all icon "broom").
+      const litterSupply = type === "litter" ? pet?.supplies.find((s) => s.icon === "broom") : undefined;
+      const litterLevel = litterSupply ? Math.max(0, litterSupply.level - 15) : null;
+
       setState((prev) => ({
         ...prev,
         coins: prev.coins + 5,
         xp: prev.xp + 10,
         activities: [{ id, petId, memberId, type, ts }, ...prev.activities],
+        pets:
+          litterSupply && litterLevel != null
+            ? prev.pets.map((p) =>
+                p.id === petId
+                  ? { ...p, supplies: p.supplies.map((s) => (s.id === litterSupply.id ? { ...s, level: litterLevel } : s)) }
+                  : p
+              )
+            : prev.pets,
       }));
-      const pet = stateRef.current.pets.find((p) => p.id === petId);
       const time = new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       toast(ACTIONS[type].emoji, `${pet?.name} — ${ACTIONS[type].label.toLowerCase()} at ${time}`, "Family notified 📣 · +5 coins · +10 XP");
 
@@ -491,17 +586,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .update({ coins: stateRef.current.coins + 5, xp: stateRef.current.xp + 10 })
         .eq("id", h)
         .then();
+      if (litterSupply && litterLevel != null) {
+        supabase.from("supplies").update({ level: litterLevel }).eq("pet_id", petId).eq("supply_key", litterSupply.id).then();
+      }
+
+      // Overeating/overdrinking check: a cat logged 2x its daily target of
+      // fed/water today (including this action) — flag the litter box and
+      // suggest a vet visit.
+      if ((type === "fed" || type === "water") && pet?.species === "cat") {
+        const target = dailyTarget(pet.species, pet.breed, type);
+        if (target) {
+          const todayCount =
+            stateRef.current.activities.filter((a) => a.petId === petId && a.type === type && sameCalendarDay(a.ts, ts)).length + 1;
+          if (todayCount >= target * 2) {
+            raiseFeedingAlert(pet, type, "over", stateRef.current.reminders, ts);
+          }
+        }
+      }
     },
-    [supabase, toast]
+    [supabase, toast, raiseFeedingAlert]
   );
 
   const switchMember = useCallback(
     (id: string) => {
       setState((p) => ({ ...p, currentMemberId: id }));
+      notifyRecentActivity(id, stateRef.current.activities, stateRef.current.pets, stateRef.current.members);
       const h = hid();
       if (h) supabase.from("households").update({ current_member_id: id }).eq("id", h).then();
     },
-    [supabase]
+    [supabase, notifyRecentActivity]
   );
 
   const setPremium = useCallback(
@@ -564,7 +677,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
       supabase
         .from("reminders")
-        .insert({ id, household_id: h, pet_id: r.petId, title: r.title, emoji: r.emoji, due: r.due, done: false, source: "manual" })
+        .insert({
+          id,
+          household_id: h,
+          pet_id: r.petId,
+          title: r.title,
+          emoji: r.emoji,
+          due: r.due,
+          done: false,
+          source: "manual",
+          alert: r.alert ?? false,
+          vet_id: r.vetId ?? null,
+        })
         .then();
     },
     [supabase]
@@ -669,6 +793,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (petId: string) => {
       setState((prev) => ({ ...prev, pets: prev.pets.filter((p) => p.id !== petId) }));
       supabase.from("pets").delete().eq("id", petId).then();
+    },
+    [supabase]
+  );
+
+  const addWeight = useCallback(
+    (petId: string, kg: number) => {
+      const ts = Date.now();
+      setState((prev) => ({
+        ...prev,
+        pets: prev.pets.map((p) =>
+          p.id === petId ? { ...p, weightKg: kg, weights: [...p.weights, { ts, kg }] } : p
+        ),
+      }));
+      supabase.from("weights").insert({ pet_id: petId, ts, kg }).then();
+      supabase.from("pets").update({ weight_kg: kg }).eq("id", petId).then();
     },
     [supabase]
   );
@@ -800,6 +939,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [supabase]
   );
 
+  const setFamilyPassword = useCallback(
+    async (newPassword: string | null, currentPassword?: string) => {
+      const h = hid();
+      if (!h) return false;
+      if (stateRef.current.familyPasswordSet) {
+        const { data } = await supabase.from("households").select("family_password_hash").eq("id", h).single();
+        const storedHash = data?.family_password_hash ?? null;
+        const providedHash = currentPassword ? await sha256Hex(currentPassword) : null;
+        if (!storedHash || storedHash !== providedHash) {
+          toast("🔒", "Incorrect current password", "");
+          return false;
+        }
+      }
+      const newHash = newPassword ? await sha256Hex(newPassword) : null;
+      const { error } = await supabase.from("households").update({ family_password_hash: newHash }).eq("id", h);
+      if (error) {
+        toast("⚠️", "Couldn't update the family password", "");
+        return false;
+      }
+      setState((prev) => ({ ...prev, familyPasswordSet: !!newHash }));
+      toast(newHash ? "🔒" : "🔓", newHash ? "Family password set" : "Family password removed", "");
+      return true;
+    },
+    [supabase, toast]
+  );
+
   const signOut = useCallback(() => {
     supabase.auth.signOut().then(() => window.location.assign("/login"));
   }, [supabase]);
@@ -824,6 +989,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addPet,
         editPet,
         deletePet,
+        addWeight,
         addMember,
         editMember,
         removeMember,
@@ -833,6 +999,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         useSupply,
         setSeenWelcome,
         setUnits,
+        setFamilyPassword,
         signOut,
       }}
     >
