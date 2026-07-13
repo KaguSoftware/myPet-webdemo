@@ -21,6 +21,13 @@ export default function PlanPage() {
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
+  if (!pet) {
+    return (
+      <div className="px-4">
+        <Header title="Care Plan" />
+      </div>
+    );
+  }
   const plan = CARE_PLANS[pet.breed];
 
   const startOfDay = new Date();

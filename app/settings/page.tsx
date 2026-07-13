@@ -8,7 +8,7 @@ import { useStore } from "@/lib/store";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { state, setUnits, setSeenWelcome, resetDemo, setPremium, toast } = useStore();
+  const { state, setUnits, setSeenWelcome, signOut, setPremium, toast, userEmail } = useStore();
 
   return (
     <div className="px-4">
@@ -80,8 +80,9 @@ export default function SettingsPage() {
       </Group>
       <p className="mt-1.5 px-1 text-[12px] text-label-3">Demo — notification toggles are illustrative.</p>
 
-      <SectionHeader>Demo</SectionHeader>
+      <SectionHeader>Account</SectionHeader>
       <Group>
+        {userEmail && <Row leading={<IconCircle icon="bell" tint="text-label-2" bg="bg-fill" />} title={userEmail} subtitle="Signed in" />}
         <Row
           leading={<IconCircle icon="sparkles" tint="text-label-2" bg="bg-fill" />}
           title="Replay intro"
@@ -91,7 +92,7 @@ export default function SettingsPage() {
           }}
           trailing={<Icon name="chevron-right" size={15} className="text-label-3" />}
         />
-        <Row destructive onClick={resetDemo} title="Reset demo data" />
+        <Row destructive onClick={signOut} title="Sign out" />
       </Group>
       <div className="h-4" />
     </div>

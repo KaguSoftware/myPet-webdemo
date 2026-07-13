@@ -26,6 +26,10 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, statusBarStyle: "default", title: "PetPal" },
 };
 
+// Every route reads the signed-in user's household via cookies, so none of
+// this can be statically prerendered at build time.
+export const dynamic = "force-dynamic";
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,

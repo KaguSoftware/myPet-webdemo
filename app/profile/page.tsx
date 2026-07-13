@@ -14,7 +14,7 @@ import { level, useStore } from "@/lib/store";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { state, switchMember, setPremium, addPet, resetDemo, toast } = useStore();
+  const { state, switchMember, setPremium, addPet, signOut, toast } = useStore();
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [addPetOpen, setAddPetOpen] = useState(false);
   const [petName, setPetName] = useState("");
@@ -25,7 +25,7 @@ export default function ProfilePage() {
     <div className="px-4">
       <Header
         title="Family"
-        subtitle="The Mansouri household"
+        subtitle={`${state.members.length} member${state.members.length === 1 ? "" : "s"}`}
         trailing={
           <Link
             href="/settings"
@@ -144,9 +144,9 @@ export default function ProfilePage() {
             </span>
           }
           title={`Level ${level(state.xp)} · ${state.streak}-day streak`}
-          subtitle="All data is stored on this device only"
+          subtitle="Synced to your account"
         />
-        <Row destructive onClick={resetDemo} title="Reset demo data" />
+        <Row destructive onClick={signOut} title="Sign out" />
       </Group>
 
       <Paywall open={paywallOpen} onClose={() => setPaywallOpen(false)} />
@@ -199,7 +199,6 @@ export default function ProfilePage() {
               addPet(petName.trim(), species, breed.trim() || (species === "cat" ? "House cat" : "Mixed breed"));
               setAddPetOpen(false);
               setPetName("");
-              toast("🐾", `${petName.trim()} joined the family`, "Care tracking is ready");
             }}
           >
             Add to family

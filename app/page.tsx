@@ -13,7 +13,7 @@ const CAT_ACTIONS: ActionType[] = ["fed", "water", "litter", "groomed", "meds", 
 const DOG_ACTIONS: ActionType[] = ["fed", "water", "walk", "groomed", "meds", "vet"];
 
 export default function Home() {
-  const { state, logAction, restockSupply, toast } = useStore();
+  const { state, hydrated, logAction, restockSupply, toast } = useStore();
   const [petIndex, setPetIndex] = useState(0);
   const [justLogged, setJustLogged] = useState<ActionType | null>(null);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
@@ -22,17 +22,29 @@ export default function Home() {
   const changePet = (dir: 1 | -1) =>
     setPetIndex((i) => Math.min(state.pets.length - 1, Math.max(0, i + dir)));
 
-  const pet = state.pets[Math.min(petIndex, state.pets.length - 1)];
-  const me = state.members.find((m) => m.id === state.currentMemberId);
-  const lowSupplies = pet.supplies.filter((s) => s.level < 20);
+  const pet = state.pets[Math.min(petIndex, state.pets.length - 1)] as (typeof state.pets)[number] | undefined;
 
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
   const todays = useMemo(
-    () => state.activities.filter((a) => a.petId === pet.id && a.ts >= startOfDay.getTime()),
+    () => (pet ? state.activities.filter((a) => a.petId === pet.id && a.ts >= startOfDay.getTime()) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state.activities, pet.id]
+    [state.activities, pet?.id]
   );
+
+  if (!hydrated || !pet) {
+    return (
+      <div className="px-4">
+        <Header title="Home" />
+        <div className="mt-10 flex flex-col items-center gap-2 text-center">
+          <p className="text-[14px] text-label-2">{hydrated ? "No pets yet." : "Loading your household…"}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const me = state.members.find((m) => m.id === state.currentMemberId);
+  const lowSupplies = pet.supplies.filter((s) => s.level < 20);
   const plan = CARE_PLANS[pet.breed];
   const fedTarget = plan?.items.find((i) => i.action === "fed")?.perDay ?? 2;
   const fedCount = todays.filter((a) => a.type === "fed").length;

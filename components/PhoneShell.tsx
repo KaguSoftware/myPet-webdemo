@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { StoreProvider } from "@/lib/store";
 import TabBar from "./TabBar";
 import Toasts from "./Toasts";
@@ -12,6 +13,8 @@ export const useScrollTop = () => useContext(ScrollCtx);
 export default function PhoneShell({ children }: { children: React.ReactNode }) {
   const [scrollTop, setScrollTop] = useState(0);
   const raf = useRef(0);
+  const pathname = usePathname();
+  const isAuthRoute = pathname === "/login" || pathname === "/signup";
 
   return (
     <StoreProvider>
@@ -35,9 +38,9 @@ export default function PhoneShell({ children }: { children: React.ReactNode }) 
             </main>
           </ScrollCtx.Provider>
 
-          <TabBar />
+          {!isAuthRoute && <TabBar />}
           <Toasts />
-          <Welcome />
+          {!isAuthRoute && <Welcome />}
         </div>
       </div>
     </StoreProvider>

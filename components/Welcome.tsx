@@ -5,11 +5,7 @@ import { InitialAvatar } from "./PetAvatar";
 import PixelPet from "./pixel/PixelPet";
 import { Icon, IconName } from "./Icons";
 import { AccentButton } from "./ui";
-import { Pet, SEED } from "@/lib/data";
 import { useStore } from "@/lib/store";
-
-const catPet = SEED.pets[0] as Pet;
-const dogPet = SEED.pets[1] as Pet;
 
 const FEATURES: { icon: IconName; title: string; body: string }[] = [
   { icon: "bell", title: "Log care together", body: "Feed, walk, clean — everyone in the family gets notified instantly." },
@@ -21,9 +17,10 @@ export default function Welcome() {
   const { state, hydrated, setSeenWelcome } = useStore();
   const [step, setStep] = useState(0);
 
-  if (!hydrated || state.seenWelcome) return null;
+  if (!hydrated || state.seenWelcome || state.pets.length === 0) return null;
 
   const finish = () => setSeenWelcome(true);
+  const [catPet, dogPet] = state.pets;
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-bg md:rounded-[2.7rem]">
@@ -32,7 +29,7 @@ export default function Welcome() {
           <>
             <div className="flex items-end gap-3">
               <PixelPet pet={catPet} size={92} idle />
-              <PixelPet pet={dogPet} size={92} idle />
+              {dogPet && <PixelPet pet={dogPet} size={92} idle />}
             </div>
             <h1 className="font-pixel mt-8 text-[20px] leading-relaxed text-label">PetPal</h1>
             <p className="mt-3 max-w-[280px] text-[15px] leading-relaxed text-label-2">
@@ -63,9 +60,9 @@ export default function Welcome() {
         {step === 2 && (
           <div className="w-full max-w-[320px]">
             <h2 className="text-[24px] font-bold tracking-[-0.02em] text-label">Meet the family</h2>
-            <p className="mt-2 text-[14px] text-label-2">You&apos;re exploring the Mansouri household&apos;s account.</p>
+            <p className="mt-2 text-[14px] text-label-2">These are the family members on your account.</p>
             <div className="mt-6 grid grid-cols-2 gap-3">
-              {SEED.members.map((m) => (
+              {state.members.map((m) => (
                 <div key={m.id} className="glass flex items-center gap-2.5 rounded-card p-3">
                   <InitialAvatar name={m.name} gradient={m.gradient} size={36} />
                   <div className="min-w-0 text-left">

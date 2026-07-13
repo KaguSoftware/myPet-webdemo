@@ -75,6 +75,14 @@ export default function PetsPage() {
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
   const mainMeta = MAIN_SLOTS.find((s) => s.slot === openSheet);
 
+  if (!pet) {
+    return (
+      <div className="px-4">
+        <Header title="Pets" subtitle="Style your companion" trailing={<CoinPill amount={state.coins} />} />
+      </div>
+    );
+  }
+
   const buy = (c: Cosmetic) => {
     buyCosmetic(pet.id, c.id);
     toast("🛍️", `${c.name} purchased`, `${pet.name} is wearing it now`);
