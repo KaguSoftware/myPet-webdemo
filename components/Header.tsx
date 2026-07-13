@@ -36,7 +36,7 @@ export default function Header({
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
             {subtitle && <p className="text-[14px] font-medium text-label-2">{subtitle}</p>}
-            <h1 className="truncate text-[32px] font-bold leading-tight tracking-[-0.02em] text-label">{title}</h1>
+            <h1 className="font-pixel truncate text-[22px] leading-tight text-label">{title}</h1>
           </div>
           {trailing && <div className="mb-1 shrink-0">{trailing}</div>}
         </div>
