@@ -16,14 +16,18 @@ const MAX_DEG = 32;
 export default function Pet3D({ pet, size }: { pet: Pet; size: number }) {
   const [rot, setRot] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
-  const [reduced, setReduced] = useState(false);
+  // Lazy init reads the media query once (guarded for SSR); the effect below
+  // only subscribes to later changes, so we never setState synchronously in it.
+  const [reduced, setReduced] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
   const start = useRef<{ px: number; py: number; rx: number; ry: number } | null>(null);
   const holdTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
     const on = () => setReduced(mq.matches);
+    on();
     mq.addEventListener("change", on);
     return () => mq.removeEventListener("change", on);
   }, []);

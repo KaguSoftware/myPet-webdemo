@@ -13,7 +13,7 @@ export default function Toasts() {
           onClick={() => dismissToast(t.id)}
           className="glass-strong pointer-events-auto flex w-full items-center gap-3 rounded-[1.4rem] px-3.5 py-3 text-left animate-toast-in"
         >
-          <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.5_0.19_262)] text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)]">
+          <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-linear-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.5_0.19_262)] text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)]">
             <Icon name="paw" size={20} />
           </span>
           <span className="min-w-0 flex-1">

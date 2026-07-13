@@ -39,14 +39,14 @@ function ItemCard({
   const affordable = coins >= c.price;
   return (
     <div className="flex flex-col rounded-card bg-card p-3.5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]">
-      <div className="flex aspect-[2/1] items-center justify-center rounded-ios bg-fill">
+      <div className="flex aspect-2/1 items-center justify-center rounded-ios bg-fill">
         <PixelCosmetic id={c.id} size={44} />
       </div>
       <p className="mt-2.5 truncate text-[14px] font-semibold text-label">{c.name}</p>
       {owned ? (
         <button
           onClick={onToggle}
-          className={`mt-2.5 flex h-[34px] items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold transition-all active:scale-95 ${
+          className={`mt-2.5 flex h-8.5 items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold transition-all active:scale-95 ${
             equipped ? "bg-green-soft text-green" : "bg-fill text-label"
           }`}
         >
@@ -57,7 +57,7 @@ function ItemCard({
         <button
           disabled={!affordable}
           onClick={onBuy}
-          className="mt-2.5 flex h-[34px] items-center justify-center gap-1 rounded-full bg-accent-soft text-[13px] font-semibold text-accent transition-all active:scale-95 disabled:bg-fill disabled:text-label-3"
+          className="mt-2.5 flex h-8.5 items-center justify-center gap-1 rounded-full bg-accent-soft text-[13px] font-semibold text-accent transition-all active:scale-95 disabled:bg-fill disabled:text-label-3"
         >
           <Icon name="coin" size={13} strokeWidth={2.2} /> {c.price}
         </button>
@@ -160,7 +160,7 @@ export default function PetsPage() {
           {/* Other accessories */}
           <button
             onClick={() => setOpenSheet("other")}
-            className="mt-5 flex h-[44px] w-full items-center justify-center gap-2 rounded-ios bg-fill text-[15px] font-semibold text-label transition-transform active:scale-[0.97]"
+            className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-ios bg-fill text-[15px] font-semibold text-label transition-transform active:scale-[0.97]"
           >
             <Icon name="bag" size={17} />
             Other accessories

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
@@ -16,6 +16,11 @@ export default function Home() {
   const { state, logAction, restockSupply, toast } = useStore();
   const [petIndex, setPetIndex] = useState(0);
   const [justLogged, setJustLogged] = useState<ActionType | null>(null);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const didSwipe = useRef(false);
+
+  const changePet = (dir: 1 | -1) =>
+    setPetIndex((i) => Math.min(state.pets.length - 1, Math.max(0, i + dir)));
 
   const pet = state.pets[Math.min(petIndex, state.pets.length - 1)];
   const me = state.members.find((m) => m.id === state.currentMemberId);
@@ -44,8 +49,34 @@ export default function Home() {
       <Header title="Home" subtitle={`Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}, ${me?.name}`} trailing={<CoinPill amount={state.coins} />} />
 
       {/* Pet hero card */}
-      <div className="rounded-sheet bg-card p-5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)]">
-        <Link href={`/pet/${pet.id}`} className="flex items-center gap-4 transition-transform active:scale-[0.99]">
+      <div
+        className="rounded-sheet bg-card p-5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)] touch-pan-y select-none"
+        onPointerDown={(e) => {
+          if (state.pets.length > 1) swipeStart.current = { x: e.clientX, y: e.clientY };
+        }}
+        onPointerUp={(e) => {
+          const s = swipeStart.current;
+          swipeStart.current = null;
+          if (!s) return;
+          const dx = e.clientX - s.x;
+          const dy = e.clientY - s.y;
+          // horizontal swipe only; ignore taps and vertical scrolls
+          if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+            didSwipe.current = true;
+            changePet(dx < 0 ? 1 : -1);
+          }
+        }}
+      >
+        <Link
+          href={`/pet/${pet.id}`}
+          onClick={(e) => {
+            if (didSwipe.current) {
+              e.preventDefault();
+              didSwipe.current = false;
+            }
+          }}
+          className="flex items-center gap-4 transition-transform active:scale-[0.99]"
+        >
           <PetAvatar pet={pet} size="lg" idle />
           <div className="min-w-0 flex-1">
             <h2 className="flex items-center gap-1 text-[22px] font-bold tracking-[-0.01em] text-label">
@@ -66,7 +97,7 @@ export default function Home() {
               {fedCount} <span className="text-label-3">of {fedTarget}</span>
             </p>
           </div>
-          <div className="mt-1.5 h-[6px] overflow-hidden rounded-full bg-fill">
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-fill">
             <div
               className={`h-full rounded-full transition-all duration-500 ${fedPct >= 100 ? "bg-green" : "bg-accent"}`}
               style={{ width: `${fedPct}%` }}
@@ -80,8 +111,8 @@ export default function Home() {
                 key={p.id}
                 onClick={() => setPetIndex(i)}
                 aria-label={`Show ${p.name}`}
-                className={`h-[7px] rounded-full transition-all duration-300 ${
-                  i === petIndex ? "w-5 bg-label" : "w-[7px] bg-[oklch(0.22_0.01_264/0.18)]"
+                className={`h-1.75 rounded-full transition-all duration-300 ${
+                  i === petIndex ? "w-5 bg-label" : "w-1.75 bg-[oklch(0.22_0.01_264/0.18)]"
                 }`}
               />
             ))}

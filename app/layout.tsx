@@ -9,7 +9,9 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-// Geist Pixel — self-hosted (not yet in next/font/google's font list)
+// Geist Pixel — self-hosted from Google Fonts (Geist Pixel v1; the TTF here is
+// byte-identical to fonts.gstatic.com's). Not yet in this Next version's
+// next/font/google font list, so it must be loaded locally.
 const pixel = localFont({
   src: "./fonts/GeistPixel.ttf",
   variable: "--font-pixel",

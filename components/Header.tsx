@@ -18,8 +18,8 @@ export default function Header({
     <>
       {/* Inline glass strip — always sticky, contents fade in when condensed */}
       <div
-        className={`sticky top-0 z-20 -mb-[52px] flex h-[52px] items-center justify-center transition-all duration-200 md:pt-2 ${
-          condensed ? "glass-strong !border-x-0 !border-t-0" : "pointer-events-none bg-transparent"
+        className={`sticky top-0 z-20 -mb-13 flex h-13 items-center justify-center transition-all duration-200 md:pt-2 ${
+          condensed ? "glass-strong border-x-0! border-t-0!" : "pointer-events-none bg-transparent"
         }`}
       >
         <span
@@ -32,7 +32,7 @@ export default function Header({
       </div>
 
       {/* Large title block — scrolls away */}
-      <div className="px-5 pb-2 pt-[60px] md:pt-[64px]">
+      <div className="px-5 pb-2 pt-15 md:pt-16">
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
             {subtitle && <p className="text-[14px] font-medium text-label-2">{subtitle}</p>}

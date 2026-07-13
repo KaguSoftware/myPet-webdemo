@@ -42,7 +42,7 @@ export default function ProfilePage() {
         <Group>
           <Row
             leading={
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.48_0.19_262)] text-white">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-linear-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.48_0.19_262)] text-white">
                 <Icon name="sparkles" size={18} />
               </span>
             }
@@ -64,7 +64,7 @@ export default function ProfilePage() {
       ) : (
         <button
           onClick={() => setPaywallOpen(true)}
-          className="w-full rounded-card bg-gradient-to-br from-[oklch(0.6_0.19_258)] to-[oklch(0.45_0.19_268)] p-4 text-left shadow-[0_8px_24px_oklch(0.55_0.19_258/0.3)] transition-transform active:scale-[0.98]"
+          className="w-full rounded-card bg-linear-to-br from-[oklch(0.6_0.19_258)] to-[oklch(0.45_0.19_268)] p-4 text-left shadow-[0_8px_24px_oklch(0.55_0.19_258/0.3)] transition-transform active:scale-[0.98]"
         >
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)]">

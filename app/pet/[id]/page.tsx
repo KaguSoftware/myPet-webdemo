@@ -54,8 +54,8 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
           <Chip>{formatWeight(pet.weightKg, state.units)}</Chip>
           <Chip>{pet.owned.length} items</Chip>
         </div>
-        <Link href="/pets" className="mt-4 w-full max-w-[220px]">
-          <AccentButton variant="tinted" className="!h-[42px] !text-[15px]">
+        <Link href="/pets" className="mt-4 w-full max-w-55">
+          <AccentButton variant="tinted" className="h-10.5! text-[15px]!">
             <Icon name="sparkles" size={16} /> Dress up
           </AccentButton>
         </Link>

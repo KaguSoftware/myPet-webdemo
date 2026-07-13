@@ -46,11 +46,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const stateRef = useRef(state);
-  stateRef.current = state;
+  // Keep the ref current for the interval timer below. Written in an effect
+  // (not during render) so we don't mutate a ref while rendering.
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
+  // One-time hydration from localStorage. This runs client-side only (the
+  // provider is a "use client" component) and intentionally sets state once on
+  // mount to swap seed data for the persisted snapshot; the immediate re-render
+  // is the desired hydration, not a cascading-render bug.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setState({ ...SEED, ...JSON.parse(raw) });
     } catch {}
     setHydrated(true);

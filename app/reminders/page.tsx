@@ -4,7 +4,7 @@ import { useState } from "react";
 import Header from "@/components/Header";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
-import { AccentButton, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
+import { AccentButton, Group, IconCircle, SectionHeader } from "@/components/ui";
 import { VET } from "@/lib/data";
 import { dueLabel, useStore } from "@/lib/store";
 
