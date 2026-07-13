@@ -27,6 +27,7 @@ export interface Pet {
   name: string;
   species: "cat" | "dog";
   breed: string;
+  sex?: "male" | "female";
   emoji: string;
   ageYears: number;
   weightKg: number;
@@ -213,13 +214,13 @@ const D = 24 * H;
 
 const W = 7 * D;
 const catWeights: WeightPoint[] = [
-  { ts: now - 24 * W, kg: 4.2 },
-  { ts: now - 20 * W, kg: 4.3 },
-  { ts: now - 16 * W, kg: 4.5 },
-  { ts: now - 12 * W, kg: 4.6 },
-  { ts: now - 8 * W, kg: 4.9 },
-  { ts: now - 4 * W, kg: 5.0 },
-  { ts: now, kg: 4.8 },
+  { ts: now - 24 * W, kg: 120 },
+  { ts: now - 20 * W, kg: 140 },
+  { ts: now - 16 * W, kg: 158 },
+  { ts: now - 12 * W, kg: 172 },
+  { ts: now - 8 * W, kg: 185 },
+  { ts: now - 4 * W, kg: 194 },
+  { ts: now, kg: 200 },
 ];
 const dogWeights: WeightPoint[] = [
   { ts: now - 24 * W, kg: 24.0 },
@@ -250,15 +251,16 @@ export const SEED: AppState = {
   pets: [
     {
       id: "whiskers",
-      name: "Whiskers",
+      name: "Mozart",
       species: "cat",
       breed: "British Shorthair",
+      sex: "male",
       emoji: "🐱",
-      ageYears: 3,
-      weightKg: 4.8,
+      ageYears: 10 / 12,
+      weightKg: 200,
       owned: ["bowtie", "glasses"],
       equipped: { neck: "bowtie" },
-      gradient: ["oklch(0.65 0.13 230)", "oklch(0.5 0.15 265)"],
+      gradient: ["oklch(0.72 0.008 260)", "oklch(0.5 0.01 260)"],
       weights: catWeights,
       supplies: [
         { id: "food", name: "Dry food", icon: "bowl", level: 62 },
@@ -317,5 +319,13 @@ export const WEIGHT_TARGETS: Record<string, [number, number]> = {
 
 export function formatWeight(kg: number, units: "kg" | "lb"): string {
   if (units === "lb") return `${(kg * 2.20462).toFixed(1)} lb`;
-  return `${kg.toFixed(1)} kg`;
+  return `${kg % 1 === 0 ? kg : kg.toFixed(1)} kg`;
+}
+
+export function formatAge(ageYears: number): string {
+  if (ageYears < 1) {
+    const months = Math.round(ageYears * 12);
+    return `${months} mo`;
+  }
+  return `${Math.round(ageYears)} yr${Math.round(ageYears) === 1 ? "" : "s"}`;
 }

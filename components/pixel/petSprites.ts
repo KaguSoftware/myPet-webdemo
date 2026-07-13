@@ -8,21 +8,23 @@ import type { Sprite } from "./PixelSprite";
  * at render time via spriteWithFur().
  */
 export const CAT_SPRITE: Sprite = {
-  palette: { O: "#2b2b3a", B: "#f4a63c", S: "#d9822b", W: "#fff3dd", e: "#2b2b3a", n: "#7a3b2e", p: "#f3a5b8" },
+  // British Shorthair "blue": cool blue-gray fur, big cute coppery-gold eyes.
+  //   e gold iris   h eye highlight   n nose   p pink (inner ear/blush)
+  palette: { O: "#3a3d47", B: "#98a0ac", S: "#6d7480", W: "#c4c9d1", e: "#f0b52e", h: "#ffffff", n: "#b06a5e", p: "#f6b6c6" },
   rows: [
     "................",
     ".OO........OO...",
-    ".OBO......OBO...",
+    ".OpO......OpO...",
     ".OBBO....OBBO...",
-    ".OBpBOOOOBpBO...",
+    ".OBBBOOOOBBBBO..",
     ".OBBBBBBBBBBBO..",
     "OBBBBBBBBBBBBBO.",
-    "OBBeBBBBBBeBBBO.",
-    "OBBBBBBBBBBBBBO.",
-    "OBBBBBWWWWBBBBO.",
-    "OBBSBWWnnWWBSBO.",
-    "OBBBBWWppWWBBBO.",
-    ".OBBBWWWWWWBBBO.",
+    "OBBeeBBBBBBeeBO.",
+    "OBBheBBBBBBheBO.",
+    "OBpBBBBnnBBBBpO.",
+    "OBBBBWWnnWWBBBO.",
+    "OBBBBWWWWWWBBBO.",
+    ".OBBBBWWWWBBBBO.",
     ".OBBBBBBBBBBBBO.",
     "..OBBBBBBBBBBO..",
     "...OOOOOOOOOO...",
@@ -57,5 +59,5 @@ export function furSprite(base: Sprite, body: string, shade: string): Sprite {
 }
 
 /** Solid fur tones per species keep the pixel look readable on any bg. */
-export const CAT_FUR = { body: "#f4a63c", shade: "#d9822b" };
+export const CAT_FUR = { body: "#98a0ac", shade: "#6d7480" };
 export const DOG_FUR = { body: "#e9b872", shade: "#c98f4a" };

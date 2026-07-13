@@ -9,7 +9,7 @@ import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
 import { AccentButton, Group, Row, SectionHeader } from "@/components/ui";
-import { formatWeight } from "@/lib/data";
+import { formatAge, formatWeight } from "@/lib/data";
 import { level, useStore } from "@/lib/store";
 
 export default function ProfilePage() {
@@ -128,7 +128,7 @@ export default function ProfilePage() {
             onClick={() => router.push(`/pet/${p.id}`)}
             leading={<PetAvatar pet={p} size="sm" />}
             title={p.name}
-            subtitle={`${p.breed} · ${p.ageYears} yrs · ${formatWeight(p.weightKg, state.units)}`}
+            subtitle={`${p.breed} · ${formatAge(p.ageYears)} · ${formatWeight(p.weightKg, state.units)}`}
             trailing={<Icon name="chevron-right" size={15} className="text-label-3" />}
           />
         ))}

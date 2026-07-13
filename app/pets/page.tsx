@@ -7,7 +7,7 @@ import Pet3D from "@/components/pixel/Pet3D";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
 import { Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
-import { COSMETICS, Cosmetic, CosmeticSlot, Pet, cosmetic } from "@/lib/data";
+import { COSMETICS, Cosmetic, CosmeticSlot, Pet, cosmetic, formatAge } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
 /* One main slot gets a floating + button on the avatar's head; the rest live in "Other accessories" */
@@ -152,7 +152,7 @@ export default function PetsPage() {
           <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">{pet.name}</h2>
           <p className="text-[13px] font-medium text-label-2">{pet.breed}</p>
           <div className="mt-2.5 flex gap-1.5">
-            <Chip>{pet.ageYears} yrs</Chip>
+            <Chip>{formatAge(pet.ageYears)}</Chip>
             <Chip>{pet.weightKg} kg</Chip>
             <Chip>{pet.owned.length} items</Chip>
           </div>

@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { Chevron, Chip, CoinPill, Group, Row, SectionHeader } from "@/components/ui";
-import { ACTIONS, ActionType, CARE_PLANS, formatWeight } from "@/lib/data";
+import { ACTIONS, ActionType, CARE_PLANS, formatAge, formatWeight } from "@/lib/data";
 import { dueLabel, level, levelProgress, useStore } from "@/lib/store";
 
 const CAT_ACTIONS: ActionType[] = ["fed", "water", "litter", "groomed", "meds", "vet"];
@@ -54,7 +54,7 @@ export default function Home() {
             </h2>
             <p className="text-[14px] font-medium text-label-2">{pet.breed}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <Chip>{pet.ageYears} yrs</Chip>
+              <Chip>{formatAge(pet.ageYears)}</Chip>
               <Chip>{formatWeight(pet.weightKg, state.units)}</Chip>
             </div>
           </div>

@@ -7,7 +7,7 @@ import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import PixelChart from "@/components/pixel/PixelChart";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { AccentButton, Chip, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
-import { ACTIONS, CARE_PLANS, WEIGHT_TARGETS, formatWeight } from "@/lib/data";
+import { ACTIONS, CARE_PLANS, WEIGHT_TARGETS, formatAge, formatWeight } from "@/lib/data";
 import { timeAgo, useStore } from "@/lib/store";
 
 export default function PetDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -50,7 +50,7 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
         <h1 className="mt-3 text-[24px] font-bold tracking-[-0.02em] text-label">{pet.name}</h1>
         <p className="text-[14px] font-medium text-label-2">{pet.breed}</p>
         <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
-          <Chip>{pet.ageYears} yrs</Chip>
+          <Chip>{formatAge(pet.ageYears)}</Chip>
           <Chip>{formatWeight(pet.weightKg, state.units)}</Chip>
           <Chip>{pet.owned.length} items</Chip>
         </div>
