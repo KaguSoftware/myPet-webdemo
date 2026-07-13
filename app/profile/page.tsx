@@ -14,7 +14,7 @@ import { level, useStore } from "@/lib/store";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { state, switchMember, setPremium, addPet, signOut, toast } = useStore();
+  const { state, hydrated, switchMember, setPremium, addPet, signOut, toast } = useStore();
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [addPetOpen, setAddPetOpen] = useState(false);
   const [petName, setPetName] = useState("");
@@ -194,14 +194,14 @@ export default function ProfilePage() {
 
         <div className="mt-7">
           <AccentButton
-            disabled={!petName.trim()}
+            disabled={!petName.trim() || !hydrated}
             onClick={() => {
               addPet(petName.trim(), species, breed.trim() || (species === "cat" ? "House cat" : "Mixed breed"));
               setAddPetOpen(false);
               setPetName("");
             }}
           >
-            Add to family
+            {hydrated ? "Add to family" : "Loading…"}
           </AccentButton>
         </div>
       </Sheet>

@@ -62,14 +62,39 @@ type SupabaseClient = ReturnType<typeof createClient>;
  * fully reliable). Mirrors supabase/migrations/0001_init.sql's seed so a
  * user never lands on a permanently empty app.
  */
-async function bootstrapHousehold(supabase: SupabaseClient, userId: string, name: string) {
+function describeErr(e: { code?: string; message?: string; details?: string; hint?: string } | null | undefined) {
+  if (!e) return null;
+  const parts = [e.code, e.message, e.details, e.hint].filter((x) => x && x.length > 0);
+  return parts.length ? parts.join(" | ") : null;
+}
+
+async function bootstrapHousehold(
+  supabase: SupabaseClient,
+  userId: string,
+  name: string,
+  errRef: { current: string | null }
+) {
   const { data: household, error: hErr } = await supabase
     .from("households")
     .insert({ owner_id: userId, coins: 340, xp: 260, streak: 4, units: "kg" })
     .select()
     .single();
   if (hErr || !household) {
-    console.error("[petpal] bootstrap household insert failed:", hErr);
+    if (hErr?.code === "23505") {
+      // Unique owner_id race: the on-signup DB trigger already created this
+      // user's household between our select and this insert. Fetch it.
+      const { data: existing, error: reselectErr } = await supabase
+        .from("households")
+        .select("*")
+        .eq("owner_id", userId)
+        .maybeSingle();
+      if (existing) return existing;
+      console.error("[petpal] bootstrap household reselect after race failed:", describeErr(reselectErr) ?? reselectErr);
+      errRef.current = describeErr(reselectErr) ?? "reselect after race returned no row";
+      return null;
+    }
+    console.error("[petpal] bootstrap household insert failed:", describeErr(hErr) ?? hErr);
+    errRef.current = describeErr(hErr) ?? "insert returned no row (no error object)";
     return null;
   }
 
@@ -190,6 +215,42 @@ type PetRow = {
   equipped: Partial<Record<CosmeticSlot, string>>;
   gradient_from: string;
   gradient_to: string;
+  weights?: { ts: number; kg: number; created_at?: string }[];
+  supplies?: { supply_key: string; name: string; icon: string; level: number }[];
+};
+
+// One nested query (household + every child table via FK embedding) instead
+// of the household round trip, a 5-query Promise.all, then a weights/supplies
+// Promise.all — cuts household load from ~4 sequential round trips to 1.
+//
+// `members` needs an explicit FK hint (`!members_household_id_fkey`): there
+// are two FK paths between households and members — households.current_member_id
+// -> members.id, and members.household_id -> households.id — so PostgREST
+// can't infer which one to embed through and errors with PGRST201 (ambiguous
+// embed) without it.
+const HOUSEHOLD_SELECT = `
+  *,
+  members!members_household_id_fkey(*),
+  pets(*, weights(*), supplies(*)),
+  activities(*),
+  reminders(*),
+  booked_vets(vet_id)
+`;
+
+type HouseholdRow = {
+  id: string;
+  current_member_id: string | null;
+  premium: boolean;
+  coins: number;
+  xp: number;
+  streak: number;
+  seen_welcome: boolean;
+  units: "kg" | "lb";
+  members: { id: string; name: string; emoji: string; role: string; gradient_from: string; gradient_to: string; created_at: string }[];
+  pets: (PetRow & { created_at: string })[];
+  activities: { id: string; pet_id: string; member_id: string; type: ActionType; ts: number; note: string | null }[];
+  reminders: { id: string; pet_id: string; title: string; emoji: string; due: number; done: boolean; source: "manual" | "plan" }[];
+  booked_vets: { vet_id: string }[];
 };
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
@@ -222,61 +283,68 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     async function load() {
+      // getSession() reads the already-verified local session instead of
+      // making a network round trip like getUser() does — proxy.ts already
+      // verified this session server-side before this page was allowed to render.
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user ?? null;
       if (!user || cancelled) {
         setHydrated(true);
         return;
       }
       setUserEmail(user.email ?? null);
 
-      let { data: household } = await supabase.from("households").select("*").eq("owner_id", user.id).single();
-      if (!household) {
-        household = await bootstrapHousehold(
+      // Single nested query for household + members/pets/weights/supplies/
+      // activities/reminders/booked_vets in one round trip.
+      const { data: household, error: householdErr } = await supabase
+        .from("households")
+        .select(HOUSEHOLD_SELECT)
+        .eq("owner_id", user.id)
+        .maybeSingle<HouseholdRow>();
+      if (householdErr) console.error("[petpal] household fetch failed:", describeErr(householdErr) ?? householdErr);
+
+      let finalHousehold = household;
+      const bootstrapErrRef = { current: describeErr(householdErr) };
+      if (!finalHousehold) {
+        const bootstrapped = await bootstrapHousehold(
           supabase,
           user.id,
-          (user.user_metadata as { name?: string } | null)?.name || "You"
+          (user.user_metadata as { name?: string } | null)?.name || "You",
+          bootstrapErrRef
         );
+        // bootstrapHousehold only inserts the bare household row (plus its
+        // seed children separately) — refetch nested so the shape matches.
+        finalHousehold = bootstrapped
+          ? (
+              await supabase
+                .from("households")
+                .select(HOUSEHOLD_SELECT)
+                .eq("id", bootstrapped.id)
+                .maybeSingle<HouseholdRow>()
+            ).data
+          : null;
       }
-      if (!household || cancelled) {
+      if (!finalHousehold || cancelled) {
         setHydrated(true);
+        if (!finalHousehold) {
+          toast("⚠️", "Couldn't set up your household", bootstrapErrRef.current ?? "unknown error — check console");
+        }
         return;
       }
-      householdIdRef.current = household.id;
+      const h = finalHousehold;
+      householdIdRef.current = h.id;
 
-      const [
-        { data: members, error: membersError },
-        { data: petRows, error: petsError },
-        { data: activities, error: activitiesError },
-        { data: reminders, error: remindersError },
-        { data: bookedVets, error: bookedVetsError },
-      ] = await Promise.all([
-        supabase.from("members").select("*").eq("household_id", household.id).order("created_at"),
-        supabase.from("pets").select("*").eq("household_id", household.id).order("created_at"),
-        supabase.from("activities").select("*").eq("household_id", household.id).order("ts", { ascending: false }),
-        supabase.from("reminders").select("*").eq("household_id", household.id).order("due"),
-        supabase.from("booked_vets").select("vet_id").eq("household_id", household.id),
-      ]);
-      for (const [label, err] of [
-        ["members", membersError],
-        ["pets", petsError],
-        ["activities", activitiesError],
-        ["reminders", remindersError],
-        ["booked_vets", bookedVetsError],
-      ] as const) {
-        if (err) console.error(`[petpal] ${label} fetch failed:`, err);
-      }
+      const members = [...(h.members ?? [])].sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+      const petRows = [...(h.pets ?? [])].sort((a: PetRow & { created_at: string }, b: PetRow & { created_at: string }) =>
+        a.created_at < b.created_at ? -1 : 1
+      );
+      const activities = [...(h.activities ?? [])].sort((a, b) => Number(b.ts) - Number(a.ts));
+      const reminders = [...(h.reminders ?? [])].sort((a, b) => Number(a.due) - Number(b.due));
+      const bookedVets = h.booked_vets ?? [];
 
-      const petIds = (petRows ?? []).map((p: PetRow) => p.id);
-      const [{ data: weights }, { data: supplies }] = await Promise.all([
-        petIds.length
-          ? supabase.from("weights").select("*").in("pet_id", petIds).order("ts")
-          : Promise.resolve({ data: [] }),
-        petIds.length ? supabase.from("supplies").select("*").in("pet_id", petIds) : Promise.resolve({ data: [] }),
-      ]);
-
-      const pets: Pet[] = (petRows ?? []).map((p: PetRow) => ({
+      const pets: Pet[] = petRows.map((p: PetRow) => ({
         id: p.id,
         name: p.name,
         species: p.species,
@@ -288,28 +356,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         owned: p.owned,
         equipped: p.equipped,
         gradient: [p.gradient_from, p.gradient_to],
-        weights: (weights ?? []).filter((w) => w.pet_id === p.id).map((w) => ({ ts: Number(w.ts), kg: Number(w.kg) })),
-        supplies: (supplies ?? [])
-          .filter((s) => s.pet_id === p.id)
-          .map((s) => ({ id: s.supply_key, name: s.name, icon: s.icon, level: s.level })),
+        weights: [...(p.weights ?? [])]
+          .sort((a, b) => Number(a.ts) - Number(b.ts))
+          .map((w) => ({ ts: Number(w.ts), kg: Number(w.kg) })),
+        supplies: (p.supplies ?? []).map((s) => ({ id: s.supply_key, name: s.name, icon: s.icon, level: s.level })),
       }));
 
       if (cancelled) return;
       setState({
-        currentMemberId: household.current_member_id ?? members?.[0]?.id ?? "",
-        premium: household.premium,
-        coins: household.coins,
-        xp: household.xp,
-        streak: household.streak,
+        currentMemberId: h.current_member_id ?? members[0]?.id ?? "",
+        premium: h.premium,
+        coins: h.coins,
+        xp: h.xp,
+        streak: h.streak,
         pets,
-        members: (members ?? []).map((m) => ({
+        members: members.map((m) => ({
           id: m.id,
           name: m.name,
           emoji: m.emoji,
           role: m.role,
           gradient: [m.gradient_from, m.gradient_to],
         })),
-        activities: (activities ?? []).map((a) => ({
+        activities: activities.map((a) => ({
           id: a.id,
           petId: a.pet_id,
           memberId: a.member_id,
@@ -317,7 +385,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ts: Number(a.ts),
           note: a.note ?? undefined,
         })),
-        reminders: (reminders ?? []).map((r) => ({
+        reminders: reminders.map((r) => ({
           id: r.id,
           petId: r.pet_id,
           title: r.title,
@@ -326,10 +394,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           done: r.done,
           source: r.source,
         })),
-        bookedVet: (bookedVets ?? []).length > 0,
-        bookedVetIds: (bookedVets ?? []).map((b) => b.vet_id),
-        seenWelcome: household.seen_welcome,
-        units: household.units,
+        bookedVet: bookedVets.length > 0,
+        bookedVetIds: bookedVets.map((b) => b.vet_id),
+        seenWelcome: h.seen_welcome,
+        units: h.units,
       });
       setHydrated(true);
     }
@@ -338,7 +406,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [supabase]);
+  }, [supabase, toast]);
 
   const hid = () => householdIdRef.current;
 
