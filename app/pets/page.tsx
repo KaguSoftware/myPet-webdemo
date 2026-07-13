@@ -6,7 +6,7 @@ import PixelPet, { PixelCosmetic } from "@/components/pixel/PixelPet";
 import Pet3D from "@/components/pixel/Pet3D";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
-import { Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
+import { AccentButton, Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
 import { COSMETICS, Cosmetic, CosmeticSlot, Pet, cosmetic, formatAge } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
@@ -67,18 +67,92 @@ function ItemCard({
 }
 
 export default function PetsPage() {
-  const { state, buyCosmetic, toggleEquip, toast } = useStore();
+  const { state, hydrated, buyCosmetic, toggleEquip, addPet, toast } = useStore();
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
   const [openSheet, setOpenSheet] = useState<CosmeticSlot | "other" | null>(null);
   const [threeD, setThreeD] = useState(false);
+  const [addPetOpen, setAddPetOpen] = useState(false);
+  const [petName, setPetName] = useState("");
+  const [species, setSpecies] = useState<"cat" | "dog">("cat");
+  const [breed, setBreed] = useState("British Shorthair");
 
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
   const mainMeta = MAIN_SLOTS.find((s) => s.slot === openSheet);
 
+  const addPetSheet = (
+    <Sheet open={addPetOpen} onClose={() => setAddPetOpen(false)}>
+      <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">Add a pet</h2>
+
+      <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Name</p>
+      <input
+        value={petName}
+        onChange={(e) => setPetName(e.target.value)}
+        placeholder="e.g. Mochi"
+        className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60"
+      />
+
+      <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Species</p>
+      <div className="flex gap-2">
+        {(
+          [
+            { s: "cat" as const, label: "Cat", defaultBreed: "British Shorthair" },
+            { s: "dog" as const, label: "Dog", defaultBreed: "Golden Retriever" },
+          ]
+        ).map((o) => (
+          <button
+            key={o.s}
+            onClick={() => {
+              setSpecies(o.s);
+              setBreed(o.defaultBreed);
+            }}
+            className={`rounded-full px-5 py-2 text-[14px] font-semibold transition-all ${
+              species === o.s ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Breed</p>
+      <input
+        value={breed}
+        onChange={(e) => setBreed(e.target.value)}
+        className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+      />
+
+      <div className="mt-7">
+        <AccentButton
+          disabled={!petName.trim() || !hydrated}
+          onClick={() => {
+            addPet(petName.trim(), species, breed.trim() || (species === "cat" ? "House cat" : "Mixed breed"));
+            setAddPetOpen(false);
+            setPetName("");
+          }}
+        >
+          {hydrated ? "Add to family" : "Loading…"}
+        </AccentButton>
+      </div>
+    </Sheet>
+  );
+
   if (!pet) {
     return (
       <div className="px-4">
-        <Header title="Pets" subtitle="Style your companion" trailing={<CoinPill amount={state.coins} />} />
+        <Header
+          title="Pets"
+          subtitle="Style your companion"
+          trailing={
+            <button
+              onClick={() => setAddPetOpen(true)}
+              className="glass-strong flex h-9 items-center gap-1 rounded-full pl-2.5 pr-3.5 text-[13px] font-semibold text-label-2 transition-transform active:scale-90"
+            >
+              <Icon name="plus" size={16} strokeWidth={2.4} />
+              Add pet
+            </button>
+          }
+        />
+        {addPetSheet}
       </div>
     );
   }
@@ -95,7 +169,22 @@ export default function PetsPage() {
 
   return (
     <div className="px-4">
-      <Header title="Pets" subtitle="Style your companion" trailing={<CoinPill amount={state.coins} />} />
+      <Header
+        title="Pets"
+        subtitle="Style your companion"
+        trailing={
+          <span className="flex items-center gap-2">
+            <button
+              onClick={() => setAddPetOpen(true)}
+              className="glass-strong flex h-9 items-center gap-1 rounded-full pl-2.5 pr-3.5 text-[13px] font-semibold text-label-2 transition-transform active:scale-90"
+            >
+              <Icon name="plus" size={16} strokeWidth={2.4} />
+              Add pet
+            </button>
+            <CoinPill amount={state.coins} />
+          </span>
+        }
+      />
 
       {state.pets.length > 1 && (
         <div className="mb-4">
@@ -230,6 +319,8 @@ export default function PetsPage() {
           )
         )}
       </Sheet>
+
+      {addPetSheet}
     </div>
   );
 }

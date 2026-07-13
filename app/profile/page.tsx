@@ -19,7 +19,6 @@ export default function ProfilePage() {
     hydrated,
     switchMember,
     setPremium,
-    addPet,
     editPet,
     deletePet,
     addMember,
@@ -29,10 +28,6 @@ export default function ProfilePage() {
     toast,
   } = useStore();
   const [paywallOpen, setPaywallOpen] = useState(false);
-  const [addPetOpen, setAddPetOpen] = useState(false);
-  const [petName, setPetName] = useState("");
-  const [species, setSpecies] = useState<"cat" | "dog">("cat");
-  const [breed, setBreed] = useState("British Shorthair");
 
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [editPetName, setEditPetName] = useState("");
@@ -174,15 +169,7 @@ export default function ProfilePage() {
       <p className="mt-1.5 px-1 text-[12px] text-label-3">Tap a member to view the demo as them, or Edit to manage them.</p>
 
       {/* Pets */}
-      <SectionHeader
-        trailing={
-          <button onClick={() => setAddPetOpen(true)} className="text-[13px] font-semibold text-accent">
-            Add pet
-          </button>
-        }
-      >
-        Pets
-      </SectionHeader>
+      <SectionHeader>Pets</SectionHeader>
       <Group>
         {state.pets.map((p) => (
           <Row
@@ -228,61 +215,6 @@ export default function ProfilePage() {
       </Group>
 
       <Paywall open={paywallOpen} onClose={() => setPaywallOpen(false)} />
-
-      <Sheet open={addPetOpen} onClose={() => setAddPetOpen(false)}>
-        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">Add a pet</h2>
-
-        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Name</p>
-        <input
-          value={petName}
-          onChange={(e) => setPetName(e.target.value)}
-          placeholder="e.g. Mochi"
-          className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60"
-        />
-
-        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Species</p>
-        <div className="flex gap-2">
-          {(
-            [
-              { s: "cat" as const, label: "Cat", defaultBreed: "British Shorthair" },
-              { s: "dog" as const, label: "Dog", defaultBreed: "Golden Retriever" },
-            ]
-          ).map((o) => (
-            <button
-              key={o.s}
-              onClick={() => {
-                setSpecies(o.s);
-                setBreed(o.defaultBreed);
-              }}
-              className={`rounded-full px-5 py-2 text-[14px] font-semibold transition-all ${
-                species === o.s ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-
-        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Breed</p>
-        <input
-          value={breed}
-          onChange={(e) => setBreed(e.target.value)}
-          className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
-        />
-
-        <div className="mt-7">
-          <AccentButton
-            disabled={!petName.trim() || !hydrated}
-            onClick={() => {
-              addPet(petName.trim(), species, breed.trim() || (species === "cat" ? "House cat" : "Mixed breed"));
-              setAddPetOpen(false);
-              setPetName("");
-            }}
-          >
-            {hydrated ? "Add to family" : "Loading…"}
-          </AccentButton>
-        </div>
-      </Sheet>
 
       <Sheet open={editingPet !== null} onClose={() => setEditingPet(null)}>
         {editingPet && (

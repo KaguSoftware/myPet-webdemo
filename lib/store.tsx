@@ -292,9 +292,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [dismissToast]
   );
 
-  // Load the signed-in user's household from Supabase on mount.
+  // Load the signed-in user's household from Supabase, and reload whenever
+  // auth state changes. StoreProvider lives in the root layout and stays
+  // mounted across the client-side nav from /login to /, so a mount-only
+  // effect would only ever see the pre-login (signed-out) session — the
+  // onAuthStateChange subscription is what picks up a login that happens
+  // without a full page reload.
   useEffect(() => {
     let cancelled = false;
+    let lastLoadedUserId: string | null = null;
 
     async function load() {
       // getSession() reads the already-verified local session instead of
@@ -304,10 +310,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         data: { session },
       } = await supabase.auth.getSession();
       const user = session?.user ?? null;
-      if (!user || cancelled) {
-        setHydrated(true);
+      if (!user) {
+        lastLoadedUserId = null;
+        if (!cancelled) {
+          setUserEmail(null);
+          setState(EMPTY_STATE);
+          setHydrated(true);
+        }
         return;
       }
+      if (user.id === lastLoadedUserId) return;
+      lastLoadedUserId = user.id;
+      if (cancelled) return;
       setUserEmail(user.email ?? null);
 
       // Single nested query for household + members/pets/weights/supplies/
@@ -377,6 +391,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
 
       if (cancelled) return;
+      const mappedMembers = members.map((m) => ({
+        id: m.id,
+        name: m.name,
+        emoji: m.emoji,
+        role: m.role,
+        gradient: [m.gradient_from, m.gradient_to] as [string, string],
+      }));
       setState({
         currentMemberId: h.current_member_id ?? members[0]?.id ?? "",
         premium: h.premium,
@@ -384,13 +405,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         xp: h.xp,
         streak: h.streak,
         pets,
-        members: members.map((m) => ({
-          id: m.id,
-          name: m.name,
-          emoji: m.emoji,
-          role: m.role,
-          gradient: [m.gradient_from, m.gradient_to],
-        })),
+        members: mappedMembers,
         activities: activities.map((a) => ({
           id: a.id,
           petId: a.pet_id,
@@ -414,11 +429,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         units: h.units,
       });
       setHydrated(true);
+
+      // Catch the user up on anything the family logged while they were away.
+      const RECENT_WINDOW = 16 * 60 * 60 * 1000;
+      const cutoff = Date.now() - RECENT_WINDOW;
+      const recent = activities
+        .filter((a) => Number(a.ts) >= cutoff)
+        .sort((x, y) => Number(x.ts) - Number(y.ts));
+      recent.forEach((a, i) => {
+        const pet = pets.find((p) => p.id === a.pet_id);
+        const member = mappedMembers.find((m) => m.id === a.member_id);
+        if (!pet || !member) return;
+        const action = ACTIONS[a.type];
+        const time = new Date(Number(a.ts)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setTimeout(() => {
+          toast(action.emoji, `${member.name} ${action.verb} ${pet.name}`, `${time} · ${timeAgo(Number(a.ts))}`);
+        }, i * 1400);
+      });
     }
 
     load();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      load();
+    });
     return () => {
       cancelled = true;
+      subscription.unsubscribe();
     };
   }, [supabase, toast]);
 
