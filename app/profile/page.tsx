@@ -12,7 +12,7 @@ import LevelStagesSheet from "@/components/LevelStagesSheet";
 import StreakCalendarSheet from "@/components/StreakCalendarSheet";
 import { Icon } from "@/components/Icons";
 import { AccentButton, Chevron, ConfirmRow, Group, Row, SectionHeader } from "@/components/ui";
-import { Member, Pet, formatAge, formatWeight, isAdminRole } from "@/lib/data";
+import { Member, Pet, formatAge, formatWeight, isAdminRole, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
 import { level, useStore } from "@/lib/store";
 
 export default function ProfilePage() {
@@ -61,7 +61,7 @@ export default function ProfilePage() {
     setEditPetName(p.name);
     setEditPetBreed(p.breed);
     setEditPetAge(String(p.ageYears));
-    setEditPetWeight(String(p.weightKg));
+    setEditPetWeight(String(kgToUnit(p.weightKg, state.units)));
   };
 
   const [addMemberOpen, setAddMemberOpen] = useState(false);
@@ -329,7 +329,7 @@ export default function ProfilePage() {
                 />
               </div>
               <div className="flex-1">
-                <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Weight (kg)</p>
+                <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Weight ({weightUnitLabel(state.units)})</p>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -348,7 +348,7 @@ export default function ProfilePage() {
                     name: editPetName.trim(),
                     breed: editPetBreed.trim(),
                     ageYears: Number(editPetAge) || editingPet.ageYears,
-                    weightKg: Number(editPetWeight) || editingPet.weightKg,
+                    weightKg: unitToKg(Number(editPetWeight) || kgToUnit(editingPet.weightKg, state.units), state.units),
                     cupGrams: editingPet.cupGrams,
                   });
                   toast("🐾", `${editPetName.trim()} updated`, "");

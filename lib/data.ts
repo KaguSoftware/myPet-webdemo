@@ -391,8 +391,26 @@ export function dailyGramTarget(pet: Pet): number | undefined {
   return meals != null ? meals * pet.cupGrams : undefined;
 }
 
+/** Pounds per kilogram — shared by every weight display/input conversion. */
+export const LB_PER_KG = 2.20462;
+
+/** The unit suffix shown in editor labels, e.g. "Weight (kg)" vs "Weight (lb)". */
+export function weightUnitLabel(units: "kg" | "lb"): string {
+  return units;
+}
+
+/** Convert a stored kg value into the user's display unit (lb rounded to 1 dp). */
+export function kgToUnit(kg: number, units: "kg" | "lb"): number {
+  return units === "lb" ? Math.round(kg * LB_PER_KG * 10) / 10 : kg;
+}
+
+/** Convert a value the user typed in their display unit back into stored kg. */
+export function unitToKg(value: number, units: "kg" | "lb"): number {
+  return units === "lb" ? value / LB_PER_KG : value;
+}
+
 export function formatWeight(kg: number, units: "kg" | "lb"): string {
-  if (units === "lb") return `${(kg * 2.20462).toFixed(1)} lb`;
+  if (units === "lb") return `${(kg * LB_PER_KG).toFixed(1)} lb`;
   return `${kg % 1 === 0 ? kg : kg.toFixed(1)} kg`;
 }
 

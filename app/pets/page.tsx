@@ -11,7 +11,7 @@ import EditStatSheet from "@/components/EditStatSheet";
 import Meds from "@/components/Meds";
 import { Icon } from "@/components/Icons";
 import { AccentButton, Chevron, Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
-import { COSMETICS, Cosmetic, CosmeticSlot, Pet, cosmetic, formatAge, formatWeight } from "@/lib/data";
+import { COSMETICS, Cosmetic, CosmeticSlot, Pet, cosmetic, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
 /* One main slot gets a floating + button on the avatar's head; the rest live in "Other accessories" */
@@ -266,27 +266,28 @@ function PetsPageContent() {
                   <PixelPet pet={pet} size={168} idle />
                 </div>
                 <span className="absolute bottom-1 left-1/2 h-3 w-24 -translate-x-1/2 rounded-[50%] bg-[oklch(0.35_0.05_288/0.18)] blur-[3px]" />
-
-                {/* Head slot button — see-through glass "+", shows pixel hat when equipped */}
-                {MAIN_SLOTS.map((s) => {
-                  const equippedId = pet.equipped[s.slot];
-                  return (
-                    <button
-                      key={s.slot}
-                      onClick={() => setOpenSheet(s.slot)}
-                      aria-label={`${s.label}: ${equippedId ? cosmetic(equippedId)?.name : "empty — tap to add"}`}
-                      className={`glass-strong absolute z-10 flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-150 active:scale-90 ${s.pos}`}
-                    >
-                      {equippedId ? (
-                        <PixelCosmetic id={equippedId} size={24} />
-                      ) : (
-                        <Icon name="plus" size={19} strokeWidth={2.2} className="text-label-2" />
-                      )}
-                    </button>
-                  );
-                })}
               </>
             )}
+
+            {/* Head slot button — see-through glass "+", shows the pixel hat when
+                equipped. Kept visible in 3D too so hat editing stays reachable. */}
+            {MAIN_SLOTS.map((s) => {
+              const equippedId = pet.equipped[s.slot];
+              return (
+                <button
+                  key={s.slot}
+                  onClick={() => setOpenSheet(s.slot)}
+                  aria-label={`${s.label}: ${equippedId ? cosmetic(equippedId)?.name : "empty — tap to add"}`}
+                  className={`glass-strong absolute z-10 flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-150 active:scale-90 ${s.pos}`}
+                >
+                  {equippedId ? (
+                    <PixelCosmetic id={equippedId} size={24} />
+                  ) : (
+                    <Icon name="plus" size={19} strokeWidth={2.2} className="text-label-2" />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {threeD && (
@@ -396,9 +397,10 @@ function PetsPageContent() {
         open={editingStat === "weight"}
         onClose={() => setEditingStat(null)}
         title={`${pet.name}'s weight`}
-        label="Weight (kg)"
-        initialValue={pet.weightKg}
-        onSave={(kg) => {
+        label={`Weight (${weightUnitLabel(state.units)})`}
+        initialValue={kgToUnit(pet.weightKg, state.units)}
+        onSave={(v) => {
+          const kg = unitToKg(v, state.units);
           addWeight(pet.id, kg);
           toast("⚖️", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
         }}

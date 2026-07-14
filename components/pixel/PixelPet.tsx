@@ -3,7 +3,17 @@
 import { Pet, cosmetic } from "@/lib/data";
 import PixelSprite from "./PixelSprite";
 import { CAT_FUR, CAT_SPRITE, DOG_FUR, DOG_SPRITE, furSprite } from "./petSprites";
-import { COSMETIC_SPRITES } from "./cosmeticSprites";
+import { COSMETIC_SPRITES, type CosmeticSprite } from "./cosmeticSprites";
+
+/**
+ * The pet's currently-equipped cosmetics that have a pixel sprite, in slot order.
+ * Shared by PixelPet (2D badge) and Pet3D so both place cosmetics from one source.
+ */
+export function equippedCosmetics(pet: Pet): { id: string; cos: CosmeticSprite }[] {
+  return Object.values(pet.equipped)
+    .map((id) => (id ? { id, cos: COSMETIC_SPRITES[id] } : null))
+    .filter((x): x is { id: string; cos: CosmeticSprite } => !!x && !!x.cos);
+}
 
 /**
  * Renders a pet as a pixel-art sprite with equipped cosmetics layered on top,
@@ -24,11 +34,7 @@ export default function PixelPet({
   const fur = pet.species === "cat" ? CAT_FUR : DOG_FUR;
   const sprite = furSprite(base, fur.body, fur.shade);
 
-  const equipped = showCosmetics
-    ? Object.values(pet.equipped)
-        .map((id) => (id ? { id, cos: COSMETIC_SPRITES[id] } : null))
-        .filter((x): x is { id: string; cos: (typeof COSMETIC_SPRITES)[string] } => !!x && !!x.cos)
-    : [];
+  const equipped = showCosmetics ? equippedCosmetics(pet) : [];
 
   return (
     <div

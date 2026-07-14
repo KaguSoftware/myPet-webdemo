@@ -26,10 +26,14 @@ export default function PetAvatar({
 
   return (
     <div className="relative shrink-0 select-none" style={{ width: s.px, height: s.px }} aria-label={`${pet.name} the ${pet.breed}`}>
+      {/* Background disc — the gradient bubble the pet sits in */}
       <div
-        className="flex h-full w-full items-center justify-center overflow-hidden rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),inset_0_-2px_6px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.1)]"
+        className="absolute inset-0 rounded-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),inset_0_-2px_6px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.1)]"
         style={{ background: `linear-gradient(150deg, ${pet.gradient[0]}, ${pet.gradient[1]})` }}
-      >
+      />
+      {/* Unclipped pet layer — hats spill above the disc (and capes below), so the
+          badge matches the full-size dress-up stage instead of slicing hats off. */}
+      <div className="absolute inset-0 flex items-center justify-center">
         <PixelPet pet={pet} size={s.sprite} idle={idle} showCosmetics={showCosmetics} />
       </div>
     </div>

@@ -8,7 +8,7 @@ import PixelChart from "@/components/pixel/PixelChart";
 import EditStatSheet from "@/components/EditStatSheet";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { AccentButton, Chip, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
-import { ACTIONS, CARE_PLANS, WEIGHT_TARGETS, formatAge, formatWeight } from "@/lib/data";
+import { ACTIONS, CARE_PLANS, WEIGHT_TARGETS, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
 import { timeAgo, useStore } from "@/lib/store";
 
 export default function PetDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -170,9 +170,10 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
         open={editing === "weight"}
         onClose={() => setEditing(null)}
         title={`${pet.name}'s weight`}
-        label="Weight (kg)"
-        initialValue={pet.weightKg}
-        onSave={(kg) => {
+        label={`Weight (${weightUnitLabel(state.units)})`}
+        initialValue={kgToUnit(pet.weightKg, state.units)}
+        onSave={(v) => {
+          const kg = unitToKg(v, state.units);
           addWeight(pet.id, kg);
           toast("⚖️", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
         }}

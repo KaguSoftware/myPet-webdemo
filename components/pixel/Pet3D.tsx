@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pet } from "@/lib/data";
 import PixelSprite from "./PixelSprite";
+import { equippedCosmetics } from "./PixelPet";
 import { CAT_BODY_SPRITE, DOG_BODY_SPRITE } from "./petBodySprites";
 import { CAT_FUR, DOG_FUR, furSprite } from "./petSprites";
 
@@ -66,6 +67,19 @@ export default function Pet3D({ pet, size }: { pet: Pet; size: number }) {
     holdTimer.current = window.setTimeout(() => setRot({ x: 0, y: 0 }), HOLD_MS);
   };
 
+  // The body sprite (16×24) renders at `W` wide; its top 16 rows form a W×W
+  // "face box" at the sprite's top-left. Cosmetics are authored against a 16px
+  // face grid, so re-anchoring their `place` fractions to that box lands hats on
+  // the ears, glasses on the eyes, collars at the neck and outfits on the chest.
+  const W = size * 0.55;
+  const boxLeft = (size - W) / 2;
+  const boxTop = (size - W * 1.5) / 2;
+  const bodySprite =
+    pet.species === "cat"
+      ? furSprite(CAT_BODY_SPRITE, CAT_FUR.body, CAT_FUR.shade)
+      : furSprite(DOG_BODY_SPRITE, DOG_FUR.body, DOG_FUR.shade);
+  const cosmetics = equippedCosmetics(pet);
+
   return (
     <div
       className="relative touch-none select-none"
@@ -94,11 +108,20 @@ export default function Pet3D({ pet, size }: { pet: Pet; size: number }) {
           className="absolute inset-[12%] rounded-2xl bg-[oklch(0.4_0.05_288/0.25)]"
           style={{ transform: "translateZ(-14px)" }}
         />
-        {pet.species === "cat" ? (
-          <PixelSprite sprite={furSprite(CAT_BODY_SPRITE, CAT_FUR.body, CAT_FUR.shade)} size={size * 0.55} className="pixelated" />
-        ) : (
-          <PixelSprite sprite={furSprite(DOG_BODY_SPRITE, DOG_FUR.body, DOG_FUR.shade)} size={size * 0.55} className="pixelated" />
-        )}
+        <PixelSprite sprite={bodySprite} size={W} className="pixelated" />
+        {cosmetics.map(({ id, cos }) => (
+          <PixelSprite
+            key={id}
+            sprite={cos.sprite}
+            size={W * cos.place.widthFrac}
+            className="pixelated"
+            style={{
+              position: "absolute",
+              left: boxLeft + W * cos.place.left,
+              top: boxTop + W * cos.place.top,
+            }}
+          />
+        ))}
       </div>
     </div>
   );

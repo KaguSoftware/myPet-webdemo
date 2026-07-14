@@ -12,7 +12,7 @@ import PixelSprite from "@/components/pixel/PixelSprite";
 import { SMILEY_SPRITE, WARNING_SPRITE } from "@/components/pixel/hudSprites";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { AccentButton, Chevron, Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
-import { ACTIONS, ActionType, CARE_PLANS, PORTIONS, VET, VETS, formatAge, formatWeight } from "@/lib/data";
+import { ACTIONS, ActionType, CARE_PLANS, PORTIONS, VET, VETS, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
 import { ALERT_VERB, dueLabel, level, levelProgress, levelStepXp, useStore } from "@/lib/store";
 
 const CAT_ACTIONS: ActionType[] = ["fed", "water", "litter", "groomed", "meds", "vet"];
@@ -512,9 +512,10 @@ export default function Home() {
         open={editingStat === "weight"}
         onClose={() => setEditingStat(null)}
         title={`${pet.name}'s weight`}
-        label="Weight (kg)"
-        initialValue={pet.weightKg}
-        onSave={(kg) => {
+        label={`Weight (${weightUnitLabel(state.units)})`}
+        initialValue={kgToUnit(pet.weightKg, state.units)}
+        onSave={(v) => {
+          const kg = unitToKg(v, state.units);
           addWeight(pet.id, kg);
           toast("⚖️", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
         }}
