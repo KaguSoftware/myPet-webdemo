@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
+import PageLoading from "@/components/PageLoading";
 import PixelPet, { PixelCosmetic } from "@/components/pixel/PixelPet";
 import Pet3D from "@/components/pixel/Pet3D";
 import Sheet from "@/components/Sheet";
@@ -94,6 +95,8 @@ function PetsPageContent() {
 
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
   const mainMeta = MAIN_SLOTS.find((s) => s.slot === openSheet);
+
+  if (!hydrated) return <PageLoading title="Pets" subtitle="Style your companion" />;
 
   const addPetSheet = (
     <Sheet open={addPetOpen} onClose={() => setAddPetOpen(false)}>

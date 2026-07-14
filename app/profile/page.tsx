@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
+import PageLoading from "@/components/PageLoading";
 import Paywall from "@/components/Paywall";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
@@ -76,6 +77,8 @@ export default function ProfilePage() {
     setEditMemberName(m.name);
     setEditMemberRole(m.role);
   };
+
+  if (!hydrated) return <PageLoading title="Family" />;
 
   return (
     <div className="px-4">

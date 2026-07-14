@@ -64,8 +64,13 @@ export interface Member {
 // Family ID + password section on the Family tab. Every other role is
 // free-text and purely cosmetic.
 export const ADMIN_ROLE = "Admin";
+// Roles that grant admin access (Family ID + password). The signup DB trigger
+// seeds the account owner as "Owner" while the client-side bootstrap uses
+// "Admin", so both must count as admin — otherwise a real signup can't manage
+// its own Family ID.
+const ADMIN_ROLES = new Set(["admin", "owner"]);
 export function isAdminRole(role: string): boolean {
-  return role.trim().toLowerCase() === ADMIN_ROLE.toLowerCase();
+  return ADMIN_ROLES.has(role.trim().toLowerCase());
 }
 
 export interface Activity {
@@ -256,13 +261,13 @@ const D = 24 * H;
 
 const W = 7 * D;
 const catWeights: WeightPoint[] = [
-  { ts: now - 24 * W, kg: 120 },
-  { ts: now - 20 * W, kg: 140 },
-  { ts: now - 16 * W, kg: 158 },
-  { ts: now - 12 * W, kg: 172 },
-  { ts: now - 8 * W, kg: 185 },
-  { ts: now - 4 * W, kg: 194 },
-  { ts: now, kg: 200 },
+  { ts: now - 24 * W, kg: 2.8 },
+  { ts: now - 20 * W, kg: 3.4 },
+  { ts: now - 16 * W, kg: 3.9 },
+  { ts: now - 12 * W, kg: 4.3 },
+  { ts: now - 8 * W, kg: 4.6 },
+  { ts: now - 4 * W, kg: 4.9 },
+  { ts: now, kg: 5.1 },
 ];
 const dogWeights: WeightPoint[] = [
   { ts: now - 24 * W, kg: 24.0 },
@@ -301,7 +306,7 @@ export const SEED: AppState = {
       sex: "male",
       emoji: "🐱",
       ageYears: 10 / 12,
-      weightKg: 200,
+      weightKg: 5.1,
       owned: ["bowtie", "glasses"],
       equipped: { neck: "bowtie" },
       gradient: ["oklch(0.72 0.008 260)", "oklch(0.5 0.01 260)"],

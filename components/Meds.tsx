@@ -46,10 +46,7 @@ export default function Meds({ pet }: { pet: Pet }) {
               subtitle={[m.dosage, m.frequency].filter(Boolean).join(" · ") || undefined}
               trailing={
                 <button
-                  onClick={() => {
-                    deleteMed(pet.id, m.id);
-                    toast("💊", `${m.name} removed`, `${pet.name}'s meds list`);
-                  }}
+                  onClick={() => deleteMed(pet.id, m.id)}
                   aria-label={`Delete ${m.name}`}
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-label-3 transition-colors active:bg-fill active:text-red"
                 >

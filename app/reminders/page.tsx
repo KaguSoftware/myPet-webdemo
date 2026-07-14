@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Header from "@/components/Header";
+import PageLoading from "@/components/PageLoading";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
 import { AccentButton, Group, IconCircle, SectionHeader } from "@/components/ui";
@@ -9,12 +10,18 @@ import { VET, VETS } from "@/lib/data";
 import { dueLabel, useStore } from "@/lib/store";
 
 export default function RemindersPage() {
-  const { state, addReminder, toggleReminder, deleteReminder, bookVetById, toast } = useStore();
+  const { state, hydrated, addReminder, toggleReminder, deleteReminder, bookVetById, toast } = useStore();
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
-  const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
+  const [petId, setPetId] = useState("");
   const [days, setDays] = useState(1);
 
+  if (!hydrated) return <PageLoading title="Reminders" />;
+
+  // Default to the first pet until the user explicitly picks one — the raw
+  // useState initializer ran while the store was still empty, so petId can't
+  // seed itself from state.pets.
+  const activePetId = petId || state.pets[0]?.id || "";
   const upcoming = state.reminders.filter((r) => !r.done).sort((a, b) => a.due - b.due);
   const done = state.reminders.filter((r) => r.done);
   const petOf = (id: string) => state.pets.find((p) => p.id === id);
@@ -143,7 +150,7 @@ export default function RemindersPage() {
               key={p.id}
               onClick={() => setPetId(p.id)}
               className={`rounded-full px-4 py-2 text-[14px] font-semibold transition-all ${
-                petId === p.id ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
+                activePetId === p.id ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
               }`}
             >
               {p.name}
@@ -173,9 +180,9 @@ export default function RemindersPage() {
 
         <div className="mt-7">
           <AccentButton
-            disabled={!title.trim() || !petId}
+            disabled={!title.trim() || !activePetId}
             onClick={() => {
-              addReminder({ petId, title: title.trim(), emoji: "📝", due: Date.now() + days * 86_400_000 });
+              addReminder({ petId: activePetId, title: title.trim(), emoji: "📝", due: Date.now() + days * 86_400_000 });
               setAddOpen(false);
               setTitle("");
               toast("⏰", "Reminder added", "Visible to the whole family");

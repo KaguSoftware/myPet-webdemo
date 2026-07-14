@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Header from "@/components/Header";
+import PageLoading from "@/components/PageLoading";
 import Paywall from "@/components/Paywall";
 import { ACTION_ICON, Icon, IconName } from "@/components/Icons";
 import { AccentButton, Group, IconCircle, Row, SectionHeader, Segmented } from "@/components/ui";
@@ -16,9 +17,11 @@ const GENERIC_ICON: Record<string, IconName> = {
 };
 
 export default function PlanPage() {
-  const { state } = useStore();
+  const { state, hydrated } = useStore();
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
   const [paywallOpen, setPaywallOpen] = useState(false);
+
+  if (!hydrated) return <PageLoading title="Care Plan" />;
 
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
   if (!pet) {

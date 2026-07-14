@@ -17,22 +17,31 @@ export default function Toasts() {
         </button>
       )}
       {toasts.map((t) => (
-        <button
+        <div
           key={t.id}
-          onClick={() => dismissToast(t.id)}
           className="glass-strong pointer-events-auto flex w-full items-center gap-3 rounded-[1.4rem] px-3.5 py-3 text-left animate-toast-in"
         >
-          <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-linear-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.5_0.19_262)] text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)]">
-            <Icon name="paw" size={20} />
+          <span
+            aria-hidden
+            className="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-[10px] bg-linear-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.5_0.19_262)] text-[20px] leading-none shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)]">
+            {t.emoji}
           </span>
-          <span className="min-w-0 flex-1">
+          <button onClick={() => dismissToast(t.id)} className="min-w-0 flex-1 text-left">
             <span className="flex items-baseline justify-between gap-2">
               <span className="truncate text-[14px] font-semibold text-label">{t.title}</span>
-              <span className="shrink-0 text-[11px] font-medium text-label-3">now</span>
+              {!t.action && <span className="shrink-0 text-[11px] font-medium text-label-3">now</span>}
             </span>
             {t.body && <span className="block truncate text-[13px] text-label-2">{t.body}</span>}
-          </span>
-        </button>
+          </button>
+          {t.action && (
+            <button
+              onClick={t.action.onClick}
+              className="shrink-0 rounded-full bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-white transition-transform active:scale-95"
+            >
+              {t.action.label}
+            </button>
+          )}
+        </div>
       ))}
     </div>
   );

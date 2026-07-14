@@ -102,10 +102,12 @@ export default function Home() {
 
   const confirmFeed = () => {
     const frac = PORTIONS.find((p) => p.value === feedFraction)?.frac ?? 1;
-    logAction(pet.id, "fed", frac * pet.cupGrams);
+    const logged = logAction(pet.id, "fed", frac * pet.cupGrams);
     setFeedPortionOpen(false);
-    setJustLogged("fed");
-    setTimeout(() => setJustLogged(null), 700);
+    if (logged) {
+      setJustLogged("fed");
+      setTimeout(() => setJustLogged(null), 700);
+    }
   };
 
   const confirmTreat = () => {
@@ -276,9 +278,10 @@ export default function Home() {
                   setFeedPortionOpen(true);
                   return;
                 }
-                logAction(pet.id, type);
-                setJustLogged(type);
-                setTimeout(() => setJustLogged(null), 700);
+                if (logAction(pet.id, type)) {
+                  setJustLogged(type);
+                  setTimeout(() => setJustLogged(null), 700);
+                }
               }}
               className="relative flex flex-col items-start gap-2.5 rounded-card bg-card p-3.5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform duration-150 active:scale-[0.96]"
             >
@@ -402,9 +405,10 @@ export default function Home() {
                               setFeedPortionOpen(true);
                               return;
                             }
-                            logAction(pet.id, item.action!);
-                            setJustLogged(item.action!);
-                            setTimeout(() => setJustLogged(null), 700);
+                            if (logAction(pet.id, item.action!)) {
+                              setJustLogged(item.action!);
+                              setTimeout(() => setJustLogged(null), 700);
+                            }
                           }
                     }
                     leading={

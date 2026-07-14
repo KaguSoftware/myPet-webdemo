@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import EmptyState from "@/components/EmptyState";
 import Header from "@/components/Header";
+import PageLoading from "@/components/PageLoading";
 import Paywall from "@/components/Paywall";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
@@ -25,9 +26,11 @@ function dayKey(ts: number) {
 }
 
 export default function ActivityPage() {
-  const { state, bookVet, toast } = useStore();
+  const { state, hydrated, bookVetById, toast } = useStore();
   const [bookOpen, setBookOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+
+  if (!hydrated) return <PageLoading title="Activity" subtitle="The family feed" />;
 
   const sorted = [...state.activities].sort((a, b) => b.ts - a.ts).slice(0, 40);
   const groups: { day: string; items: Activity[] }[] = [];
@@ -168,7 +171,7 @@ export default function ActivityPage() {
         <div className="mt-6">
           <AccentButton
             onClick={() => {
-              bookVet();
+              bookVetById(VET.id);
               setBookOpen(false);
               toast("📅", "Appointment requested", `${VET.name} will confirm shortly`);
             }}
