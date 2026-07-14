@@ -374,9 +374,6 @@ export function Icon({
 }: {
   name: IconName;
   size?: number;
-  /** kept for API compatibility with the old stroke icons; ignored by pixel icons */
-  strokeWidth?: number;
-  filled?: boolean;
   className?: string;
 }) {
   const rows = G[name];

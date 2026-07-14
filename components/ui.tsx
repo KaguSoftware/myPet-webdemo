@@ -132,7 +132,7 @@ export function ConfirmRow({
 }
 
 export function Chevron() {
-  return <Icon name="chevron-right" size={15} strokeWidth={2.4} className="text-label-3" />;
+  return <Icon name="chevron-right" size={15} className="text-label-3" />;
 }
 
 export function AccentButton({

@@ -54,7 +54,7 @@ function ItemCard({
             equipped ? "bg-green-soft text-green" : "bg-fill text-label"
           }`}
         >
-          {equipped && <Icon name="check" size={14} strokeWidth={2.6} />}
+          {equipped && <Icon name="check" size={14} />}
           {equipped ? "Wearing" : "Put on"}
         </button>
       ) : (
@@ -63,7 +63,7 @@ function ItemCard({
           onClick={onBuy}
           className="mt-2.5 flex h-8.5 items-center justify-center gap-1 rounded-full bg-accent-soft text-[13px] font-semibold text-accent transition-all active:scale-95 disabled:bg-fill disabled:text-label-3"
         >
-          <Icon name="coin" size={13} strokeWidth={2.2} /> {c.price}
+          <Icon name="coin" size={13} /> {c.price}
         </button>
       )}
     </div>
@@ -171,7 +171,7 @@ function PetsPageContent() {
               onClick={() => setAddPetOpen(true)}
               className="glass-strong flex h-9 items-center gap-1 rounded-full pl-2.5 pr-3.5 text-[13px] font-semibold text-label-2 transition-transform active:scale-90"
             >
-              <Icon name="plus" size={16} strokeWidth={2.4} />
+              <Icon name="plus" size={16} />
               Add pet
             </button>
           }
@@ -205,7 +205,7 @@ function PetsPageContent() {
               onClick={() => setAddPetOpen(true)}
               className="glass-strong flex h-9 items-center gap-1 rounded-full pl-2.5 pr-3.5 text-[13px] font-semibold text-label-2 transition-transform active:scale-90"
             >
-              <Icon name="plus" size={16} strokeWidth={2.4} />
+              <Icon name="plus" size={16} />
               Add pet
             </button>
             <CoinPill amount={state.coins} />
@@ -286,7 +286,7 @@ function PetsPageContent() {
                   {equippedId ? (
                     <PixelCosmetic id={equippedId} size={24} />
                   ) : (
-                    <Icon name="plus" size={19} strokeWidth={2.2} className="text-label-2" />
+                    <Icon name="plus" size={19} className="text-label-2" />
                   )}
                 </button>
               );

@@ -347,7 +347,7 @@ export default function Home() {
                 </span>
               )}
               <span className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-300 ${flash ? "bg-green text-white" : `${a.bg} ${a.tint}`}`}>
-                {flash ? <Icon name="check" size={18} strokeWidth={2.4} className="animate-pop" /> : <Icon name={a.icon} size={19} />}
+                {flash ? <Icon name="check" size={18} className="animate-pop" /> : <Icon name={a.icon} size={19} />}
               </span>
               <span className="flex items-center gap-1 text-[13px] font-semibold text-label">
                 {type === "meds" && pet.meds.length === 0 ? (
@@ -465,7 +465,7 @@ export default function Home() {
                     leading={
                       complete ? (
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green text-white">
-                          <Icon name="check" size={18} strokeWidth={2.4} />
+                          <Icon name="check" size={18} />
                         </span>
                       ) : (
                         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${ai.bg} ${ai.tint}`}>

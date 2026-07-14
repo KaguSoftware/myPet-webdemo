@@ -66,7 +66,7 @@ export default function ActivityPage() {
           </div>
           {state.bookedVet ? (
             <p className="mt-3 flex items-center gap-2 rounded-ios bg-green-soft px-3 py-2.5 text-[13px] font-semibold text-green">
-              <Icon name="check" size={15} strokeWidth={2.4} /> Appointment requested — the clinic will confirm shortly
+              <Icon name="check" size={15} /> Appointment requested — the clinic will confirm shortly
             </p>
           ) : (
             <AccentButton variant="tinted" className="mt-3 !h-[42px] !text-[15px]" onClick={() => setBookOpen(true)}>
@@ -89,7 +89,7 @@ export default function ActivityPage() {
               PetPal+ watches the calendar and flags upcoming vet visits and treatments.
             </span>
           </span>
-          <Icon name="chevron-right" size={15} strokeWidth={2.4} className="text-label-3" />
+          <Icon name="chevron-right" size={15} className="text-label-3" />
         </button>
       )}
 
@@ -152,7 +152,7 @@ export default function ActivityPage() {
             <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">{VET.name}</h2>
             <p className="text-[13px] font-medium text-label-2">{VET.clinic}</p>
             <p className="mt-0.5 flex items-center gap-1 text-[13px] font-medium text-label-2">
-              <Icon name="star" size={13} filled className="text-orange" /> {VET.rating} · {VET.distanceKm} km away
+              <Icon name="star" size={13} className="text-orange" /> {VET.rating} · {VET.distanceKm} km away
             </p>
           </div>
         </div>

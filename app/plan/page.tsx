@@ -60,7 +60,7 @@ export default function PlanPage() {
         {remindersRow}
         <div className="flex flex-1 flex-col items-center justify-center pb-24 text-center">
           <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-accent-soft text-accent">
-            <Icon name="lock" size={34} strokeWidth={1.6} />
+            <Icon name="lock" size={34} />
           </span>
           <h2 className="mt-5 text-[22px] font-bold tracking-[-0.01em] text-label">Your pet&apos;s complete guide</h2>
           <p className="mt-2 max-w-[300px] text-[14px] leading-relaxed text-label-2">
@@ -121,7 +121,7 @@ export default function PlanPage() {
                     leading={
                       complete ? (
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green text-white">
-                          <Icon name="check" size={18} strokeWidth={2.4} />
+                          <Icon name="check" size={18} />
                         </span>
                       ) : ai ? (
                         <IconCircle icon={ai.icon} tint={ai.tint} bg={ai.bg} />

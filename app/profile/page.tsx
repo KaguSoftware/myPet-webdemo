@@ -135,7 +135,7 @@ export default function ProfilePage() {
                 Vet-built plans · smart reminders · booking
               </span>
             </span>
-            <Icon name="chevron-right" size={16} strokeWidth={2.4} className="text-white/70" />
+            <Icon name="chevron-right" size={16} className="text-white/70" />
           </div>
         </button>
       )}
@@ -181,7 +181,7 @@ export default function ProfilePage() {
                 Edit
               </button>
               {active ? (
-                <Icon name="check" size={18} strokeWidth={2.4} className="text-accent" aria-hidden />
+                <Icon name="check" size={18} className="text-accent" aria-hidden />
               ) : (
                 <span className="text-[13px] font-medium text-label-3" aria-hidden>
                   Switch

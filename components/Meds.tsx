@@ -28,7 +28,7 @@ export default function Meds({ pet }: { pet: Pet }) {
             onClick={() => setAddOpen(true)}
             className="flex items-center gap-1 text-[13px] font-semibold text-accent"
           >
-            <Icon name="plus" size={14} strokeWidth={2.4} />
+            <Icon name="plus" size={14} />
             Add med
           </button>
         }
@@ -50,7 +50,7 @@ export default function Meds({ pet }: { pet: Pet }) {
                   aria-label={`Delete ${m.name}`}
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-label-3 transition-colors active:bg-fill active:text-red"
                 >
-                  <Icon name="xmark" size={15} strokeWidth={2.2} />
+                  <Icon name="xmark" size={15} />
                 </button>
               }
             />

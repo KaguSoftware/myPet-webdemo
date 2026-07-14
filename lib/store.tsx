@@ -505,10 +505,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (forMemberId: string, activitiesList: Activity[], petsList: Pet[], membersList: Member[]) => {
       const cutoff = Date.now() - 16 * 60 * 60 * 1000;
       const recent = activitiesList
-        .filter((a) => a.ts >= cutoff && a.memberId !== forMemberId && !notifiedActivityIdsRef.current.has(a.id))
+        .filter((a) => a.ts >= cutoff && a.memberId !== forMemberId && !notifiedActivityIdsRef.current.has(`${forMemberId}:${a.id}`))
         .sort((a, b) => a.ts - b.ts);
       recent.forEach((a, i) => {
-        notifiedActivityIdsRef.current.add(a.id);
+        notifiedActivityIdsRef.current.add(`${forMemberId}:${a.id}`);
         const pet = petsList.find((p) => p.id === a.petId);
         const member = membersList.find((m) => m.id === a.memberId);
         if (!pet || !member) return;
@@ -536,9 +536,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const notifiedWarningIdsRef = useRef<Set<string>>(new Set());
   const notifyCareWarnings = useCallback(
     (forMemberId: string, remindersList: Reminder[], petsList: Pet[]) => {
-      const active = remindersList.filter((r) => r.alert && !r.done && !notifiedWarningIdsRef.current.has(r.id));
+      const active = remindersList.filter((r) => r.alert && !r.done && !notifiedWarningIdsRef.current.has(`${forMemberId}:${r.id}`));
       if (active.length === 0) return;
-      active.forEach((r) => notifiedWarningIdsRef.current.add(r.id));
+      active.forEach((r) => notifiedWarningIdsRef.current.add(`${forMemberId}:${r.id}`));
       // Gate on the member being switched TO (passed in), not currentMember()
       // — stateRef.current.currentMemberId still lags a render behind on switch.
       const recipient = stateRef.current.members.find((m) => m.id === forMemberId);

@@ -1,7 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { supabaseEnvReady } from "./env";
 
 export async function updateSession(request: NextRequest) {
+  // Without Supabase keys the client can't be created — skip the auth wall so
+  // pages render the config screen instead of 500ing on every request.
+  if (!supabaseEnvReady) return NextResponse.next({ request });
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

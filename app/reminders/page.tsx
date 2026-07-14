@@ -50,7 +50,7 @@ export default function RemindersPage() {
               r.done ? "border-accent bg-accent text-white" : isAlert ? "border-red" : "border-[oklch(0.22_0.01_264/0.25)] bg-transparent"
             }`}
           >
-            {r.done && <Icon name="check" size={14} strokeWidth={2.6} />}
+            {r.done && <Icon name="check" size={14} />}
           </button>
           <div className="min-w-0 flex-1">
             <p className={`text-[16px] font-medium ${r.done ? "text-label-3 line-through" : isAlert ? "text-red" : "text-label"}`}>
@@ -66,7 +66,7 @@ export default function RemindersPage() {
             aria-label={`Delete ${r.title}`}
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-label-3 transition-colors active:bg-fill active:text-red"
           >
-            <Icon name="xmark" size={15} strokeWidth={2.2} />
+            <Icon name="xmark" size={15} />
           </button>
         </div>
         {alertVet && (
@@ -94,7 +94,7 @@ export default function RemindersPage() {
             aria-label="Add reminder"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white shadow-[0_3px_10px_oklch(0.55_0.19_258/0.35)] transition-transform active:scale-90"
           >
-            <Icon name="plus" size={19} strokeWidth={2.2} />
+            <Icon name="plus" size={19} />
           </button>
         }
       />
