@@ -278,7 +278,10 @@ function PetsPageContent() {
                   key={s.slot}
                   onClick={() => setOpenSheet(s.slot)}
                   aria-label={`${s.label}: ${equippedId ? cosmetic(equippedId)?.name : "empty — tap to add"}`}
-                  className={`glass-strong absolute z-10 flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-150 active:scale-90 ${s.pos}`}
+                  // In 3D the pet renders small and centered, so the top-center slot
+                  // would sit on top of its (now visible) hat — tuck it into the
+                  // top-left corner instead, mirroring the 3D toggle on the right.
+                  className={`glass-strong absolute z-10 flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-150 active:scale-90 ${threeD ? "left-3 top-3" : s.pos}`}
                 >
                   {equippedId ? (
                     <PixelCosmetic id={equippedId} size={24} />

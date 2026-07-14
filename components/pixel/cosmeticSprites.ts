@@ -46,8 +46,10 @@ export const COSMETIC_SPRITES: Record<string, CosmeticSprite> = {
   },
   santa: {
     place: { left: 0.26, top: -0.12, widthFrac: 0.48 },
+    // All rows must be equal length or PixelSprite (which reads row[0] for width)
+    // clips the wider brim — pad the hat body to the brim's 6-wide grid.
     sprite: P(
-      ["...WW", "RRRRW", "RRRRR", "WWWWWW"],
+      ["...WW.", "RRRRW.", "RRRRR.", "WWWWWW"],
       { R: "#d23b57", W: "#f4f4f4" }
     ),
   },

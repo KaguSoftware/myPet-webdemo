@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
 import Paywall from "@/components/Paywall";
 import { ACTION_ICON, Icon, IconName } from "@/components/Icons";
-import { AccentButton, Group, IconCircle, Row, SectionHeader, Segmented } from "@/components/ui";
+import { AccentButton, Chevron, Group, IconCircle, Row, SectionHeader, Segmented } from "@/components/ui";
 import { CARE_PLANS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
@@ -17,11 +18,26 @@ const GENERIC_ICON: Record<string, IconName> = {
 };
 
 export default function PlanPage() {
+  const router = useRouter();
   const { state, hydrated } = useStore();
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   if (!hydrated) return <PageLoading title="Care Plan" />;
+
+  // Reminders are a free feature — surface them from the Care tab in both the
+  // premium plan view and the (otherwise paywalled) free view.
+  const remindersRow = (
+    <Group className="mt-3">
+      <Row
+        onClick={() => router.push("/reminders")}
+        leading={<IconCircle icon="bell" tint="text-accent" bg="bg-accent-soft" />}
+        title="Reminders"
+        subtitle="Tasks & alerts the whole family sees"
+        trailing={<Chevron />}
+      />
+    </Group>
+  );
 
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
   if (!pet) {
@@ -41,6 +57,7 @@ export default function PlanPage() {
     return (
       <div className="flex h-full flex-col px-4">
         <Header title="Care Plan" />
+        {remindersRow}
         <div className="flex flex-1 flex-col items-center justify-center pb-24 text-center">
           <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-accent-soft text-accent">
             <Icon name="lock" size={34} strokeWidth={1.6} />
@@ -84,6 +101,8 @@ export default function PlanPage() {
           onChange={setPetId}
         />
       )}
+
+      {remindersRow}
 
       {plan ? (
         <>

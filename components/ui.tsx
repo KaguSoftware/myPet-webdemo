@@ -53,6 +53,9 @@ export function Row({
   trailing,
   onClick,
   destructive = false,
+  role,
+  ariaChecked,
+  ariaLabel,
 }: {
   leading?: React.ReactNode;
   title: React.ReactNode;
@@ -60,6 +63,10 @@ export function Row({
   trailing?: React.ReactNode;
   onClick?: () => void;
   destructive?: boolean;
+  /** When set (e.g. "switch"), the row button carries these ARIA semantics. */
+  role?: React.AriaRole;
+  ariaChecked?: boolean;
+  ariaLabel?: string;
 }) {
   const inner = (
     <>
@@ -76,7 +83,13 @@ export function Row({
   const cls = "flex w-full items-center gap-3 px-4 py-2.5 text-left min-h-[52px]";
   if (onClick)
     return (
-      <button onClick={onClick} className={`${cls} transition-colors active:bg-fill`}>
+      <button
+        onClick={onClick}
+        role={role}
+        aria-checked={ariaChecked}
+        aria-label={ariaLabel}
+        className={`${cls} transition-colors active:bg-fill`}
+      >
         {inner}
       </button>
     );

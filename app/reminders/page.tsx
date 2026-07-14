@@ -22,6 +22,9 @@ export default function RemindersPage() {
   // useState initializer ran while the store was still empty, so petId can't
   // seed itself from state.pets.
   const activePetId = petId || state.pets[0]?.id || "";
+  // The premium smart-reminder card is authored around the British Shorthair care
+  // plan — name the real pet instead of a hardcoded "Whiskers" (matches Activity).
+  const cat = state.pets.find((p) => p.breed === "British Shorthair") ?? state.pets[0];
   const upcoming = state.reminders.filter((r) => !r.done).sort((a, b) => a.due - b.due);
   const done = state.reminders.filter((r) => r.done);
   const petOf = (id: string) => state.pets.find((p) => p.id === id);
@@ -103,7 +106,7 @@ export default function RemindersPage() {
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">Smart reminder · PetPal+</p>
               <p className="mt-1 text-[15px] font-semibold leading-snug text-label">
-                Whiskers&apos; 6-month vet checkup — in one week
+                {cat?.name}&apos;s 6-month vet checkup — in one week
               </p>
               <p className="mt-0.5 text-[13px] leading-snug text-label-2">
                 From the British Shorthair care plan. We suggest {VET.name} — book from Activity.

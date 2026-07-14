@@ -85,6 +85,10 @@ export default function StreakCalendarSheet({ open, onClose }: { open: boolean; 
           cell ? (
             <div key={i} className="flex items-center justify-center">
               <div
+                role="img"
+                aria-label={`${MONTH_NAMES[calendarMonth.m]} ${cell.day}${cell.isToday ? ", today" : ""} — ${
+                  cell.active ? "care logged" : cell.isFuture ? "upcoming" : "no care logged"
+                }`}
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold ${
                   cell.active
                     ? "bg-orange text-white"

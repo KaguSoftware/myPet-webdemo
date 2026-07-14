@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import BackBar from "@/components/BackBar";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import PixelChart from "@/components/pixel/PixelChart";
 import EditStatSheet from "@/components/EditStatSheet";
@@ -13,7 +13,6 @@ import { timeAgo, useStore } from "@/lib/store";
 
 export default function PetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const router = useRouter();
   const { state, restockSupply, addWeight, editPet, toast } = useStore();
   const [scrollTop] = useState(0); // header handled inline here (nested route, simple sticky)
   const [editing, setEditing] = useState<"weight" | "age" | null>(null);
@@ -38,13 +37,7 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="px-4 pt-3">
-      {/* Simple sticky glass back bar */}
-      <div className="glass-strong sticky top-0 z-20 -mx-4 mb-3 flex items-center gap-2 px-4 py-2.5">
-        <button onClick={() => router.back()} aria-label="Back" className="flex items-center text-accent">
-          <Icon name="chevron-left" size={18} />
-          <span className="text-[16px] font-semibold">Back</span>
-        </button>
-      </div>
+      <BackBar />
 
       {/* Hero */}
       <div className="flex flex-col items-center rounded-sheet bg-card px-5 py-6 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)]">

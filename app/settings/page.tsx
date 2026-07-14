@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import BackBar from "@/components/BackBar";
 import Header from "@/components/Header";
 import { Icon } from "@/components/Icons";
 import { Group, IconCircle, Row, SectionHeader, Segmented } from "@/components/ui";
@@ -15,12 +16,7 @@ export default function SettingsPage() {
     <div className="px-4">
       <Header title="Settings" />
 
-      <div className="glass sticky top-0 z-10 -mx-4 mb-3 flex items-center gap-2 px-4 py-2.5">
-        <button onClick={() => router.back()} aria-label="Back" className="flex items-center text-accent">
-          <Icon name="chevron-left" size={18} />
-          <span className="text-[16px] font-semibold">Back</span>
-        </button>
-      </div>
+      <BackBar />
 
       <SectionHeader>Units</SectionHeader>
       <Group>
@@ -74,6 +70,9 @@ export default function SettingsPage() {
           return (
             <Row
               key={n.key}
+              role="switch"
+              ariaChecked={!!on}
+              ariaLabel={n.label}
               leading={<IconCircle icon="bell" tint="text-label-2" bg="bg-fill" />}
               title={n.label}
               onClick={() => {
@@ -82,7 +81,7 @@ export default function SettingsPage() {
                 toast("🔔", `${n.label} turned ${on ? "off" : "on"}`, "");
               }}
               trailing={
-                <span className={`flex h-6 w-10 items-center rounded-full p-0.5 transition-colors ${on ? "justify-end bg-green" : "justify-start bg-fill"}`}>
+                <span aria-hidden className={`flex h-6 w-10 items-center rounded-full p-0.5 transition-colors ${on ? "justify-end bg-green" : "justify-start bg-fill"}`}>
                   <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
                 </span>
               }

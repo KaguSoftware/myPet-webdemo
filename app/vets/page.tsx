@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import BackBar from "@/components/BackBar";
 import Header from "@/components/Header";
 import { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
@@ -21,7 +21,6 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export default function VetsPage() {
-  const router = useRouter();
   const { state, bookVetById, toast } = useStore();
   const [selected, setSelected] = useState<Vet | null>(null);
 
@@ -31,12 +30,7 @@ export default function VetsPage() {
     <div className="px-4">
       <Header title="Find a Vet" subtitle="Trusted clinics near you" />
 
-      <div className="glass sticky top-0 z-10 -mx-4 mb-3 flex items-center gap-2 px-4 py-2.5">
-        <button onClick={() => router.back()} aria-label="Back" className="flex items-center text-accent">
-          <Icon name="chevron-left" size={18} />
-          <span className="text-[16px] font-semibold">Back</span>
-        </button>
-      </div>
+      <BackBar />
 
       <div className="space-y-3 pb-4">
         {VETS.map((v) => {

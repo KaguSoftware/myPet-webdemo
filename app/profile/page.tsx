@@ -153,39 +153,41 @@ export default function ProfilePage() {
       <Group>
         {state.members.map((m) => {
           const active = m.id === state.currentMemberId;
+          // Row of independent controls: a primary "switch member" button plus a
+          // separate "Edit" button — no interactive element nested in another.
           return (
-            <Row
-              key={m.id}
-              onClick={() => {
-                if (!active) {
-                  switchMember(m.id);
-                  toast("👤", `Viewing as ${m.name}`, "Actions will be logged as them");
-                }
-              }}
-              leading={<InitialAvatar name={m.name} gradient={m.gradient} size={38} />}
-              title={m.name}
-              subtitle={m.role}
-              trailing={
-                <span className="flex items-center gap-3">
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openEditMember(m);
-                    }}
-                    className="text-[13px] font-semibold text-accent"
-                  >
-                    Edit
-                  </span>
-                  {active ? (
-                    <Icon name="check" size={18} strokeWidth={2.4} className="text-accent" />
-                  ) : (
-                    <span className="text-[13px] font-medium text-label-3">Switch</span>
-                  )}
+            <div key={m.id} className="flex w-full items-center gap-3 px-4 py-2.5 min-h-13">
+              <button
+                onClick={() => {
+                  if (!active) {
+                    switchMember(m.id);
+                    toast("👤", `Viewing as ${m.name}`, "Actions will be logged as them");
+                  }
+                }}
+                aria-label={active ? `${m.name}, current member` : `View the demo as ${m.name}`}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left transition-opacity active:opacity-60"
+              >
+                <InitialAvatar name={m.name} gradient={m.gradient} size={38} />
+                <span className="min-w-0 flex-1 py-0.5">
+                  <span className="block truncate text-[16px] leading-snug font-medium text-label">{m.name}</span>
+                  <span className="block truncate text-[13px] font-normal text-label-2">{m.role}</span>
                 </span>
-              }
-            />
+              </button>
+              <button
+                onClick={() => openEditMember(m)}
+                aria-label={`Edit ${m.name}`}
+                className="shrink-0 text-[13px] font-semibold text-accent transition-transform active:scale-95"
+              >
+                Edit
+              </button>
+              {active ? (
+                <Icon name="check" size={18} strokeWidth={2.4} className="text-accent" aria-hidden />
+              ) : (
+                <span className="text-[13px] font-medium text-label-3" aria-hidden>
+                  Switch
+                </span>
+              )}
+            </div>
           );
         })}
       </Group>
@@ -239,29 +241,30 @@ export default function ProfilePage() {
       <SectionHeader>Pets</SectionHeader>
       <Group>
         {state.pets.map((p) => (
-          <Row
-            key={p.id}
-            onClick={() => openEditPet(p)}
-            leading={<PetAvatar pet={p} size="sm" />}
-            title={p.name}
-            subtitle={`${p.breed} · ${formatAge(p.ageYears)} · ${formatWeight(p.weightKg, state.units)}`}
-            trailing={
-              <span className="flex items-center gap-3">
-                <span
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    router.push(`/pet/${p.id}`);
-                  }}
-                  className="text-[13px] font-semibold text-accent"
-                >
-                  View
+          // Primary "edit pet" button + separate "View" nav button — no nesting.
+          <div key={p.id} className="flex w-full items-center gap-3 px-4 py-2.5 min-h-13">
+            <button
+              onClick={() => openEditPet(p)}
+              aria-label={`Edit ${p.name}`}
+              className="flex min-w-0 flex-1 items-center gap-3 text-left transition-opacity active:opacity-60"
+            >
+              <PetAvatar pet={p} size="sm" />
+              <span className="min-w-0 flex-1 py-0.5">
+                <span className="block truncate text-[16px] leading-snug font-medium text-label">{p.name}</span>
+                <span className="block truncate text-[13px] font-normal text-label-2">
+                  {`${p.breed} · ${formatAge(p.ageYears)} · ${formatWeight(p.weightKg, state.units)}`}
                 </span>
-                <Icon name="chevron-right" size={15} className="text-label-3" />
               </span>
-            }
-          />
+            </button>
+            <button
+              onClick={() => router.push(`/pet/${p.id}`)}
+              aria-label={`View ${p.name}'s details`}
+              className="flex shrink-0 items-center gap-1 text-[13px] font-semibold text-accent transition-transform active:scale-95"
+            >
+              View
+              <Icon name="chevron-right" size={15} className="text-label-3" aria-hidden />
+            </button>
+          </div>
         ))}
       </Group>
       <p className="mt-1.5 px-1 text-[12px] text-label-3">Tap a pet to edit it, or View for full details.</p>
