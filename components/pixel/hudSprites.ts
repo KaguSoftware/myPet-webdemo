@@ -37,6 +37,22 @@ export const STAR_SPRITE: Sprite = {
   ],
 };
 
+/** Small red exclamation mark — flags a care box with an outstanding "hasn't happened in a while" warning. */
+export const WARNING_SPRITE: Sprite = {
+  palette: { O: "#8f1f3a", R: "#e0443f", H: "#f7a8a0" },
+  rows: [
+    ".OOO.",
+    "OHRRO",
+    "OHRRO",
+    "OHRRO",
+    "OHRRO",
+    "OHRRO",
+    ".ORO.",
+    ".....",
+    ".ORO.",
+  ],
+};
+
 export const SMILEY_SPRITE: Sprite = {
   palette: { O: "#a8791d", Y: "#f5c542", H: "#ffffff", B: "#3a2a10", P: "#ff9eb0" },
   rows: [

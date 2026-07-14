@@ -7,8 +7,10 @@ import Header from "@/components/Header";
 import Paywall from "@/components/Paywall";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
+import LevelStagesSheet from "@/components/LevelStagesSheet";
+import StreakCalendarSheet from "@/components/StreakCalendarSheet";
 import { Icon } from "@/components/Icons";
-import { AccentButton, ConfirmRow, Group, Row, SectionHeader } from "@/components/ui";
+import { AccentButton, Chevron, ConfirmRow, Group, Row, SectionHeader } from "@/components/ui";
 import { Member, Pet, formatAge, formatWeight, isAdminRole } from "@/lib/data";
 import { level, useStore } from "@/lib/store";
 
@@ -29,6 +31,8 @@ export default function ProfilePage() {
     toast,
   } = useStore();
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [levelSheetOpen, setLevelSheetOpen] = useState(false);
+  const [streakSheetOpen, setStreakSheetOpen] = useState(false);
 
   const currentMember = state.members.find((m) => m.id === state.currentMemberId);
   const isAdmin = !!currentMember && isAdminRole(currentMember.role);
@@ -263,18 +267,33 @@ export default function ProfilePage() {
       <SectionHeader>Demo</SectionHeader>
       <Group>
         <Row
+          onClick={() => setLevelSheetOpen(true)}
           leading={
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
               <Icon name="star" size={18} />
             </span>
           }
-          title={`Level ${level(state.xp)} · ${state.streak}-day streak`}
+          title={`Level ${level(state.xp)}`}
           subtitle="Synced to your account"
+          trailing={<Chevron />}
+        />
+        <Row
+          onClick={() => setStreakSheetOpen(true)}
+          leading={
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
+              <Icon name="flame" size={18} />
+            </span>
+          }
+          title={`${state.streak}-day streak`}
+          subtitle="Synced to your account"
+          trailing={<Chevron />}
         />
         <Row destructive onClick={signOut} title="Sign out" />
       </Group>
 
       <Paywall open={paywallOpen} onClose={() => setPaywallOpen(false)} />
+      <LevelStagesSheet open={levelSheetOpen} onClose={() => setLevelSheetOpen(false)} />
+      <StreakCalendarSheet open={streakSheetOpen} onClose={() => setStreakSheetOpen(false)} />
 
       <Sheet open={editingPet !== null} onClose={() => setEditingPet(null)}>
         {editingPet && (

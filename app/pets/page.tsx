@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import PixelPet, { PixelCosmetic } from "@/components/pixel/PixelPet";
 import Pet3D from "@/components/pixel/Pet3D";
@@ -69,9 +70,20 @@ function ItemCard({
 }
 
 export default function PetsPage() {
+  return (
+    <Suspense>
+      <PetsPageContent />
+    </Suspense>
+  );
+}
+
+function PetsPageContent() {
   const { state, hydrated, buyCosmetic, toggleEquip, addPet, addWeight, editPet, toast } = useStore();
+  const searchParams = useSearchParams();
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
-  const [openSheet, setOpenSheet] = useState<CosmeticSlot | "other" | null>(null);
+  const [openSheet, setOpenSheet] = useState<CosmeticSlot | "other" | null>(() =>
+    searchParams.get("shop") === "1" ? "other" : null
+  );
   const [threeD, setThreeD] = useState(false);
   const [addPetOpen, setAddPetOpen] = useState(false);
   const [petName, setPetName] = useState("");

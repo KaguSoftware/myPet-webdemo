@@ -5,11 +5,24 @@ import { createClient } from "@/lib/supabase/client";
 import { ACTIONS, ActionType, ADMIN_ROLE, Activity, AppState, CosmeticSlot, Med, Member, Pet, Reminder, VET, cosmetic, dailyGramTarget, dailyTarget } from "./data";
 
 // Verb used in alert copy for each loggable action that can carry a /plan daily target.
-const ALERT_VERB: Partial<Record<ActionType, string>> = {
+export const ALERT_VERB: Partial<Record<ActionType, string>> = {
   fed: "eating",
   water: "drinking",
   litter: "using the litter box",
   walk: "going for walks",
+};
+
+// Basic-needs actions that get a "hasn't happened in a while" warning, keyed
+// by how long a pet can go without them — separate from the /plan-driven
+// over/under-target health alerts. `hours` only has an entry for the
+// species the check applies to (litter is cat-only, walk is dog-only; fed
+// and water apply to both, with cats needing them sooner than dogs).
+type CareAlertKind = "fed" | "water" | "litter" | "walk";
+const CARE_ALERT_CONFIG: Record<CareAlertKind, { verb: string; noun: string; emoji: string; hours: Partial<Record<Pet["species"], number>> }> = {
+  fed: { verb: "feed", noun: "food", emoji: "🍖", hours: { cat: 8, dog: 12 } },
+  water: { verb: "give water to", noun: "water", emoji: "💧", hours: { cat: 8, dog: 12 } },
+  litter: { verb: "clean the litter box for", noun: "a clean litter box", emoji: "🧹", hours: { cat: 24 } },
+  walk: { verb: "take for a walk", noun: "a walk", emoji: "🦮", hours: { dog: 12 } },
 };
 
 function sameCalendarDay(a: number, b: number) {
@@ -58,6 +71,7 @@ interface Store {
   setUnits: (units: "kg" | "lb") => void;
   /** Set, change, or remove (pass null) the family password. Verifies `currentPassword` against the stored hash first if one is already set — returns false and toasts on mismatch. */
   setFamilyPassword: (newPassword: string | null, currentPassword?: string) => Promise<boolean>;
+  setNotificationPref: (key: "notifyCareReminders" | "notifyFamilyActivity" | "notifyVetSuggestions", on: boolean) => void;
   signOut: () => void;
 }
 
@@ -90,6 +104,12 @@ async function sha256Hex(text: string) {
 }
 
 type SupabaseClient = ReturnType<typeof createClient>;
+
+const NOTIF_PREF_DB_COLUMN = {
+  notifyCareReminders: "notify_care_reminders",
+  notifyFamilyActivity: "notify_family_activity",
+  notifyVetSuggestions: "notify_vet_suggestions",
+} as const;
 
 const MEMBER_GRADIENTS: [string, string][] = [
   ["oklch(0.62 0.16 258)", "oklch(0.5 0.18 280)"],
@@ -298,7 +318,18 @@ type HouseholdRow = {
   units: "kg" | "lb";
   last_seen_at: number | null;
   family_password_hash: string | null;
-  members: { id: string; name: string; emoji: string; role: string; gradient_from: string; gradient_to: string; created_at: string }[];
+  members: {
+    id: string;
+    name: string;
+    emoji: string;
+    role: string;
+    gradient_from: string;
+    gradient_to: string;
+    created_at: string;
+    notify_care_reminders: boolean;
+    notify_family_activity: boolean;
+    notify_vet_suggestions: boolean;
+  }[];
   pets: (PetRow & { created_at: string })[];
   activities: { id: string; pet_id: string; member_id: string; type: ActionType; ts: number; note: string | null; grams: number | null }[];
   reminders: { id: string; pet_id: string; title: string; emoji: string; due: number; done: boolean; source: "manual" | "plan"; alert: boolean | null; vet_id: string | null }[];
@@ -322,6 +353,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // still-queued toasts from that batch in one shot.
   const pendingNotificationTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const hid = () => householdIdRef.current;
+  // The signed-in member currently "active" in the UI — notification prefs
+  // are per-member, not per-household, so gating checks read off of this.
+  const currentMember = () => stateRef.current.members.find((m) => m.id === stateRef.current.currentMemberId);
 
   const dismissToast = useCallback((id: number) => {
     setToasts((t) => t.filter((x) => x.id !== id));
@@ -366,10 +400,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const time = new Date(a.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         const timeoutId = setTimeout(() => {
           pendingNotificationTimeoutsRef.current.delete(timeoutId);
-          toast(action.emoji, `${member.name} ${action.verb} ${pet.name}`, `${time} · ${timeAgo(a.ts)}`);
+          const recipient = stateRef.current.members.find((mm) => mm.id === forMemberId);
+          if (recipient?.notifyFamilyActivity ?? true) {
+            toast(action.emoji, `${member.name} ${action.verb} ${pet.name}`, `${time} · ${timeAgo(a.ts)}`);
+          }
         }, i * 1400);
         pendingNotificationTimeoutsRef.current.add(timeoutId);
       });
+    },
+    [toast]
+  );
+
+  // Toasts a summary of any outstanding Log care warnings (basic-needs
+  // alerts like "hasn't been fed", and /plan over/under-target health
+  // alerts) — run on login/reload and whenever a family member switches
+  // accounts, so whoever's looking at the app is nudged toward the pet(s)
+  // that need attention. A ref-backed flag per reminder id keeps this from
+  // re-toasting the same still-outstanding warning on every switch.
+  const notifiedWarningIdsRef = useRef<Set<string>>(new Set());
+  const notifyCareWarnings = useCallback(
+    (remindersList: Reminder[], petsList: Pet[]) => {
+      const active = remindersList.filter((r) => r.alert && !r.done && !notifiedWarningIdsRef.current.has(r.id));
+      if (active.length === 0) return;
+      active.forEach((r) => notifiedWarningIdsRef.current.add(r.id));
+      const allowed = active.filter((r) => (r.vetId ? (currentMember()?.notifyVetSuggestions ?? true) : (currentMember()?.notifyCareReminders ?? true)));
+      if (allowed.length === 0) return;
+      const timeoutId = setTimeout(() => {
+        pendingNotificationTimeoutsRef.current.delete(timeoutId);
+        if (allowed.length === 1) {
+          const pet = petsList.find((p) => p.id === allowed[0].petId);
+          toast("🚨", allowed[0].title, pet ? `${pet.name} needs attention` : undefined);
+        } else {
+          const petNames = Array.from(new Set(allowed.map((r) => petsList.find((p) => p.id === r.petId)?.name).filter((n): n is string => !!n)));
+          toast("🚨", `${allowed.length} care warnings need attention`, petNames.join(", "));
+        }
+      }, 400);
+      pendingNotificationTimeoutsRef.current.add(timeoutId);
     },
     [toast]
   );
@@ -397,9 +463,67 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .from("reminders")
         .insert({ id, household_id: h, pet_id: pet.id, title, emoji: "🩺", due: ts, done: false, source: "manual", alert: true, vet_id: vetId })
         .then();
-      toast("🚨", title, kind === "over" ? `Might be worth keeping an eye on ${pet.name}` : "Might be worth a vet check");
+      if (currentMember()?.notifyVetSuggestions ?? true) {
+        toast("🚨", title, kind === "over" ? `Might be worth keeping an eye on ${pet.name}` : "Might be worth a vet check");
+      }
     },
     [supabase, toast]
+  );
+
+  // Raises a "hasn't been fed / watered" warning: a basic-needs nudge
+  // distinct from raiseFeedingAlert's over/under-target health alerts (no
+  // vetId, so the two kinds of alert reminders can be told apart). Skips if
+  // the pet already has one outstanding for this same kind (matched by
+  // title, since fed and water alerts must be able to coexist for one pet).
+  // Fires when the action has never been logged (last is null) or its most
+  // recent occurrence is older than the kind's species threshold.
+  const raiseCareAlert = useCallback(
+    (kind: CareAlertKind, pet: Pet, remindersSnapshot: Reminder[], ts: number) => {
+      const h = hid();
+      if (!h) return;
+      const { verb, noun, emoji } = CARE_ALERT_CONFIG[kind];
+      const title = `Don't forget to ${verb} ${pet.name}`;
+      const already = remindersSnapshot.some((r) => r.alert && !r.vetId && r.petId === pet.id && !r.done && r.title === title);
+      if (already) return;
+      const id = crypto.randomUUID();
+      const reminder: Reminder = { id, petId: pet.id, title, emoji, due: ts, done: false, source: "manual", alert: true };
+      setState((prev) => ({ ...prev, reminders: [...prev.reminders, reminder] }));
+      supabase
+        .from("reminders")
+        .insert({ id, household_id: h, pet_id: pet.id, title, emoji, due: ts, done: false, source: "manual", alert: true, vet_id: null })
+        .then();
+      if (currentMember()?.notifyCareReminders ?? true) {
+        toast(emoji, title, `${pet.name} hasn't had ${noun} in a while`);
+      }
+    },
+    [supabase, toast]
+  );
+
+  // Checks every pet's most recent activity of each care-alert kind (fed,
+  // water, litter, walk) against its species threshold and raises a warning
+  // for anything overdue (or never logged) — skipping kinds that don't apply
+  // to that pet's species (e.g. litter for dogs, walk for cats). Run on load
+  // and on a recurring timer, since these are a function of elapsed time,
+  // not a user action.
+  const checkCareAlerts = useCallback(
+    (petsList: Pet[], activitiesList: Activity[], remindersSnapshot: Reminder[]) => {
+      const now = Date.now();
+      (Object.keys(CARE_ALERT_CONFIG) as CareAlertKind[]).forEach((kind) => {
+        const { hours } = CARE_ALERT_CONFIG[kind];
+        petsList.forEach((pet) => {
+          const threshold = hours[pet.species];
+          if (threshold == null) return;
+          const last = activitiesList
+            .filter((a) => a.petId === pet.id && a.type === kind)
+            .reduce((max: number | null, a) => (max == null || a.ts > max ? a.ts : max), null);
+          const hoursSince = last == null ? Infinity : (now - last) / 3600_000;
+          if (hoursSince >= threshold) {
+            raiseCareAlert(kind, pet, remindersSnapshot, now);
+          }
+        });
+      });
+    },
+    [raiseCareAlert]
   );
 
   // Load the signed-in user's household from Supabase, and reload whenever
@@ -509,6 +633,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         emoji: m.emoji,
         role: m.role,
         gradient: [m.gradient_from, m.gradient_to] as [string, string],
+        notifyCareReminders: m.notify_care_reminders,
+        notifyFamilyActivity: m.notify_family_activity,
+        notifyVetSuggestions: m.notify_vet_suggestions,
       }));
       const activityList: Activity[] = activities.map((a) => ({
         id: a.id,
@@ -584,6 +711,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         });
       });
 
+      // Basic-needs check: any pet overdue against its species' feeding or
+      // water window (see CARE_ALERT_CONFIG) gets a warning right away on load.
+      checkCareAlerts(pets, activityList, reminderList);
+
+      // Signing in surfaces any already-outstanding warnings too, not just
+      // ones raised by the checks above.
+      notifyCareWarnings(reminderList, pets);
+
       supabase.from("households").update({ last_seen_at: Date.now() }).eq("id", h.id).then();
     }
 
@@ -593,11 +728,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(() => {
       load();
     });
+    // "Hasn't been fed/watered" is a function of elapsed time, not a user
+    // action, so it needs to be re-checked periodically while the app stays
+    // open — not just once at load.
+    const careAlertTimer = setInterval(() => {
+      checkCareAlerts(stateRef.current.pets, stateRef.current.activities, stateRef.current.reminders);
+    }, 15 * 60 * 1000);
     return () => {
       cancelled = true;
       subscription.unsubscribe();
+      clearInterval(careAlertTimer);
     };
-  }, [supabase, toast, notifyRecentActivity, raiseFeedingAlert]);
+  }, [supabase, toast, notifyRecentActivity, raiseFeedingAlert, checkCareAlerts, notifyCareWarnings]);
 
   const logAction = useCallback(
     (petId: string, type: ActionType, grams?: number) => {
@@ -643,6 +785,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const time = new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       const gramsNote = type === "fed" && grams != null ? `${Math.round(grams)} g · ` : "";
       toast(ACTIONS[type].emoji, `${pet?.name} — ${ACTIONS[type].label.toLowerCase()} at ${time}`, `Family notified 📣 · ${gramsNote}+5 coins · +10 XP`);
+
+      // Logging fed/water/litter/walk resolves that kind's outstanding
+      // "hasn't happened in a while" warning for this pet (matched by title,
+      // same as raiseCareAlert).
+      if (type === "fed" || type === "water" || type === "litter" || type === "walk") {
+        const alertTitle = `Don't forget to ${CARE_ALERT_CONFIG[type].verb} ${pet?.name}`;
+        const careAlerts = stateRef.current.reminders.filter(
+          (r) => r.alert && !r.vetId && r.petId === petId && !r.done && r.title === alertTitle
+        );
+        if (careAlerts.length > 0) {
+          setState((prev) => ({
+            ...prev,
+            reminders: prev.reminders.map((r) => (careAlerts.some((a) => a.id === r.id) ? { ...r, done: true } : r)),
+          }));
+          careAlerts.forEach((r) => supabase.from("reminders").update({ done: true }).eq("id", r.id).then());
+        }
+      }
 
       supabase.from("activities").insert({ id, household_id: h, pet_id: petId, member_id: memberId, type, ts, grams: grams ?? null }).then();
       supabase
@@ -692,10 +851,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (id: string) => {
       setState((p) => ({ ...p, currentMemberId: id }));
       notifyRecentActivity(id, stateRef.current.activities, stateRef.current.pets, stateRef.current.members);
+      notifyCareWarnings(stateRef.current.reminders, stateRef.current.pets);
       const h = hid();
       if (h) supabase.from("households").update({ current_member_id: id }).eq("id", h).then();
     },
-    [supabase, notifyRecentActivity]
+    [supabase, notifyRecentActivity, notifyCareWarnings]
   );
 
   const setPremium = useCallback(
@@ -907,7 +1067,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const gradient = MEMBER_GRADIENTS[stateRef.current.members.length % MEMBER_GRADIENTS.length];
       setState((prev) => ({
         ...prev,
-        members: [...prev.members, { id, name, emoji, role, gradient }],
+        members: [
+          ...prev.members,
+          { id, name, emoji, role, gradient, notifyCareReminders: true, notifyFamilyActivity: true, notifyVetSuggestions: true },
+        ],
       }));
       supabase
         .from("members")
@@ -1072,6 +1235,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [supabase, toast]
   );
 
+  const setNotificationPref = useCallback(
+    (key: keyof typeof NOTIF_PREF_DB_COLUMN, on: boolean) => {
+      const memberId = stateRef.current.currentMemberId;
+      setState((p) => ({
+        ...p,
+        members: p.members.map((m) => (m.id === memberId ? { ...m, [key]: on } : m)),
+      }));
+      if (memberId) supabase.from("members").update({ [NOTIF_PREF_DB_COLUMN[key]]: on }).eq("id", memberId).then();
+    },
+    [supabase]
+  );
+
   const signOut = useCallback(() => {
     supabase.auth.signOut().then(() => window.location.assign("/login"));
   }, [supabase]);
@@ -1110,6 +1285,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setSeenWelcome,
         setUnits,
         setFamilyPassword,
+        setNotificationPref,
         signOut,
       }}
     >
@@ -1124,8 +1300,17 @@ export function useStore() {
   return ctx;
 }
 
-export const level = (xp: number) => Math.floor(xp / 100) + 1;
-export const levelProgress = (xp: number) => xp % 100;
+// Level curve gets incrementally harder: the XP cost of each level step grows
+// with the level (step n→n+1 costs 100*n XP), so `xpForLevel` is the
+// triangular-number cumulative total needed to have reached a given level.
+export const xpForLevel = (n: number) => (100 * (n - 1) * n) / 2;
+export const levelStepXp = (n: number) => 100 * n;
+export const level = (xp: number) => {
+  let n = 1;
+  while (xpForLevel(n + 1) <= xp) n++;
+  return n;
+};
+export const levelProgress = (xp: number) => xp - xpForLevel(level(xp));
 
 export function timeAgo(ts: number) {
   const diff = Date.now() - ts;

@@ -21,11 +21,12 @@ export default function RemindersPage() {
 
   const renderRow = (r: (typeof state.reminders)[number]) => {
     const pet = petOf(r.petId);
-    const alertVet = r.alert && !r.done ? VETS.find((v) => v.id === r.vetId) ?? VET : null;
+    const isAlert = r.alert && !r.done;
+    const alertVet = isAlert && r.vetId ? VETS.find((v) => v.id === r.vetId) ?? VET : null;
     return (
       <div
         key={r.id}
-        className={`flex flex-col gap-2 px-4 py-2.5 min-h-13 ${alertVet ? "bg-[oklch(0.6_0.21_25/0.06)]" : ""}`}
+        className={`flex flex-col gap-2 px-4 py-2.5 min-h-13 ${isAlert ? "bg-[oklch(0.6_0.21_25/0.06)]" : ""}`}
       >
         <div className="flex items-center gap-3">
           <button
@@ -35,13 +36,13 @@ export default function RemindersPage() {
             }}
             aria-label={r.done ? "Mark as not done" : "Mark as done"}
             className={`flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-all duration-200 active:scale-90 ${
-              r.done ? "border-accent bg-accent text-white" : alertVet ? "border-red" : "border-[oklch(0.22_0.01_264/0.25)] bg-transparent"
+              r.done ? "border-accent bg-accent text-white" : isAlert ? "border-red" : "border-[oklch(0.22_0.01_264/0.25)] bg-transparent"
             }`}
           >
             {r.done && <Icon name="check" size={14} strokeWidth={2.6} />}
           </button>
           <div className="min-w-0 flex-1">
-            <p className={`text-[16px] font-medium ${r.done ? "text-label-3 line-through" : alertVet ? "text-red" : "text-label"}`}>
+            <p className={`text-[16px] font-medium ${r.done ? "text-label-3 line-through" : isAlert ? "text-red" : "text-label"}`}>
               {r.title}
             </p>
             <p className="text-[13px] text-label-2">

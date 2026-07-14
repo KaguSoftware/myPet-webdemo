@@ -54,6 +54,10 @@ export interface Member {
   emoji: string;
   role: string;
   gradient: [string, string];
+  /** /settings → Notifications toggles — per-member, not shared by the household. Mutes a category of simulated toast without touching the underlying reminders/alerts. */
+  notifyCareReminders: boolean;
+  notifyFamilyActivity: boolean;
+  notifyVetSuggestions: boolean;
 }
 
 // The only role that carries functionality: it grants access to the
@@ -283,10 +287,10 @@ export const SEED: AppState = {
   familyId: "demo-family",
   familyPasswordSet: false,
   members: [
-    { id: "you", name: "Parsa", emoji: "🧑‍💻", role: ADMIN_ROLE, gradient: ["oklch(0.62 0.16 258)", "oklch(0.5 0.18 280)"] },
-    { id: "mom", name: "Mom", emoji: "👩‍🦰", role: "Admin", gradient: ["oklch(0.68 0.15 350)", "oklch(0.56 0.17 20)"] },
-    { id: "dad", name: "Dad", emoji: "👨‍🦳", role: "Member", gradient: ["oklch(0.66 0.13 165)", "oklch(0.54 0.13 200)"] },
-    { id: "sara", name: "Sara", emoji: "👧", role: "Member", gradient: ["oklch(0.72 0.14 85)", "oklch(0.62 0.16 50)"] },
+    { id: "you", name: "Parsa", emoji: "🧑‍💻", role: ADMIN_ROLE, gradient: ["oklch(0.62 0.16 258)", "oklch(0.5 0.18 280)"], notifyCareReminders: true, notifyFamilyActivity: true, notifyVetSuggestions: true },
+    { id: "mom", name: "Mom", emoji: "👩‍🦰", role: "Admin", gradient: ["oklch(0.68 0.15 350)", "oklch(0.56 0.17 20)"], notifyCareReminders: true, notifyFamilyActivity: true, notifyVetSuggestions: true },
+    { id: "dad", name: "Dad", emoji: "👨‍🦳", role: "Member", gradient: ["oklch(0.66 0.13 165)", "oklch(0.54 0.13 200)"], notifyCareReminders: true, notifyFamilyActivity: true, notifyVetSuggestions: true },
+    { id: "sara", name: "Sara", emoji: "👧", role: "Member", gradient: ["oklch(0.72 0.14 85)", "oklch(0.62 0.16 50)"], notifyCareReminders: true, notifyFamilyActivity: true, notifyVetSuggestions: true },
   ],
   pets: [
     {

@@ -6,15 +6,27 @@ import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
 import EditStatSheet from "@/components/EditStatSheet";
 import Sheet from "@/components/Sheet";
+import LevelStagesSheet from "@/components/LevelStagesSheet";
+import StreakCalendarSheet from "@/components/StreakCalendarSheet";
 import PixelSprite from "@/components/pixel/PixelSprite";
-import { SMILEY_SPRITE } from "@/components/pixel/hudSprites";
+import { SMILEY_SPRITE, WARNING_SPRITE } from "@/components/pixel/hudSprites";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { AccentButton, Chevron, Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
 import { ACTIONS, ActionType, CARE_PLANS, PORTIONS, VET, VETS, formatAge, formatWeight } from "@/lib/data";
-import { dueLabel, level, levelProgress, useStore } from "@/lib/store";
+import { ALERT_VERB, dueLabel, level, levelProgress, levelStepXp, useStore } from "@/lib/store";
 
 const CAT_ACTIONS: ActionType[] = ["fed", "water", "litter", "groomed", "meds", "vet"];
 const DOG_ACTIONS: ActionType[] = ["fed", "water", "walk", "groomed", "meds", "vet"];
+
+// Action types with an ALERT_VERB, for matching a health alert's title
+// (e.g. "...is eating way more than usual...") back to the action it's about.
+const ALERT_VERB_TYPES = Object.keys(ALERT_VERB) as ActionType[];
+
+// Reverse lookup from a care-alert reminder's emoji back to its action type
+// — the "hasn't happened in a while" warnings raised by lib/store.tsx reuse
+// each action's own emoji (fed 🍖, water 💧, litter 🧹, walk 🦮), which is
+// what lets the Log care boxes below flag themselves without any extra data.
+const CARE_WARNING_EMOJI: Partial<Record<string, ActionType>> = { "🍖": "fed", "💧": "water", "🧹": "litter", "🦮": "walk" };
 
 export default function Home() {
   const { state, hydrated, logAction, restockSupply, useSupply: consumeSupply, addWeight, editPet, toast, bookVetById } = useStore();
@@ -23,8 +35,12 @@ export default function Home() {
   const [editingStat, setEditingStat] = useState<"weight" | "age" | null>(null);
   const [feedPortionOpen, setFeedPortionOpen] = useState(false);
   const [feedFraction, setFeedFraction] = useState<(typeof PORTIONS)[number]["value"]>("1");
+  const [levelSheetOpen, setLevelSheetOpen] = useState(false);
+  const [streakSheetOpen, setStreakSheetOpen] = useState(false);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const didSwipe = useRef(false);
+
+  const currentLevel = level(state.xp);
 
   const changePet = (dir: 1 | -1) =>
     setPetIndex((i) => Math.min(state.pets.length - 1, Math.max(0, i + dir)));
@@ -57,6 +73,24 @@ export default function Home() {
   const fedCount = todays.filter((a) => a.type === "fed").length;
   const fedPct = Math.min(100, Math.round((fedCount / fedTarget) * 100));
   const petAlerts = state.reminders.filter((r) => r.alert && !r.done && r.petId === pet.id);
+  // Every outstanding alert type for this pet, by action — drives the red
+  // "!" badge on the matching Log care box. Covers both kinds of alert
+  // reminder: basic-needs warnings (no vetId, matched by emoji) and the
+  // /plan over/under-target health alerts that suggest a vet (vetId set,
+  // matched by which ALERT_VERB shows up in the title) — those also flag
+  // the Vet box itself, since they're the ones suggesting a vet visit.
+  const careWarnings = new Set(
+    state.reminders
+      .filter((r) => r.alert && !r.done && r.petId === pet.id)
+      .flatMap((r): ActionType[] => {
+        if (!r.vetId) {
+          const t = CARE_WARNING_EMOJI[r.emoji];
+          return t ? [t] : [];
+        }
+        const t = ALERT_VERB_TYPES.find((t) => r.title.includes(ALERT_VERB[t]!));
+        return t ? [t, "vet"] : ["vet"];
+      })
+  );
 
   const nextReminder = state.reminders
     .filter((r) => !r.done && r.petId === pet.id)
@@ -83,7 +117,15 @@ export default function Home() {
 
   return (
     <div className="px-4">
-      <Header title="Home" subtitle={`Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}, ${me?.name}`} trailing={<CoinPill amount={state.coins} />} />
+      <Header
+        title="Home"
+        subtitle={`Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}, ${me?.name}`}
+        trailing={
+          <Link href="/pets?shop=1" aria-label="Open shop">
+            <CoinPill amount={state.coins} />
+          </Link>
+        }
+      />
 
       {/* Pet hero card */}
       <div
@@ -148,19 +190,21 @@ export default function Home() {
         {petAlerts.length > 0 && (
           <div className="mt-3 flex flex-col gap-2">
             {petAlerts.map((r) => {
-              const alertVet = VETS.find((v) => v.id === r.vetId) ?? VET;
+              const alertVet = r.vetId ? VETS.find((v) => v.id === r.vetId) ?? VET : null;
               return (
                 <div key={r.id} className="rounded-card bg-[oklch(0.6_0.21_25/0.06)] p-3">
                   <p className="text-[14px] font-semibold leading-snug text-red">{r.title}</p>
-                  <button
-                    onClick={() => {
-                      bookVetById(alertVet.id);
-                      toast("🩺", `Vet visit requested`, `${alertVet.name} will follow up about ${pet.name}`);
-                    }}
-                    className="mt-2 flex h-8 w-fit items-center gap-1.5 rounded-full bg-red px-3 text-[13px] font-semibold text-white transition-transform active:scale-95"
-                  >
-                    <Icon name="cross" size={14} /> Book vet — {alertVet.name}
-                  </button>
+                  {alertVet && (
+                    <button
+                      onClick={() => {
+                        bookVetById(alertVet.id);
+                        toast("🩺", `Vet visit requested`, `${alertVet.name} will follow up about ${pet.name}`);
+                      }}
+                      className="mt-2 flex h-8 w-fit items-center gap-1.5 rounded-full bg-red px-3 text-[13px] font-semibold text-white transition-transform active:scale-95"
+                    >
+                      <Icon name="cross" size={14} /> Book vet — {alertVet.name}
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -184,27 +228,37 @@ export default function Home() {
 
       {/* Stats strip */}
       <div className="mt-3 flex gap-2">
-        <div className="flex flex-1 items-center gap-2 rounded-card bg-card px-3.5 py-3 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)]">
+        <button
+          onClick={() => setStreakSheetOpen(true)}
+          className="flex flex-1 items-center gap-2 rounded-card bg-card px-3.5 py-3 text-left shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform active:scale-95"
+        >
           <Icon name="flame" size={18} className="text-orange" />
           <div>
             <p className="text-[15px] font-bold leading-none text-label">{state.streak}</p>
             <p className="mt-0.5 text-[11px] font-medium text-label-2">day streak</p>
           </div>
-        </div>
-        <div className="flex flex-1 items-center gap-2 rounded-card bg-card px-3.5 py-3 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)]">
+        </button>
+        <button
+          onClick={() => setLevelSheetOpen(true)}
+          className="flex flex-1 items-center gap-2 rounded-card bg-card px-3.5 py-3 text-left shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform active:scale-95"
+        >
           <Icon name="star" size={18} className="text-accent" />
           <div>
-            <p className="text-[15px] font-bold leading-none text-label">Lv {level(state.xp)}</p>
-            <p className="mt-0.5 text-[11px] font-medium text-label-2">{levelProgress(state.xp)}/100 XP</p>
+            <p className="text-[15px] font-bold leading-none text-label">Lv {currentLevel}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-label-2">{levelProgress(state.xp)}/{levelStepXp(currentLevel)} XP</p>
           </div>
-        </div>
-        <div className="flex flex-1 items-center gap-2 rounded-card bg-card px-3.5 py-3 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)]">
+        </button>
+        <Link
+          href="/pets?shop=1"
+          aria-label="Open shop"
+          className="flex flex-1 items-center gap-2 rounded-card bg-card px-3.5 py-3 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform active:scale-95"
+        >
           <Icon name="coin" size={18} className="text-[oklch(0.55_0.13_60)]" />
           <div>
             <p className="text-[15px] font-bold leading-none text-label">{state.coins}</p>
             <p className="mt-0.5 text-[11px] font-medium text-label-2">coins</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Quick actions */}
@@ -213,6 +267,7 @@ export default function Home() {
         {actions.map((type) => {
           const a = ACTION_ICON[type];
           const flash = justLogged === type;
+          const warning = !flash && careWarnings.has(type);
           return (
             <button
               key={type}
@@ -230,6 +285,11 @@ export default function Home() {
               {flash && (
                 <span className="font-pixel animate-coin-pop pointer-events-none absolute right-2 top-1 z-10 text-[9px] text-orange">
                   +5
+                </span>
+              )}
+              {warning && (
+                <span className="pointer-events-none absolute right-2 top-2 z-10" aria-label={`${ACTIONS[type].label} warning`}>
+                  <PixelSprite sprite={WARNING_SPRITE} size={12} className="pixelated" />
                 </span>
               )}
               <span className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-300 ${flash ? "bg-green text-white" : `${a.bg} ${a.tint}`}`}>
@@ -435,6 +495,9 @@ export default function Home() {
           </div>
         )}
       </Sheet>
+
+      <LevelStagesSheet open={levelSheetOpen} onClose={() => setLevelSheetOpen(false)} />
+      <StreakCalendarSheet open={streakSheetOpen} onClose={() => setStreakSheetOpen(false)} />
     </div>
   );
 }

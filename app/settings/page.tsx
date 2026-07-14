@@ -8,7 +8,8 @@ import { useStore } from "@/lib/store";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { state, setUnits, setSeenWelcome, signOut, setPremium, toast, userEmail } = useStore();
+  const { state, setUnits, setSeenWelcome, signOut, setPremium, setNotificationPref, toast, userEmail } = useStore();
+  const currentMember = state.members.find((m) => m.id === state.currentMemberId);
 
   return (
     <div className="px-4">
@@ -62,23 +63,30 @@ export default function SettingsPage() {
       <SectionHeader>Notifications</SectionHeader>
       <Group>
         {[
-          { label: "Care reminders", on: true },
-          { label: "Family activity", on: true },
-          { label: "Vet suggestions", on: state.premium },
-        ].map((n) => (
-          <Row
-            key={n.label}
-            leading={<IconCircle icon="bell" tint="text-label-2" bg="bg-fill" />}
-            title={n.label}
-            trailing={
-              <span className={`flex h-6 w-10 items-center rounded-full p-0.5 ${n.on ? "justify-end bg-green" : "justify-start bg-fill"}`}>
-                <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
-              </span>
-            }
-          />
-        ))}
+          { key: "notifyCareReminders" as const, label: "Care reminders" },
+          { key: "notifyFamilyActivity" as const, label: "Family activity" },
+          { key: "notifyVetSuggestions" as const, label: "Vet suggestions" },
+        ].map((n) => {
+          const on = currentMember ? currentMember[n.key] : true;
+          return (
+            <Row
+              key={n.key}
+              leading={<IconCircle icon="bell" tint="text-label-2" bg="bg-fill" />}
+              title={n.label}
+              onClick={() => currentMember && setNotificationPref(n.key, !on)}
+              trailing={
+                <span className={`flex h-6 w-10 items-center rounded-full p-0.5 transition-colors ${on ? "justify-end bg-green" : "justify-start bg-fill"}`}>
+                  <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
+                </span>
+              }
+            />
+          );
+        })}
       </Group>
-      <p className="mt-1.5 px-1 text-[12px] text-label-3">Demo — notification toggles are illustrative.</p>
+      <p className="mt-1.5 px-1 text-[12px] text-label-3">
+        {currentMember ? `Just for ${currentMember.name} — other family members set their own.` : "Set per family member."} Reminders you&apos;ve already
+        added still appear in Care.
+      </p>
 
       <SectionHeader>Account</SectionHeader>
       <Group>
