@@ -34,7 +34,10 @@ export default function SettingsPage() {
                 { value: "lb", label: "lb" },
               ]}
               value={state.units}
-              onChange={(u) => setUnits(u)}
+              onChange={(u) => {
+                setUnits(u);
+                toast("⚖️", `Weights now shown in ${u === "kg" ? "kilograms" : "pounds"}`, "");
+              }}
             />
           </div>
         </div>
@@ -73,7 +76,11 @@ export default function SettingsPage() {
               key={n.key}
               leading={<IconCircle icon="bell" tint="text-label-2" bg="bg-fill" />}
               title={n.label}
-              onClick={() => currentMember && setNotificationPref(n.key, !on)}
+              onClick={() => {
+                if (!currentMember) return;
+                setNotificationPref(n.key, !on);
+                toast("🔔", `${n.label} turned ${on ? "off" : "on"}`, "");
+              }}
               trailing={
                 <span className={`flex h-6 w-10 items-center rounded-full p-0.5 transition-colors ${on ? "justify-end bg-green" : "justify-start bg-fill"}`}>
                   <span className="h-5 w-5 rounded-full bg-white shadow-sm" />

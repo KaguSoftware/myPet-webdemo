@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
@@ -37,10 +37,15 @@ export default function Home() {
   const [feedFraction, setFeedFraction] = useState<(typeof PORTIONS)[number]["value"]>("1");
   const [levelSheetOpen, setLevelSheetOpen] = useState(false);
   const [streakSheetOpen, setStreakSheetOpen] = useState(false);
+  const [justLeveled, setJustLeveled] = useState(false);
+  const [justStreaked, setJustStreaked] = useState(false);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const didSwipe = useRef(false);
 
   const currentLevel = level(state.xp);
+  const prevLevelRef = useRef(currentLevel);
+  const prevStreakRef = useRef(state.streak);
+  const prevDayDoneRef = useRef<{ petId: string; done: boolean } | null>(null);
 
   const changePet = (dir: 1 | -1) =>
     setPetIndex((i) => Math.min(state.pets.length - 1, Math.max(0, i + dir)));
@@ -54,6 +59,48 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.activities, pet?.id]
   );
+
+  // Level-up: bounce the hero pet when the level crosses up (the ⭐ toast fires from the store).
+  useEffect(() => {
+    if (currentLevel > prevLevelRef.current) {
+      setJustLeveled(true);
+      const t = setTimeout(() => setJustLeveled(false), 950);
+      prevLevelRef.current = currentLevel;
+      return () => clearTimeout(t);
+    }
+    prevLevelRef.current = currentLevel;
+  }, [currentLevel]);
+
+  // Streak-up: pop the flame when the streak grows (the 🔥 toast fires from the store).
+  useEffect(() => {
+    if (state.streak > prevStreakRef.current) {
+      setJustStreaked(true);
+      const t = setTimeout(() => setJustStreaked(false), 700);
+      prevStreakRef.current = state.streak;
+      return () => clearTimeout(t);
+    }
+    prevStreakRef.current = state.streak;
+  }, [state.streak]);
+
+  // "All caught up today": fire once when the CURRENT pet's day flips to complete
+  // (last plan item done / meals target hit) — not when switching to an already-
+  // complete pet, and not on mount.
+  useEffect(() => {
+    if (!pet) return;
+    const plan = CARE_PLANS[pet.breed];
+    const planItems = plan?.items.filter((i) => i.perDay && i.action) ?? [];
+    const dayDone =
+      state.premium && plan
+        ? planItems.length > 0 &&
+          planItems.every((item) => todays.filter((a) => a.type === item.action).length >= (item.perDay ?? 1))
+        : todays.filter((a) => a.type === "fed").length >= (plan?.items.find((i) => i.action === "fed")?.perDay ?? 2);
+    const prev = prevDayDoneRef.current;
+    if (prev && prev.petId === pet.id && !prev.done && dayDone) {
+      toast("🎉", "All caught up today!", `${pet.name}'s care is all done for today`);
+    }
+    prevDayDoneRef.current = { petId: pet.id, done: dayDone };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todays, pet?.id, state.premium]);
 
   if (!hydrated || !pet) {
     return (
@@ -158,7 +205,9 @@ export default function Home() {
           }}
           className="flex items-center gap-4 transition-transform active:scale-[0.99]"
         >
-          <PetAvatar pet={pet} size="lg" idle />
+          <div className={justLeveled ? "animate-levelup" : ""}>
+            <PetAvatar pet={pet} size="lg" idle />
+          </div>
           <div className="min-w-0 flex-1">
             <h2 className="flex items-center gap-1 text-[22px] font-bold tracking-[-0.01em] text-label">
               {pet.name}
@@ -234,7 +283,9 @@ export default function Home() {
           onClick={() => setStreakSheetOpen(true)}
           className="flex flex-1 items-center gap-2 rounded-card bg-card px-3.5 py-3 text-left shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform active:scale-95"
         >
-          <Icon name="flame" size={18} className="text-orange" />
+          <span className={`inline-flex ${justStreaked ? "animate-coin-bump" : ""}`}>
+            <Icon name="flame" size={18} className="text-orange" />
+          </span>
           <div>
             <p className="text-[15px] font-bold leading-none text-label">{state.streak}</p>
             <p className="mt-0.5 text-[11px] font-medium text-label-2">day streak</p>

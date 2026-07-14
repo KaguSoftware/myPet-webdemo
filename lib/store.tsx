@@ -934,6 +934,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const gramsNote = type === "fed" && grams != null ? `${Math.round(grams)} g · ` : "";
       toast(ACTIONS[type].emoji, `${pet.name} — ${ACTIONS[type].label.toLowerCase()} at ${time}`, `Family notified 📣 · ${gramsNote}+5 coins · +10 XP`);
       if (leveledUp) toast("⭐", `Level ${level(newXp)} reached!`, "Nice — keep the daily care going");
+      if (newStreak > before.streak) toast("🔥", `${newStreak}-day streak!`, "You're on a roll — keep it going");
 
       // Persist the activity (+ any supply drain) per-row; on failure roll the
       // whole slice back. Coins/xp/streak go through the debounced syncCounters

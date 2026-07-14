@@ -40,6 +40,7 @@ export default function RemindersPage() {
             onClick={() => {
               toggleReminder(r.id);
               if (!r.done) toast("✅", `Done: ${r.title}`, "Marked complete for the family");
+              else toast("↩️", `Reopened: ${r.title}`, "Marked as not done");
             }}
             aria-label={r.done ? "Mark as not done" : "Mark as done"}
             className={`flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-all duration-200 active:scale-90 ${

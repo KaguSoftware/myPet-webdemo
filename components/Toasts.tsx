@@ -3,6 +3,22 @@
 import { useStore } from "@/lib/store";
 import { Icon } from "./Icons";
 
+// Severity is derived from the emoji each toast already carries (no call-site
+// changes): alerts/errors read red, celebrations/confirmations read green, and
+// everything else stays the neutral indigo. Keeps the emoji glyph on top.
+const TILE_BY_SEVERITY: Record<"alert" | "success" | "info", string> = {
+  alert: "bg-linear-to-b from-[oklch(0.62_0.2_25)] to-[oklch(0.52_0.2_28)]",
+  success: "bg-linear-to-b from-[oklch(0.66_0.16_155)] to-[oklch(0.55_0.16_158)]",
+  info: "bg-linear-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.5_0.19_262)]",
+};
+const ALERT_EMOJI = new Set(["🚨", "⚠️"]);
+const SUCCESS_EMOJI = new Set(["✅", "⭐", "🎉", "🔥"]);
+function severityOf(emoji: string): "alert" | "success" | "info" {
+  if (ALERT_EMOJI.has(emoji)) return "alert";
+  if (SUCCESS_EMOJI.has(emoji)) return "success";
+  return "info";
+}
+
 export default function Toasts() {
   const { toasts, dismissToast, stopNotifications } = useStore();
   return (
@@ -23,7 +39,8 @@ export default function Toasts() {
         >
           <span
             aria-hidden
-            className="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-[10px] bg-linear-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.5_0.19_262)] text-[20px] leading-none shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)]">
+            className={`flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-[10px] text-[20px] leading-none text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)] ${TILE_BY_SEVERITY[severityOf(t.emoji)]}`}
+          >
             {t.emoji}
           </span>
           <button onClick={() => dismissToast(t.id)} className="min-w-0 flex-1 text-left">

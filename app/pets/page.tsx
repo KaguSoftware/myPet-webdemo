@@ -92,6 +92,11 @@ function PetsPageContent() {
   const [breed, setBreed] = useState("British Shorthair");
   const [editingStat, setEditingStat] = useState<"weight" | "age" | "cupGrams" | null>(null);
   const [namesRef, setNamesRef] = useState<HTMLDivElement | null>(null);
+  const [justReacted, setJustReacted] = useState(false);
+  const react = () => {
+    setJustReacted(true);
+    setTimeout(() => setJustReacted(false), 450);
+  };
 
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
   const mainMeta = MAIN_SLOTS.find((s) => s.slot === openSheet);
@@ -178,12 +183,15 @@ function PetsPageContent() {
 
   const buy = (c: Cosmetic) => {
     buyCosmetic(pet.id, c.id);
+    react();
     toast("🛍️", `${c.name} purchased`, `${pet.name} is wearing it now`);
   };
   const toggle = (c: Cosmetic) => {
     const wasEquipped = pet.equipped[c.slot] === c.id;
     toggleEquip(pet.id, c.id);
-    if (!wasEquipped) toast("🐾", `${pet.name} is wearing the ${c.name}`, "Looking sharp");
+    react();
+    if (wasEquipped) toast("🐾", `Took off the ${c.name}`, `${pet.name}'s look updated`);
+    else toast("🐾", `${pet.name} is wearing the ${c.name}`, "Looking sharp");
   };
 
   return (
@@ -254,7 +262,7 @@ function PetsPageContent() {
             ) : (
               <>
                 {/* Pixel pet on a soft platform shadow */}
-                <div className="flex h-full w-full items-center justify-center">
+                <div className={`flex h-full w-full items-center justify-center ${justReacted ? "animate-coin-bump" : ""}`}>
                   <PixelPet pet={pet} size={168} idle />
                 </div>
                 <span className="absolute bottom-1 left-1/2 h-3 w-24 -translate-x-1/2 rounded-[50%] bg-[oklch(0.35_0.05_288/0.18)] blur-[3px]" />
@@ -368,7 +376,10 @@ function PetsPageContent() {
               {pet.equipped[openSheet] && (
                 <Group className="mt-2">
                   <Row
-                    onClick={() => toggleEquip(pet.id, pet.equipped[openSheet as CosmeticSlot]!)}
+                    onClick={() => {
+                      const c = cosmetic(pet.equipped[openSheet as CosmeticSlot]!);
+                      if (c) toggle(c);
+                    }}
                     title={`Remove ${cosmetic(pet.equipped[openSheet as CosmeticSlot]!)?.name}`}
                     destructive
                   />

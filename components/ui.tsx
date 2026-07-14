@@ -196,8 +196,24 @@ export function Segmented<T extends string>({
 }
 
 export function CoinPill({ amount }: { amount: number }) {
+  // Bump whenever the balance INCREASES — one place gives coin-earn feedback for
+  // every source (log care, treat, restock, plan rows), not just the Home grid.
+  // Spending (a decrease) doesn't bump.
+  const prev = useRef(amount);
+  const [bump, setBump] = useState(false);
+  useEffect(() => {
+    if (amount > prev.current) {
+      setBump(true);
+      const t = setTimeout(() => setBump(false), 450);
+      prev.current = amount;
+      return () => clearTimeout(t);
+    }
+    prev.current = amount;
+  }, [amount]);
   return (
-    <span className="flex items-center gap-1.5 rounded-full bg-orange-soft px-2.5 py-1.5 text-[oklch(0.5_0.13_60)]">
+    <span
+      className={`flex items-center gap-1.5 rounded-full bg-orange-soft px-2.5 py-1.5 text-[oklch(0.5_0.13_60)] ${bump ? "animate-coin-bump" : ""}`}
+    >
       <PixelSprite sprite={COIN_SPRITE} size={13} className="pixelated" />
       <span className="font-pixel text-[10px]">{amount.toLocaleString()}</span>
     </span>
