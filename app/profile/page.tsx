@@ -9,7 +9,7 @@ import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
 import { AccentButton, ConfirmRow, Group, Row, SectionHeader } from "@/components/ui";
-import { Member, Pet, formatAge, formatWeight } from "@/lib/data";
+import { Member, Pet, formatAge, formatWeight, isAdminRole } from "@/lib/data";
 import { level, useStore } from "@/lib/store";
 
 export default function ProfilePage() {
@@ -30,8 +30,8 @@ export default function ProfilePage() {
   } = useStore();
   const [paywallOpen, setPaywallOpen] = useState(false);
 
-  const adminMember = state.members.find((m) => m.role.toLowerCase() === "owner") ?? state.members[0];
-  const isAdmin = !!adminMember && state.currentMemberId === adminMember.id;
+  const currentMember = state.members.find((m) => m.id === state.currentMemberId);
+  const isAdmin = !!currentMember && isAdminRole(currentMember.role);
 
   const [familyPwOpen, setFamilyPwOpen] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
@@ -184,59 +184,49 @@ export default function ProfilePage() {
       </Group>
       <p className="mt-1.5 px-1 text-[12px] text-label-3">Tap a member to view the demo as them, or Edit to manage them.</p>
 
-      {/* Family ID + admin password */}
-      <SectionHeader>Family</SectionHeader>
-      <Group>
-        <Row
-          leading={
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
-              <Icon name="people" size={18} />
-            </span>
-          }
-          title="Family ID"
-          subtitle={state.familyId ? `${state.familyId.slice(0, 8)}…` : "Loading…"}
-          trailing={
-            <button
-              onClick={() => {
-                if (!state.familyId) return;
-                navigator.clipboard.writeText(state.familyId);
-                toast("📋", "Family ID copied", "");
-              }}
-              className="text-[13px] font-semibold text-accent"
-            >
-              Copy
-            </button>
-          }
-        />
-        <Row
-          onClick={() => {
-            if (!isAdmin) {
-              toast("🔒", "Admin only", `Only ${adminMember?.name ?? "the admin"} can manage the family password`);
-              return;
-            }
-            setFamilyPwOpen(true);
-          }}
-          leading={
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
-              <Icon name="lock" size={18} />
-            </span>
-          }
-          title="Family password"
-          subtitle={
-            state.familyPasswordSet
-              ? isAdmin
-                ? "Set — tap to change"
-                : `Set by ${adminMember?.name ?? "the admin"}`
-              : isAdmin
-                ? "Not set — tap to add one"
-                : "Not set"
-          }
-          trailing={isAdmin ? <Icon name="chevron-right" size={15} className="text-label-3" /> : undefined}
-        />
-      </Group>
-      <p className="mt-1.5 px-1 text-[12px] text-label-3">
-        Share the Family ID so others can find this household. {adminMember?.name ?? "The admin"} can lock it with a password.
-      </p>
+      {/* Family ID + admin password — admin role only */}
+      {isAdmin && (
+        <>
+          <SectionHeader>Family</SectionHeader>
+          <Group>
+            <Row
+              leading={
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
+                  <Icon name="people" size={18} />
+                </span>
+              }
+              title="Family ID"
+              subtitle={state.familyId ? `${state.familyId.slice(0, 8)}…` : "Loading…"}
+              trailing={
+                <button
+                  onClick={() => {
+                    if (!state.familyId) return;
+                    navigator.clipboard.writeText(state.familyId);
+                    toast("📋", "Family ID copied", "");
+                  }}
+                  className="text-[13px] font-semibold text-accent"
+                >
+                  Copy
+                </button>
+              }
+            />
+            <Row
+              onClick={() => setFamilyPwOpen(true)}
+              leading={
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
+                  <Icon name="lock" size={18} />
+                </span>
+              }
+              title="Family password"
+              subtitle={state.familyPasswordSet ? "Set — tap to change" : "Not set — tap to add one"}
+              trailing={<Icon name="chevron-right" size={15} className="text-label-3" />}
+            />
+          </Group>
+          <p className="mt-1.5 px-1 text-[12px] text-label-3">
+            Share the Family ID so others can find this household. Only admins can see this and lock it with a password.
+          </p>
+        </>
+      )}
 
       {/* Pets */}
       <SectionHeader>Pets</SectionHeader>
@@ -337,6 +327,7 @@ export default function ProfilePage() {
                     breed: editPetBreed.trim(),
                     ageYears: Number(editPetAge) || editingPet.ageYears,
                     weightKg: Number(editPetWeight) || editingPet.weightKg,
+                    cupGrams: editingPet.cupGrams,
                   });
                   toast("🐾", `${editPetName.trim()} updated`, "");
                   setEditingPet(null);

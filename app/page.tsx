@@ -5,19 +5,24 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
 import EditStatSheet from "@/components/EditStatSheet";
+import Sheet from "@/components/Sheet";
+import PixelSprite from "@/components/pixel/PixelSprite";
+import { SMILEY_SPRITE } from "@/components/pixel/hudSprites";
 import { ACTION_ICON, Icon } from "@/components/Icons";
-import { Chevron, Chip, CoinPill, Group, Row, SectionHeader } from "@/components/ui";
-import { ACTIONS, ActionType, CARE_PLANS, formatAge, formatWeight } from "@/lib/data";
+import { AccentButton, Chevron, Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
+import { ACTIONS, ActionType, CARE_PLANS, PORTIONS, VET, VETS, formatAge, formatWeight } from "@/lib/data";
 import { dueLabel, level, levelProgress, useStore } from "@/lib/store";
 
 const CAT_ACTIONS: ActionType[] = ["fed", "water", "litter", "groomed", "meds", "vet"];
 const DOG_ACTIONS: ActionType[] = ["fed", "water", "walk", "groomed", "meds", "vet"];
 
 export default function Home() {
-  const { state, hydrated, logAction, restockSupply, addWeight, editPet, toast } = useStore();
+  const { state, hydrated, logAction, restockSupply, useSupply: consumeSupply, addWeight, editPet, toast, bookVetById } = useStore();
   const [petIndex, setPetIndex] = useState(0);
   const [justLogged, setJustLogged] = useState<ActionType | null>(null);
   const [editingStat, setEditingStat] = useState<"weight" | "age" | null>(null);
+  const [feedPortionOpen, setFeedPortionOpen] = useState(false);
+  const [feedFraction, setFeedFraction] = useState<(typeof PORTIONS)[number]["value"]>("1");
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const didSwipe = useRef(false);
 
@@ -51,12 +56,30 @@ export default function Home() {
   const fedTarget = plan?.items.find((i) => i.action === "fed")?.perDay ?? 2;
   const fedCount = todays.filter((a) => a.type === "fed").length;
   const fedPct = Math.min(100, Math.round((fedCount / fedTarget) * 100));
+  const petAlerts = state.reminders.filter((r) => r.alert && !r.done && r.petId === pet.id);
 
   const nextReminder = state.reminders
     .filter((r) => !r.done && r.petId === pet.id)
     .sort((a, b) => a.due - b.due)[0];
 
   const actions = pet.species === "cat" ? CAT_ACTIONS : DOG_ACTIONS;
+
+  const treatsSupply = pet.supplies.find((s) => s.icon === "star");
+
+  const confirmFeed = () => {
+    const frac = PORTIONS.find((p) => p.value === feedFraction)?.frac ?? 1;
+    logAction(pet.id, "fed", frac * pet.cupGrams);
+    setFeedPortionOpen(false);
+    setJustLogged("fed");
+    setTimeout(() => setJustLogged(null), 700);
+  };
+
+  const confirmTreat = () => {
+    if (!treatsSupply) return;
+    consumeSupply(pet.id, treatsSupply.id);
+    setFeedPortionOpen(false);
+    toast("🦴", `${pet.name} got a treat`, `${treatsSupply.name} · ${Math.max(0, treatsSupply.level - 15)}% left`);
+  };
 
   return (
     <div className="px-4">
@@ -122,6 +145,27 @@ export default function Home() {
             />
           </div>
         </div>
+        {petAlerts.length > 0 && (
+          <div className="mt-3 flex flex-col gap-2">
+            {petAlerts.map((r) => {
+              const alertVet = VETS.find((v) => v.id === r.vetId) ?? VET;
+              return (
+                <div key={r.id} className="rounded-card bg-[oklch(0.6_0.21_25/0.06)] p-3">
+                  <p className="text-[14px] font-semibold leading-snug text-red">{r.title}</p>
+                  <button
+                    onClick={() => {
+                      bookVetById(alertVet.id);
+                      toast("🩺", `Vet visit requested`, `${alertVet.name} will follow up about ${pet.name}`);
+                    }}
+                    className="mt-2 flex h-8 w-fit items-center gap-1.5 rounded-full bg-red px-3 text-[13px] font-semibold text-white transition-transform active:scale-95"
+                  >
+                    <Icon name="cross" size={14} /> Book vet — {alertVet.name}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
         {state.pets.length > 1 && (
           <div className="mt-4 flex items-center justify-center gap-2">
             {state.pets.map((p, i) => (
@@ -173,6 +217,10 @@ export default function Home() {
             <button
               key={type}
               onClick={() => {
+                if (type === "fed") {
+                  setFeedPortionOpen(true);
+                  return;
+                }
                 logAction(pet.id, type);
                 setJustLogged(type);
                 setTimeout(() => setJustLogged(null), 700);
@@ -187,7 +235,16 @@ export default function Home() {
               <span className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-300 ${flash ? "bg-green text-white" : `${a.bg} ${a.tint}`}`}>
                 {flash ? <Icon name="check" size={18} strokeWidth={2.4} className="animate-pop" /> : <Icon name={a.icon} size={19} />}
               </span>
-              <span className="text-[13px] font-semibold text-label">{ACTIONS[type].label}</span>
+              <span className="flex items-center gap-1 text-[13px] font-semibold text-label">
+                {type === "meds" && pet.meds.length === 0 ? (
+                  <>
+                    No meds
+                    <PixelSprite sprite={SMILEY_SPRITE} size={13} className="pixelated" />
+                  </>
+                ) : (
+                  ACTIONS[type].label
+                )}
+              </span>
             </button>
           );
         })}
@@ -281,6 +338,10 @@ export default function Home() {
                       complete
                         ? undefined
                         : () => {
+                            if (item.action === "fed") {
+                              setFeedPortionOpen(true);
+                              return;
+                            }
                             logAction(pet.id, item.action!);
                             setJustLogged(item.action!);
                             setTimeout(() => setJustLogged(null), 700);
@@ -350,10 +411,30 @@ export default function Home() {
         label="Age (years)"
         initialValue={pet.ageYears}
         onSave={(ageYears) => {
-          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg });
+          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg, cupGrams: pet.cupGrams });
           toast("🎂", `${pet.name}'s age updated`, formatAge(ageYears));
         }}
       />
+
+      <Sheet open={feedPortionOpen} onClose={() => setFeedPortionOpen(false)}>
+        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">How much food?</h2>
+        <p className="mt-0.5 text-[13px] text-label-2">For {pet.name} · {pet.cupGrams} g per full cup</p>
+        <div className="mt-5">
+          <Segmented options={PORTIONS} value={feedFraction} onChange={setFeedFraction} />
+        </div>
+        <div className="mt-7">
+          <AccentButton onClick={confirmFeed}>Log feeding</AccentButton>
+        </div>
+        {treatsSupply && (
+          <div className="mt-6 border-t border-fill pt-5">
+            <h3 className="text-[15px] font-bold text-label">Give a treat instead?</h3>
+            <p className="mt-0.5 text-[13px] text-label-2">{treatsSupply.name} · {treatsSupply.level}% left</p>
+            <div className="mt-3">
+              <AccentButton variant="tinted" onClick={confirmTreat}>Give treat</AccentButton>
+            </div>
+          </div>
+        )}
+      </Sheet>
     </div>
   );
 }

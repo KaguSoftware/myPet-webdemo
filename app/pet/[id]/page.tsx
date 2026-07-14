@@ -70,7 +70,7 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
       {/* Weight */}
       <SectionHeader>Weight</SectionHeader>
       <div className="rounded-card bg-card p-4 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)]">
-        <PixelChart points={pet.weights} target={target} units={state.units} />
+        <PixelChart points={pet.weights} target={target} units={state.units} onAddWeight={() => setEditing("weight")} />
       </div>
 
       {/* Supplies */}
@@ -184,7 +184,7 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
         label="Age (years)"
         initialValue={pet.ageYears}
         onSave={(ageYears) => {
-          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg });
+          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg, cupGrams: pet.cupGrams });
           toast("🎂", `${pet.name}'s age updated`, formatAge(ageYears));
         }}
       />

@@ -4,9 +4,18 @@ import { useStore } from "@/lib/store";
 import { Icon } from "./Icons";
 
 export default function Toasts() {
-  const { toasts, dismissToast } = useStore();
+  const { toasts, dismissToast, stopNotifications } = useStore();
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-50 flex flex-col items-center gap-2 px-4 pt-3 md:pt-11">
+      {toasts.length > 0 && (
+        <button
+          onClick={stopNotifications}
+          className="glass pointer-events-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold text-label-2 animate-toast-in"
+        >
+          <Icon name="xmark" size={12} />
+          Close notifications
+        </button>
+      )}
       {toasts.map((t) => (
         <button
           key={t.id}

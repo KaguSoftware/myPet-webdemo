@@ -22,6 +22,13 @@ export interface Supply {
   level: number; // 0-100
 }
 
+export interface Med {
+  id: string;
+  name: string;
+  dosage?: string;
+  frequency?: string;
+}
+
 export interface Pet {
   id: string;
   name: string;
@@ -36,6 +43,9 @@ export interface Pet {
   gradient: [string, string];
   weights: WeightPoint[];
   supplies: Supply[];
+  meds: Med[];
+  /** Grams in one full cup of food — used to size the Fed portion picker. */
+  cupGrams: number;
 }
 
 export interface Member {
@@ -46,6 +56,14 @@ export interface Member {
   gradient: [string, string];
 }
 
+// The only role that carries functionality: it grants access to the
+// Family ID + password section on the Family tab. Every other role is
+// free-text and purely cosmetic.
+export const ADMIN_ROLE = "Admin";
+export function isAdminRole(role: string): boolean {
+  return role.trim().toLowerCase() === ADMIN_ROLE.toLowerCase();
+}
+
 export interface Activity {
   id: string;
   petId: string;
@@ -53,7 +71,17 @@ export interface Activity {
   type: ActionType;
   ts: number;
   note?: string;
+  /** Grams fed — set only for "fed" activities logged through the portion picker. */
+  grams?: number;
 }
+
+/** Portion choices offered by the Fed picker, as a fraction of one full cup. */
+export const PORTIONS: { value: "0.25" | "0.5" | "0.75" | "1"; label: string; frac: number }[] = [
+  { value: "0.25", label: "¼ cup", frac: 0.25 },
+  { value: "0.5", label: "½ cup", frac: 0.5 },
+  { value: "0.75", label: "¾ cup", frac: 0.75 },
+  { value: "1", label: "1 cup", frac: 1 },
+];
 
 export interface Reminder {
   id: string;
@@ -185,6 +213,8 @@ export interface PlanItem {
   cadence: string;
   perDay?: number;
   action?: ActionType;
+  /** Structured daily gram target for feeding items (alongside the prose in `detail`). */
+  perDayGrams?: number;
 }
 
 export const CARE_PLANS: Record<string, { intro: string; items: PlanItem[] }> = {
@@ -192,7 +222,7 @@ export const CARE_PLANS: Record<string, { intro: string; items: PlanItem[] }> = 
     intro:
       "Vet-built plan for an adult British Shorthair. This breed loves food and gains weight easily, so portion control is everything.",
     items: [
-      { emoji: "🍖", title: "Feeding", detail: "65 g dry food per meal, 3 meals a day (195 g total). No free-feeding — this breed overeats.", cadence: "3× daily", perDay: 3, action: "fed" },
+      { emoji: "🍖", title: "Feeding", detail: "65 g dry food per meal, 3 meals a day (195 g total). No free-feeding — this breed overeats.", cadence: "3× daily", perDay: 3, action: "fed", perDayGrams: 195 },
       { emoji: "💧", title: "Fresh water", detail: "Refresh the bowl twice a day. Shorthairs are prone to kidney issues — hydration matters.", cadence: "2× daily", perDay: 2, action: "water" },
       { emoji: "🧹", title: "Litter", detail: "Scoop daily, full change weekly with unscented clumping litter.", cadence: "Daily", perDay: 1, action: "litter" },
       { emoji: "✂️", title: "Brushing", detail: "Dense double coat — brush 2× a week, daily during spring shedding.", cadence: "2× weekly", action: "groomed" },
@@ -205,7 +235,7 @@ export const CARE_PLANS: Record<string, { intro: string; items: PlanItem[] }> = 
     intro:
       "Vet-built plan for an adult Golden Retriever. High-energy breed — exercise and joint care are the priorities.",
     items: [
-      { emoji: "🍖", title: "Feeding", detail: "180 g kibble per meal, 2 meals a day. Add joint supplement (glucosamine) to breakfast.", cadence: "2× daily", perDay: 2, action: "fed" },
+      { emoji: "🍖", title: "Feeding", detail: "180 g kibble per meal, 2 meals a day. Add joint supplement (glucosamine) to breakfast.", cadence: "2× daily", perDay: 2, action: "fed", perDayGrams: 360 },
       { emoji: "🦮", title: "Exercise", detail: "Minimum 2 walks a day, 30–45 min each. One should include off-leash play or fetch.", cadence: "2× daily", perDay: 2, action: "walk" },
       { emoji: "💧", title: "Fresh water", detail: "Large bowl, refresh twice daily — more after exercise in warm weather.", cadence: "2× daily", perDay: 2, action: "water" },
       { emoji: "✂️", title: "Brushing", detail: "Heavy shedder — brush 3× a week with an undercoat rake.", cadence: "3× weekly", action: "groomed" },
@@ -253,7 +283,7 @@ export const SEED: AppState = {
   familyId: "demo-family",
   familyPasswordSet: false,
   members: [
-    { id: "you", name: "Parsa", emoji: "🧑‍💻", role: "Owner", gradient: ["oklch(0.62 0.16 258)", "oklch(0.5 0.18 280)"] },
+    { id: "you", name: "Parsa", emoji: "🧑‍💻", role: ADMIN_ROLE, gradient: ["oklch(0.62 0.16 258)", "oklch(0.5 0.18 280)"] },
     { id: "mom", name: "Mom", emoji: "👩‍🦰", role: "Admin", gradient: ["oklch(0.68 0.15 350)", "oklch(0.56 0.17 20)"] },
     { id: "dad", name: "Dad", emoji: "👨‍🦳", role: "Member", gradient: ["oklch(0.66 0.13 165)", "oklch(0.54 0.13 200)"] },
     { id: "sara", name: "Sara", emoji: "👧", role: "Member", gradient: ["oklch(0.72 0.14 85)", "oklch(0.62 0.16 50)"] },
@@ -277,6 +307,8 @@ export const SEED: AppState = {
         { id: "litter", name: "Litter", icon: "broom", level: 18 },
         { id: "treats", name: "Dental treats", icon: "star", level: 80 },
       ],
+      meds: [{ id: "flea", name: "Flea treatment", dosage: "1 pipette", frequency: "Monthly" }],
+      cupGrams: 55,
     },
     {
       id: "biscuit",
@@ -295,6 +327,8 @@ export const SEED: AppState = {
         { id: "poopbags", name: "Poop bags", icon: "broom", level: 12 },
         { id: "treats", name: "Training treats", icon: "star", level: 70 },
       ],
+      meds: [],
+      cupGrams: 65,
     },
   ],
   activities: [
@@ -327,14 +361,25 @@ export const WEIGHT_TARGETS: Record<string, [number, number]> = {
   "Golden Retriever": [25, 34],
 };
 
-/** Fallback daily feeding/water targets for cats without a breed-specific care plan. */
-export const DEFAULT_CAT_TARGETS: Partial<Record<ActionType, number>> = { fed: 3, water: 2 };
+/** Fallback daily targets per species for pets without a breed-specific care plan. */
+export const DEFAULT_TARGETS: Record<"cat" | "dog", Partial<Record<ActionType, number>>> = {
+  cat: { fed: 3, water: 2, litter: 1 },
+  dog: { fed: 2, water: 2, walk: 2 },
+};
 
 /** Recommended daily count for an action, from the breed's care plan if present, else the species fallback. */
 export function dailyTarget(species: "cat" | "dog", breed: string, type: ActionType): number | undefined {
   const fromPlan = CARE_PLANS[breed]?.items.find((i) => i.action === type)?.perDay;
   if (fromPlan != null) return fromPlan;
-  return species === "cat" ? DEFAULT_CAT_TARGETS[type] : undefined;
+  return DEFAULT_TARGETS[species][type];
+}
+
+/** Recommended daily grams of food, from the breed's care plan if present, else the pet's own cup size × its species-fallback meal count. */
+export function dailyGramTarget(pet: Pet): number | undefined {
+  const fromPlan = CARE_PLANS[pet.breed]?.items.find((i) => i.action === "fed")?.perDayGrams;
+  if (fromPlan != null) return fromPlan;
+  const meals = dailyTarget(pet.species, pet.breed, "fed");
+  return meals != null ? meals * pet.cupGrams : undefined;
 }
 
 export function formatWeight(kg: number, units: "kg" | "lb"): string {

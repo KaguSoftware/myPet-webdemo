@@ -36,3 +36,18 @@ export const STAR_SPRITE: Sprite = {
     "O.O.O.O",
   ],
 };
+
+export const SMILEY_SPRITE: Sprite = {
+  palette: { O: "#a8791d", Y: "#f5c542", H: "#ffffff", B: "#3a2a10", P: "#ff9eb0" },
+  rows: [
+    ".OOOOOOO.",
+    "OYYYYYYYO",
+    "OYYYYYYYO",
+    "OYBYYYBYO",
+    "OYHYYYHYO",
+    "OYPYYYPYO",
+    "OYYOOOYYO",
+    "OYYYYYYYO",
+    ".OOOOOOO.",
+  ],
+};

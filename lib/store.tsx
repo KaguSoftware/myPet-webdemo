@@ -2,7 +2,15 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ACTIONS, ActionType, Activity, AppState, CosmeticSlot, Member, Pet, Reminder, VET, cosmetic, dailyTarget } from "./data";
+import { ACTIONS, ActionType, ADMIN_ROLE, Activity, AppState, CosmeticSlot, Med, Member, Pet, Reminder, VET, cosmetic, dailyGramTarget, dailyTarget } from "./data";
+
+// Verb used in alert copy for each loggable action that can carry a /plan daily target.
+const ALERT_VERB: Partial<Record<ActionType, string>> = {
+  fed: "eating",
+  water: "drinking",
+  litter: "using the litter box",
+  walk: "going for walks",
+};
 
 function sameCalendarDay(a: number, b: number) {
   const da = new Date(a);
@@ -24,7 +32,8 @@ interface Store {
   toast: (emoji: string, title: string, body?: string) => void;
   toasts: Toast[];
   dismissToast: (id: number) => void;
-  logAction: (petId: string, type: ActionType) => void;
+  stopNotifications: () => void;
+  logAction: (petId: string, type: ActionType, grams?: number) => void;
   switchMember: (id: string) => void;
   setPremium: (on: boolean) => void;
   buyCosmetic: (petId: string, cosmeticId: string) => void;
@@ -33,7 +42,7 @@ interface Store {
   toggleReminder: (id: string) => void;
   deleteReminder: (id: string) => void;
   addPet: (name: string, species: "cat" | "dog", breed: string) => void;
-  editPet: (petId: string, patch: { name: string; breed: string; ageYears: number; weightKg: number }) => void;
+  editPet: (petId: string, patch: { name: string; breed: string; ageYears: number; weightKg: number; cupGrams: number }) => void;
   deletePet: (petId: string) => void;
   addWeight: (petId: string, kg: number) => void;
   addMember: (name: string, role: string) => void;
@@ -43,6 +52,8 @@ interface Store {
   bookVetById: (vetId: string) => void;
   restockSupply: (petId: string, supplyId: string) => void;
   useSupply: (petId: string, supplyId: string) => void;
+  addMed: (petId: string, name: string, dosage?: string, frequency?: string) => void;
+  deleteMed: (petId: string, medId: string) => void;
   setSeenWelcome: (seen: boolean) => void;
   setUnits: (units: "kg" | "lb") => void;
   /** Set, change, or remove (pass null) the family password. Verifies `currentPassword` against the stored hash first if one is already set — returns false and toasts on mismatch. */
@@ -134,7 +145,7 @@ async function bootstrapHousehold(
   const { data: members } = await supabase
     .from("members")
     .insert([
-      { household_id: household.id, name, emoji: "🧑‍💻", role: "Owner", gradient_from: "oklch(0.62 0.16 258)", gradient_to: "oklch(0.5 0.18 280)" },
+      { household_id: household.id, name, emoji: "🧑‍💻", role: ADMIN_ROLE, gradient_from: "oklch(0.62 0.16 258)", gradient_to: "oklch(0.5 0.18 280)" },
       { household_id: household.id, name: "Mom", emoji: "👩‍🦰", role: "Admin", gradient_from: "oklch(0.68 0.15 350)", gradient_to: "oklch(0.56 0.17 20)" },
       { household_id: household.id, name: "Dad", emoji: "👨‍🦳", role: "Member", gradient_from: "oklch(0.66 0.13 165)", gradient_to: "oklch(0.54 0.13 200)" },
       { household_id: household.id, name: "Sara", emoji: "👧", role: "Member", gradient_from: "oklch(0.72 0.14 85)", gradient_to: "oklch(0.62 0.16 50)" },
@@ -209,6 +220,10 @@ async function bootstrapHousehold(
       { pet_id: dog.id, supply_key: "treats", name: "Training treats", icon: "star", level: 70 },
     ]);
 
+    await supabase.from("meds").insert([
+      { pet_id: cat.id, name: "Flea treatment", dosage: "1 pipette", frequency: "Monthly" },
+    ]);
+
     if (you && mom && dad && sara) {
       await supabase.from("activities").insert([
         { household_id: household.id, pet_id: cat.id, member_id: mom.id, type: "fed", ts: now - 3 * H },
@@ -248,8 +263,10 @@ type PetRow = {
   equipped: Partial<Record<CosmeticSlot, string>>;
   gradient_from: string;
   gradient_to: string;
+  cup_grams: number | null;
   weights?: { ts: number; kg: number; created_at?: string }[];
   supplies?: { supply_key: string; name: string; icon: string; level: number }[];
+  meds?: { id: string; name: string; dosage: string | null; frequency: string | null }[];
 };
 
 // One nested query (household + every child table via FK embedding) instead
@@ -264,7 +281,7 @@ type PetRow = {
 const HOUSEHOLD_SELECT = `
   *,
   members!members_household_id_fkey(*),
-  pets(*, weights(*), supplies(*)),
+  pets(*, weights(*), supplies(*), meds(*)),
   activities(*),
   reminders(*),
   booked_vets(vet_id)
@@ -283,7 +300,7 @@ type HouseholdRow = {
   family_password_hash: string | null;
   members: { id: string; name: string; emoji: string; role: string; gradient_from: string; gradient_to: string; created_at: string }[];
   pets: (PetRow & { created_at: string })[];
-  activities: { id: string; pet_id: string; member_id: string; type: ActionType; ts: number; note: string | null }[];
+  activities: { id: string; pet_id: string; member_id: string; type: ActionType; ts: number; note: string | null; grams: number | null }[];
   reminders: { id: string; pet_id: string; title: string; emoji: string; due: number; done: boolean; source: "manual" | "plan"; alert: boolean | null; vet_id: string | null }[];
   booked_vets: { vet_id: string }[];
 };
@@ -300,10 +317,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     stateRef.current = state;
   }, [state]);
   const notifiedActivityIdsRef = useRef<Set<string>>(new Set());
+  // setTimeout ids for the staggered "what everyone else did" toast batch
+  // (see notifyRecentActivity below) — lets stopNotifications cancel any
+  // still-queued toasts from that batch in one shot.
+  const pendingNotificationTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const hid = () => householdIdRef.current;
 
   const dismissToast = useCallback((id: number) => {
     setToasts((t) => t.filter((x) => x.id !== id));
+  }, []);
+
+  // One-time stop: cancels any still-queued toasts from the current activity
+  // batch and clears what's on screen. Not a persisted preference — the ids
+  // behind the cancelled toasts are already marked notified (added in
+  // notifyRecentActivity before scheduling), so they simply never show.
+  const stopNotifications = useCallback(() => {
+    pendingNotificationTimeoutsRef.current.forEach((id) => clearTimeout(id));
+    pendingNotificationTimeoutsRef.current.clear();
+    setToasts([]);
   }, []);
 
   const toast = useCallback(
@@ -333,28 +364,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!pet || !member) return;
         const action = ACTIONS[a.type];
         const time = new Date(a.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
+          pendingNotificationTimeoutsRef.current.delete(timeoutId);
           toast(action.emoji, `${member.name} ${action.verb} ${pet.name}`, `${time} · ${timeAgo(a.ts)}`);
         }, i * 1400);
+        pendingNotificationTimeoutsRef.current.add(timeoutId);
       });
     },
     [toast]
   );
 
-  // Raises a cat feeding/watering health alert: an auto-generated reminder
-  // (with a suggested vet) plus a toast, at most once per pet per day. Used
-  // both for a same-day overeating/overdrinking spike (from logAction) and a
-  // once-a-day check for the previous day's underfeeding/underwatering (from
-  // the load() catch-up below).
+  // Raises a care-plan health alert: an auto-generated reminder (with a
+  // suggested vet) plus a toast, at most once per pet per day. Used both for
+  // a same-day over-target spike (from logAction) and a once-a-day check for
+  // the previous day's under-target activity (from the load() catch-up
+  // below). Works for any pet/action where /plan (or its species default)
+  // defines a daily target.
   const raiseFeedingAlert = useCallback(
-    (pet: Pet, type: "fed" | "water", kind: "over" | "under", remindersSnapshot: Reminder[], ts: number) => {
+    (pet: Pet, type: ActionType, kind: "over" | "under", remindersSnapshot: Reminder[], ts: number) => {
       const h = hid();
       if (!h) return;
       const already = remindersSnapshot.some((r) => r.alert && r.petId === pet.id && !r.done && sameCalendarDay(r.due, ts));
       if (already) return;
-      const what = type === "fed" ? "eating" : "drinking";
+      const what = ALERT_VERB[type];
       const verb = kind === "over" ? `${what} way more than usual` : `${what} far less than usual`;
-      const title = `${pet.name} is ${verb} today — check the litter box & consider a vet visit`;
+      const title = `${pet.name} is ${verb} today — worth a vet visit`;
       const id = crypto.randomUUID();
       const vetId = VET.id;
       const reminder: Reminder = { id, petId: pet.id, title, emoji: "🩺", due: ts, done: false, source: "manual", alert: true, vetId };
@@ -363,7 +397,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .from("reminders")
         .insert({ id, household_id: h, pet_id: pet.id, title, emoji: "🩺", due: ts, done: false, source: "manual", alert: true, vet_id: vetId })
         .then();
-      toast("🚨", title, kind === "over" ? "Litter box may need attention sooner" : "Might be worth a vet check");
+      toast("🚨", title, kind === "over" ? `Might be worth keeping an eye on ${pet.name}` : "Might be worth a vet check");
     },
     [supabase, toast]
   );
@@ -460,10 +494,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         owned: p.owned,
         equipped: p.equipped,
         gradient: [p.gradient_from, p.gradient_to],
+        cupGrams: p.cup_grams ?? (p.species === "cat" ? 60 : 120),
         weights: [...(p.weights ?? [])]
           .sort((a, b) => Number(a.ts) - Number(b.ts))
           .map((w) => ({ ts: Number(w.ts), kg: Number(w.kg) })),
         supplies: (p.supplies ?? []).map((s) => ({ id: s.supply_key, name: s.name, icon: s.icon, level: s.level })),
+        meds: (p.meds ?? []).map((m) => ({ id: m.id, name: m.name, dosage: m.dosage ?? undefined, frequency: m.frequency ?? undefined })),
       }));
 
       if (cancelled) return;
@@ -481,6 +517,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         type: a.type,
         ts: Number(a.ts),
         note: a.note ?? undefined,
+        grams: a.grams ?? undefined,
       }));
       const currentMemberId = h.current_member_id ?? members[0]?.id ?? "";
       const reminderList: Reminder[] = reminders.map((r) => ({
@@ -517,22 +554,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // last 16h — never their own actions.
       notifyRecentActivity(currentMemberId, activityList, pets, mappedMembers);
 
-      // Once-a-day check: did a cat eat/drink at or under half its daily
-      // target yesterday? Real-time under-detection isn't meaningful
-      // mid-day, so this runs once per load, right after the catch-up above.
+      // Once-a-day check: was a pet at or under half its /plan daily target
+      // for any tracked action yesterday? Real-time under-detection isn't
+      // meaningful mid-day, so this runs once per load, right after the
+      // catch-up above. Covers both species — whatever /plan (or its
+      // species default) defines a target for.
       const yesterday = Date.now() - 24 * 60 * 60 * 1000;
-      pets
-        .filter((p) => p.species === "cat")
-        .forEach((p) => {
-          (["fed", "water"] as const).forEach((type) => {
-            const target = dailyTarget(p.species, p.breed, type);
-            if (!target) return;
-            const count = activityList.filter((a) => a.petId === p.id && a.type === type && sameCalendarDay(a.ts, yesterday)).length;
-            if (count > 0 && count <= target * 0.5) {
-              raiseFeedingAlert(p, type, "under", reminderList, yesterday);
-            }
-          });
+      pets.forEach((p) => {
+        // Feeding is judged on grams (from the portion picker), not tap count.
+        // Only activities logged through the picker carry `grams` — skip the
+        // check entirely if yesterday has no gram data to judge against.
+        const gramTarget = dailyGramTarget(p);
+        const gramsYesterday = activityList.filter(
+          (a) => a.petId === p.id && a.type === "fed" && sameCalendarDay(a.ts, yesterday) && a.grams != null
+        );
+        if (gramTarget && gramsYesterday.length > 0) {
+          const gramsTotal = gramsYesterday.reduce((sum, a) => sum + (a.grams ?? 0), 0);
+          if (gramsTotal > 0 && gramsTotal <= gramTarget * 0.5) {
+            raiseFeedingAlert(p, "fed", "under", reminderList, yesterday);
+          }
+        }
+        (["water", "litter", "walk"] as const).forEach((type) => {
+          const target = dailyTarget(p.species, p.breed, type);
+          if (!target) return;
+          const count = activityList.filter((a) => a.petId === p.id && a.type === type && sameCalendarDay(a.ts, yesterday)).length;
+          if (count > 0 && count <= target * 0.5) {
+            raiseFeedingAlert(p, type, "under", reminderList, yesterday);
+          }
         });
+      });
 
       supabase.from("households").update({ last_seen_at: Date.now() }).eq("id", h.id).then();
     }
@@ -550,37 +600,51 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, toast, notifyRecentActivity, raiseFeedingAlert]);
 
   const logAction = useCallback(
-    (petId: string, type: ActionType) => {
+    (petId: string, type: ActionType, grams?: number) => {
       const h = hid();
       if (!h) return;
       const id = crypto.randomUUID();
       const ts = Date.now();
       const memberId = stateRef.current.currentMemberId;
       const pet = stateRef.current.pets.find((p) => p.id === petId);
-      // Logging litter actually drains the litter/sanitation supply (matched
-      // by icon rather than a hardcoded id — seed cats use "litter",
-      // generated pets use "sanitation", dogs use "poopbags", all icon "broom").
-      const litterSupply = type === "litter" ? pet?.supplies.find((s) => s.icon === "broom") : undefined;
+      // Logging litter (cats) or a walk (dogs) drains the sanitation supply,
+      // matched by icon rather than a hardcoded id — seed cats use "litter",
+      // generated pets use "sanitation", dogs use "poopbags", all icon "broom".
+      const litterSupply =
+        type === "litter" || type === "walk" ? pet?.supplies.find((s) => s.icon === "broom") : undefined;
       const litterLevel = litterSupply ? Math.max(0, litterSupply.level - 15) : null;
+      // Feeding through the portion picker drains the food supply (icon
+      // "bowl") proportionally to the portion — a full cup drains 10%.
+      const foodSupply = type === "fed" && grams != null ? pet?.supplies.find((s) => s.icon === "bowl") : undefined;
+      const foodLevel =
+        foodSupply && pet ? Math.max(0, foodSupply.level - 10 * (grams! / pet.cupGrams)) : null;
+
+      if (type === "meds" && pet?.meds.length === 0) {
+        toast("🙂", "No meds", `${pet.name} isn't on any medication right now`);
+        return;
+      }
 
       setState((prev) => ({
         ...prev,
         coins: prev.coins + 5,
         xp: prev.xp + 10,
-        activities: [{ id, petId, memberId, type, ts }, ...prev.activities],
-        pets:
-          litterSupply && litterLevel != null
-            ? prev.pets.map((p) =>
-                p.id === petId
-                  ? { ...p, supplies: p.supplies.map((s) => (s.id === litterSupply.id ? { ...s, level: litterLevel } : s)) }
-                  : p
-              )
-            : prev.pets,
+        activities: [{ id, petId, memberId, type, ts, grams }, ...prev.activities],
+        pets: prev.pets.map((p) => {
+          if (p.id !== petId) return p;
+          if (litterSupply && litterLevel != null) {
+            return { ...p, supplies: p.supplies.map((s) => (s.id === litterSupply.id ? { ...s, level: litterLevel } : s)) };
+          }
+          if (foodSupply && foodLevel != null) {
+            return { ...p, supplies: p.supplies.map((s) => (s.id === foodSupply.id ? { ...s, level: foodLevel } : s)) };
+          }
+          return p;
+        }),
       }));
       const time = new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      toast(ACTIONS[type].emoji, `${pet?.name} — ${ACTIONS[type].label.toLowerCase()} at ${time}`, "Family notified 📣 · +5 coins · +10 XP");
+      const gramsNote = type === "fed" && grams != null ? `${Math.round(grams)} g · ` : "";
+      toast(ACTIONS[type].emoji, `${pet?.name} — ${ACTIONS[type].label.toLowerCase()} at ${time}`, `Family notified 📣 · ${gramsNote}+5 coins · +10 XP`);
 
-      supabase.from("activities").insert({ id, household_id: h, pet_id: petId, member_id: memberId, type, ts }).then();
+      supabase.from("activities").insert({ id, household_id: h, pet_id: petId, member_id: memberId, type, ts, grams: grams ?? null }).then();
       supabase
         .from("households")
         .update({ coins: stateRef.current.coins + 5, xp: stateRef.current.xp + 10 })
@@ -589,17 +653,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (litterSupply && litterLevel != null) {
         supabase.from("supplies").update({ level: litterLevel }).eq("pet_id", petId).eq("supply_key", litterSupply.id).then();
       }
+      if (foodSupply && foodLevel != null) {
+        supabase.from("supplies").update({ level: foodLevel }).eq("pet_id", petId).eq("supply_key", foodSupply.id).then();
+      }
 
-      // Overeating/overdrinking check: a cat logged 2x its daily target of
-      // fed/water today (including this action) — flag the litter box and
-      // suggest a vet visit.
-      if ((type === "fed" || type === "water") && pet?.species === "cat") {
-        const target = dailyTarget(pet.species, pet.breed, type);
-        if (target) {
-          const todayCount =
-            stateRef.current.activities.filter((a) => a.petId === petId && a.type === type && sameCalendarDay(a.ts, ts)).length + 1;
-          if (todayCount >= target * 2) {
-            raiseFeedingAlert(pet, type, "over", stateRef.current.reminders, ts);
+      // Over-target check: raise a health alert and suggest a vet visit.
+      // Feeding is judged on grams fed today vs the pet's daily gram target;
+      // every other tracked action is judged on raw tap count vs its /plan
+      // (or species-default) daily target.
+      if (pet) {
+        if (type === "fed" && grams != null) {
+          const gramTarget = dailyGramTarget(pet);
+          if (gramTarget) {
+            const gramsToday =
+              stateRef.current.activities
+                .filter((a) => a.petId === petId && a.type === "fed" && sameCalendarDay(a.ts, ts))
+                .reduce((sum, a) => sum + (a.grams ?? 0), 0) + grams;
+            if (gramsToday >= gramTarget * 2) {
+              raiseFeedingAlert(pet, "fed", "over", stateRef.current.reminders, ts);
+            }
+          }
+        } else {
+          const target = dailyTarget(pet.species, pet.breed, type);
+          if (target) {
+            const todayCount =
+              stateRef.current.activities.filter((a) => a.petId === petId && a.type === type && sameCalendarDay(a.ts, ts)).length + 1;
+            if (todayCount >= target * 2) {
+              raiseFeedingAlert(pet, type, "over", stateRef.current.reminders, ts);
+            }
           }
         }
       }
@@ -726,6 +807,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       const id = crypto.randomUUID();
       const weightKg = species === "cat" ? 4 : 20;
+      const cupGrams = species === "cat" ? 60 : 120;
       const gradient: [string, string] =
         species === "cat"
           ? ["oklch(0.66 0.13 165)", "oklch(0.52 0.14 200)"]
@@ -740,7 +822,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         pets: [
           ...prev.pets,
-          { id, name, species, breed, emoji: species === "cat" ? "🐱" : "🐶", ageYears: 1, weightKg, owned: [], equipped: {}, gradient, weights, supplies },
+          { id, name, species, breed, emoji: species === "cat" ? "🐱" : "🐶", ageYears: 1, weightKg, owned: [], equipped: {}, gradient, weights, supplies, meds: [], cupGrams },
         ],
       }));
       supabase
@@ -758,6 +840,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           equipped: {},
           gradient_from: gradient[0],
           gradient_to: gradient[1],
+          cup_grams: cupGrams,
         })
         .then(({ error }) => {
           if (error) {
@@ -775,14 +858,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const editPet = useCallback(
-    (petId: string, patch: { name: string; breed: string; ageYears: number; weightKg: number }) => {
+    (petId: string, patch: { name: string; breed: string; ageYears: number; weightKg: number; cupGrams: number }) => {
       setState((prev) => ({
         ...prev,
         pets: prev.pets.map((p) => (p.id === petId ? { ...p, ...patch } : p)),
       }));
       supabase
         .from("pets")
-        .update({ name: patch.name, breed: patch.breed, age_years: patch.ageYears, weight_kg: patch.weightKg })
+        .update({ name: patch.name, breed: patch.breed, age_years: patch.ageYears, weight_kg: patch.weightKg, cup_grams: patch.cupGrams })
         .eq("id", petId)
         .then();
     },
@@ -921,6 +1004,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [supabase]
   );
 
+  const addMed = useCallback(
+    (petId: string, name: string, dosage?: string, frequency?: string) => {
+      const id = crypto.randomUUID();
+      const med: Med = { id, name, dosage, frequency };
+      setState((prev) => ({
+        ...prev,
+        pets: prev.pets.map((p) => (p.id === petId ? { ...p, meds: [...p.meds, med] } : p)),
+      }));
+      supabase.from("meds").insert({ id, pet_id: petId, name, dosage: dosage ?? null, frequency: frequency ?? null }).then();
+    },
+    [supabase]
+  );
+
+  const deleteMed = useCallback(
+    (petId: string, medId: string) => {
+      setState((prev) => ({
+        ...prev,
+        pets: prev.pets.map((p) => (p.id === petId ? { ...p, meds: p.meds.filter((m) => m.id !== medId) } : p)),
+      }));
+      supabase.from("meds").delete().eq("id", medId).then();
+    },
+    [supabase]
+  );
+
   const setSeenWelcome = useCallback(
     (seen: boolean) => {
       setState((p) => ({ ...p, seenWelcome: seen }));
@@ -978,6 +1085,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         toasts,
         toast,
         dismissToast,
+        stopNotifications,
         logAction,
         switchMember,
         setPremium,
@@ -997,6 +1105,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         bookVetById,
         restockSupply,
         useSupply,
+        addMed,
+        deleteMed,
         setSeenWelcome,
         setUnits,
         setFamilyPassword,

@@ -25,11 +25,13 @@ export default function PixelChart({
   target,
   units,
   height = 120,
+  onAddWeight,
 }: {
   points: WeightPoint[];
   target?: [number, number];
   units: "kg" | "lb";
   height?: number;
+  onAddWeight?: () => void;
 }) {
   const maxStart = Math.max(0, allPoints.length - WINDOW_SIZE);
   // Track the point count alongside the window start so that whenever a new
@@ -60,10 +62,22 @@ export default function PixelChart({
         ) : (
           <p className="text-[13px] text-label-2">No weight logged yet — tap the weight chip to add one.</p>
         )}
-        {target && (
-          <p className="mt-1 text-[12px] text-label-2">
-            Healthy range: <span className="font-semibold text-green">{formatWeight(target[0], units)}–{formatWeight(target[1], units)}</span>
-          </p>
+        {(target || onAddWeight) && (
+          <div className="mt-1 flex w-full items-center justify-between gap-2">
+            {target ? (
+              <p className="text-[12px] text-label-2">
+                Healthy range: <span className="font-semibold text-green">{formatWeight(target[0], units)}–{formatWeight(target[1], units)}</span>
+              </p>
+            ) : <span />}
+            {onAddWeight && (
+              <button
+                onClick={onAddWeight}
+                className="flex shrink-0 items-center gap-1 rounded-full bg-fill px-2.5 py-1 text-[12px] font-semibold text-accent active:scale-95"
+              >
+                <Icon name="plus" size={11} /> Add
+              </button>
+            )}
+          </div>
         )}
       </div>
     );
@@ -143,10 +157,22 @@ export default function PixelChart({
           <rect key={i} x={x(i) - 1.1} y={y(p.kg) - 1.1} width={2.2} height={2.2} fill="var(--color-accent)" />
         ))}
       </svg>
-      {target && (
-        <p className="mt-2 text-[12px] text-label-2">
-          Healthy range: <span className="font-semibold text-green">{formatWeight(target[0], units)}–{formatWeight(target[1], units)}</span>
-        </p>
+      {(target || onAddWeight) && (
+        <div className="mt-2 flex items-center justify-between gap-2">
+          {target ? (
+            <p className="text-[12px] text-label-2">
+              Healthy range: <span className="font-semibold text-green">{formatWeight(target[0], units)}–{formatWeight(target[1], units)}</span>
+            </p>
+          ) : <span />}
+          {onAddWeight && (
+            <button
+              onClick={onAddWeight}
+              className="flex shrink-0 items-center gap-1 rounded-full bg-fill px-2.5 py-1 text-[12px] font-semibold text-accent active:scale-95"
+            >
+              <Icon name="plus" size={11} /> Add
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

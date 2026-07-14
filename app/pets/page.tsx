@@ -6,8 +6,9 @@ import PixelPet, { PixelCosmetic } from "@/components/pixel/PixelPet";
 import Pet3D from "@/components/pixel/Pet3D";
 import Sheet from "@/components/Sheet";
 import EditStatSheet from "@/components/EditStatSheet";
+import Meds from "@/components/Meds";
 import { Icon } from "@/components/Icons";
-import { AccentButton, Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
+import { AccentButton, Chevron, Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
 import { COSMETICS, Cosmetic, CosmeticSlot, Pet, cosmetic, formatAge, formatWeight } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
@@ -76,7 +77,7 @@ export default function PetsPage() {
   const [petName, setPetName] = useState("");
   const [species, setSpecies] = useState<"cat" | "dog">("cat");
   const [breed, setBreed] = useState("British Shorthair");
-  const [editingStat, setEditingStat] = useState<"weight" | "age" | null>(null);
+  const [editingStat, setEditingStat] = useState<"weight" | "age" | "cupGrams" | null>(null);
   const [namesRef, setNamesRef] = useState<HTMLDivElement | null>(null);
 
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
@@ -296,6 +297,23 @@ export default function PetsPage() {
         Every logged care action earns 5 coins.
       </p>
 
+      <Meds pet={pet} />
+
+      <SectionHeader>Food portion</SectionHeader>
+      <Group>
+        <Row
+          onClick={() => setEditingStat("cupGrams")}
+          leading={
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-soft text-orange">
+              <Icon name="box" size={18} />
+            </span>
+          }
+          title="Cup size"
+          subtitle={`${pet.cupGrams} g per full cup`}
+          trailing={<Chevron />}
+        />
+      </Group>
+
       {/* Picker sheet */}
       <Sheet open={openSheet !== null} onClose={() => setOpenSheet(null)}>
         {openSheet === "other" ? (
@@ -366,8 +384,19 @@ export default function PetsPage() {
         label="Age (years)"
         initialValue={pet.ageYears}
         onSave={(ageYears) => {
-          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg });
+          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg, cupGrams: pet.cupGrams });
           toast("🎂", `${pet.name}'s age updated`, formatAge(ageYears));
+        }}
+      />
+      <EditStatSheet
+        open={editingStat === "cupGrams"}
+        onClose={() => setEditingStat(null)}
+        title={`${pet.name}'s food portion`}
+        label="Grams per full cup"
+        initialValue={pet.cupGrams}
+        onSave={(cupGrams) => {
+          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears: pet.ageYears, weightKg: pet.weightKg, cupGrams });
+          toast("🥣", `${pet.name}'s cup size updated`, `${cupGrams} g per full cup`);
         }}
       />
     </div>
