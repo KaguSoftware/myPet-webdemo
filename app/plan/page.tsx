@@ -36,6 +36,13 @@ export default function PlanPage() {
         subtitle="Tasks & alerts the whole family sees"
         trailing={<Chevron />}
       />
+      <Row
+        onClick={() => router.push("/vets")}
+        leading={<IconCircle icon="cross" tint="text-green" bg="bg-green-soft" />}
+        title="Find a vet"
+        subtitle="Browse clinics near you"
+        trailing={<Chevron />}
+      />
     </Group>
   );
 

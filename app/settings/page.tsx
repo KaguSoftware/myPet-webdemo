@@ -1,114 +1,106 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import BackBar from "@/components/BackBar";
+import { useState } from "react";
+import Link from "next/link";
 import Header from "@/components/Header";
+import PageLoading from "@/components/PageLoading";
+import Paywall from "@/components/Paywall";
 import { Icon } from "@/components/Icons";
-import { Group, IconCircle, Row, SectionHeader, Segmented } from "@/components/ui";
+import { Chevron, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
 import { useStore } from "@/lib/store";
 
 export default function SettingsPage() {
-  const router = useRouter();
-  const { state, setUnits, setSeenWelcome, signOut, setPremium, setNotificationPref, toast, userEmail } = useStore();
-  const currentMember = state.members.find((m) => m.id === state.currentMemberId);
+  const { state, hydrated, setPremium, toast } = useStore();
+  const [paywallOpen, setPaywallOpen] = useState(false);
+
+  if (!hydrated) return <PageLoading title="Settings" />;
+
+  const petCount = state.pets.length;
+  const memberCount = state.members.length;
 
   return (
     <div className="px-4">
       <Header title="Settings" />
 
-      <BackBar />
-
-      <SectionHeader>Units</SectionHeader>
-      <Group>
-        <div className="flex items-center gap-3 px-4 py-3">
-          <IconCircle icon="arrow-up" tint="text-accent" bg="bg-accent-soft" />
-          <span className="flex-1 text-[16px] font-medium text-label">Weight units</span>
-          <div className="w-28">
-            <Segmented
-              options={[
-                { value: "kg", label: "kg" },
-                { value: "lb", label: "lb" },
-              ]}
-              value={state.units}
-              onChange={(u) => {
-                setUnits(u);
-                toast("⚖️", `Weights now shown in ${u === "kg" ? "kilograms" : "pounds"}`, "");
-              }}
-            />
+      {/* PetPal+ status / upgrade */}
+      {state.premium ? (
+        <Group>
+          <Row
+            leading={
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-linear-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.48_0.19_262)] text-white">
+                <Icon name="sparkles" size={18} />
+              </span>
+            }
+            title="PetPal+ is active"
+            subtitle="Care plans, smart reminders & vet booking"
+            trailing={
+              <button
+                onClick={() => {
+                  setPremium(false);
+                  toast("👋", "PetPal+ deactivated", "You can re-enable it anytime");
+                }}
+                className="rounded-full bg-fill px-3 py-1.5 text-[13px] font-semibold text-label transition-transform active:scale-95"
+              >
+                Turn off
+              </button>
+            }
+          />
+        </Group>
+      ) : (
+        <button
+          onClick={() => setPaywallOpen(true)}
+          className="w-full rounded-card bg-linear-to-br from-[oklch(0.6_0.19_258)] to-[oklch(0.45_0.19_268)] p-4 text-left shadow-[0_8px_24px_oklch(0.55_0.19_258/0.3)] transition-transform active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)]">
+              <Icon name="sparkles" size={20} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[16px] font-bold text-white">Upgrade to PetPal+</span>
+              <span className="block text-[13px] font-medium text-white/80">Vet-built plans · smart reminders · booking</span>
+            </span>
+            <Icon name="chevron-right" size={16} className="text-white/70" />
           </div>
-        </div>
+        </button>
+      )}
+
+      <SectionHeader>Settings</SectionHeader>
+      <Group>
+        <Link href="/settings/family" className="block">
+          <Row
+            leading={<IconCircle icon="people" tint="text-accent" bg="bg-accent-soft" />}
+            title="Family"
+            subtitle={`${memberCount} member${memberCount === 1 ? "" : "s"} · ${petCount} pet${petCount === 1 ? "" : "s"}`}
+            trailing={<Chevron />}
+          />
+        </Link>
+        <Link href="/settings/general" className="block">
+          <Row
+            leading={<IconCircle icon="gear" tint="text-label-2" bg="bg-fill" />}
+            title="General"
+            subtitle="Units & notifications"
+            trailing={<Chevron />}
+          />
+        </Link>
+        <Link href="/settings/accessibility" className="block">
+          <Row
+            leading={<IconCircle icon="eye" tint="text-green" bg="bg-green-soft" />}
+            title="Accessibility"
+            subtitle="Motion & transparency"
+            trailing={<Chevron />}
+          />
+        </Link>
+        <Link href="/settings/account" className="block">
+          <Row
+            leading={<IconCircle icon="person" tint="text-orange" bg="bg-orange-soft" />}
+            title="Account"
+            subtitle="Sign-in, progress & intro"
+            trailing={<Chevron />}
+          />
+        </Link>
       </Group>
 
-      <SectionHeader>Membership</SectionHeader>
-      <Group>
-        <Row
-          leading={<IconCircle icon="sparkles" tint="text-accent" bg="bg-accent-soft" />}
-          title="PetPal+"
-          subtitle={state.premium ? "Active" : "Not subscribed"}
-          trailing={
-            <button
-              onClick={() => {
-                setPremium(!state.premium);
-                toast("✨", state.premium ? "PetPal+ turned off" : "PetPal+ activated", "");
-              }}
-              className="rounded-full bg-fill px-3 py-1.5 text-[13px] font-semibold text-label transition-transform active:scale-95"
-            >
-              {state.premium ? "Turn off" : "Enable"}
-            </button>
-          }
-        />
-      </Group>
-
-      <SectionHeader>Notifications</SectionHeader>
-      <Group>
-        {[
-          { key: "notifyCareReminders" as const, label: "Care reminders" },
-          { key: "notifyFamilyActivity" as const, label: "Family activity" },
-          { key: "notifyVetSuggestions" as const, label: "Vet suggestions" },
-        ].map((n) => {
-          const on = currentMember ? currentMember[n.key] : true;
-          return (
-            <Row
-              key={n.key}
-              role="switch"
-              ariaChecked={!!on}
-              ariaLabel={n.label}
-              leading={<IconCircle icon="bell" tint="text-label-2" bg="bg-fill" />}
-              title={n.label}
-              onClick={() => {
-                if (!currentMember) return;
-                setNotificationPref(n.key, !on);
-                toast("🔔", `${n.label} turned ${on ? "off" : "on"}`, "");
-              }}
-              trailing={
-                <span aria-hidden className={`flex h-6 w-10 items-center rounded-full p-0.5 transition-colors ${on ? "justify-end bg-green" : "justify-start bg-fill"}`}>
-                  <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
-                </span>
-              }
-            />
-          );
-        })}
-      </Group>
-      <p className="mt-1.5 px-1 text-[12px] text-label-3">
-        {currentMember ? `Just for ${currentMember.name} — other family members set their own.` : "Set per family member."} Reminders you&apos;ve already
-        added still appear in Care.
-      </p>
-
-      <SectionHeader>Account</SectionHeader>
-      <Group>
-        {userEmail && <Row leading={<IconCircle icon="bell" tint="text-label-2" bg="bg-fill" />} title={userEmail} subtitle="Signed in" />}
-        <Row
-          leading={<IconCircle icon="sparkles" tint="text-label-2" bg="bg-fill" />}
-          title="Replay intro"
-          onClick={() => {
-            setSeenWelcome(false);
-            router.push("/");
-          }}
-          trailing={<Icon name="chevron-right" size={15} className="text-label-3" />}
-        />
-        <Row destructive onClick={signOut} title="Sign out" />
-      </Group>
-      <div className="h-4" />
+      <Paywall open={paywallOpen} onClose={() => setPaywallOpen(false)} />
     </div>
   );
 }

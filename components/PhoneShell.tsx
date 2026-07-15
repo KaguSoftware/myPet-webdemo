@@ -3,6 +3,7 @@
 import { createContext, useContext, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { StoreProvider } from "@/lib/store";
+import { AccessibilityProvider } from "@/lib/a11y";
 import { supabaseEnvReady } from "@/lib/supabase/env";
 import MissingEnv from "./MissingEnv";
 import TabBar from "./TabBar";
@@ -26,6 +27,7 @@ export default function PhoneShell({ children }: { children: React.ReactNode }) 
         {/* Screen sheen */}
         <div className="pointer-events-none absolute inset-0 z-30 hidden bg-[linear-gradient(115deg,rgba(255,255,255,0.045)_0%,rgba(255,255,255,0)_28%)] md:block md:rounded-[2.7rem]" />
 
+        <AccessibilityProvider />
         {supabaseEnvReady ? (
           <StoreProvider>
             <ScrollCtx.Provider value={scrollTop}>

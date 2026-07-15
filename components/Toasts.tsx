@@ -22,7 +22,7 @@ function severityOf(emoji: string): "alert" | "success" | "info" {
 export default function Toasts() {
   const { toasts, dismissToast, stopNotifications } = useStore();
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-50 flex flex-col items-center gap-2 px-4 pt-3 md:pt-11">
+    <div className="pointer-events-none absolute right-0 top-0 z-50 flex w-full max-w-82.5 flex-col items-end gap-2 px-3 pt-3 md:pt-11">
       {toasts.length > 0 && (
         <button
           onClick={stopNotifications}

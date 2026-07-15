@@ -157,3 +157,20 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Manual accessibility overrides — set device-locally from Settings ▸
+   Accessibility (see lib/a11y.tsx). Mirror the OS-level toggles. */
+html[data-reduce-motion] *,
+html[data-reduce-motion] *::before,
+html[data-reduce-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+html[data-reduce-transparency] .glass,
+html[data-reduce-transparency] .glass-strong {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: oklch(0.99 0.004 292);
+}

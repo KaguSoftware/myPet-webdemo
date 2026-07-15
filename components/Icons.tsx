@@ -5,7 +5,8 @@ export type IconName =
   | "plus" | "chevron-right" | "chevron-left" | "check" | "xmark"
   | "bowl" | "drop" | "broom" | "paw" | "scissors" | "pill" | "stethoscope"
   | "calendar" | "clock" | "lock" | "star" | "coin" | "sparkles" | "flame" | "arrow-up"
-  | "chart" | "box" | "gear" | "cross" | "refresh" | "pin" | "cube";
+  | "chart" | "box" | "gear" | "cross" | "refresh" | "pin" | "cube"
+  | "list" | "eye" | "person";
 
 /*
  * Pixel-art icon set. Each icon is a grid of strings; "X" = filled (currentColor),
@@ -364,6 +365,39 @@ const G: Record<IconName, string[]> = {
     "XX..X..XX",
     ".XX.X.XX.",
     "..XXXXX..",
+  ],
+  list: [
+    ".........",
+    ".XX.XXXXX",
+    ".XX.XXXXX",
+    ".........",
+    ".XX.XXXXX",
+    ".XX.XXXXX",
+    ".........",
+    ".XX.XXXXX",
+    ".XX.XXXXX",
+  ],
+  eye: [
+    ".........",
+    ".........",
+    "..XXXXX..",
+    ".XX...XX.",
+    ".X..X..X.",
+    ".XX...XX.",
+    "..XXXXX..",
+    ".........",
+    ".........",
+  ],
+  person: [
+    "...XXX...",
+    "..XXXXX..",
+    "..XXXXX..",
+    "...XXX...",
+    ".........",
+    ".XXXXXXX.",
+    "XXXXXXXXX",
+    "XXXXXXXXX",
+    "XXXXXXXXX",
   ],
 };
 

@@ -6,18 +6,18 @@ import { Icon, IconName } from "./Icons";
 
 const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/", label: "Home", icon: "home" },
-  { href: "/activity", label: "Activity", icon: "bell" },
   { href: "/plan", label: "Care", icon: "heart-text" },
+  { href: "/logs", label: "Logs", icon: "list" },
   { href: "/pets", label: "Pets", icon: "paw" },
-  { href: "/profile", label: "Family", icon: "people" },
+  { href: "/settings", label: "Settings", icon: "gear" },
 ];
 
 /** Pushed detail routes keep their parent tab lit (order = most specific first). */
 const SUBROUTE_PARENT: [prefix: string, parent: string][] = [
   ["/reminders", "/plan"],
-  ["/vets", "/activity"],
-  ["/settings", "/profile"],
-  ["/pet/", "/profile"],
+  ["/vets", "/logs"],
+  ["/settings", "/settings"],
+  ["/pet/", "/"],
 ];
 
 export default function TabBar() {

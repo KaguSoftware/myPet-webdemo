@@ -5,36 +5,17 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
 import EditStatSheet from "@/components/EditStatSheet";
-import Sheet from "@/components/Sheet";
 import LevelStagesSheet from "@/components/LevelStagesSheet";
 import StreakCalendarSheet from "@/components/StreakCalendarSheet";
-import PixelSprite from "@/components/pixel/PixelSprite";
-import { SMILEY_SPRITE, WARNING_SPRITE } from "@/components/pixel/hudSprites";
 import { ACTION_ICON, Icon } from "@/components/Icons";
-import { AccentButton, Chevron, Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
-import { ACTIONS, ActionType, CARE_PLANS, PORTIONS, VET, VETS, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
-import { ALERT_VERB, dueLabel, level, levelProgress, levelStepXp, useStore } from "@/lib/store";
-
-const CAT_ACTIONS: ActionType[] = ["fed", "water", "litter", "groomed", "meds", "vet"];
-const DOG_ACTIONS: ActionType[] = ["fed", "water", "walk", "groomed", "meds", "vet"];
-
-// Action types with an ALERT_VERB, for matching a health alert's title
-// (e.g. "...is eating way more than usual...") back to the action it's about.
-const ALERT_VERB_TYPES = Object.keys(ALERT_VERB) as ActionType[];
-
-// Reverse lookup from a care-alert reminder's emoji back to its action type
-// — the "hasn't happened in a while" warnings raised by lib/store.tsx reuse
-// each action's own emoji (fed 🍖, water 💧, litter 🧹, walk 🦮), which is
-// what lets the Log care boxes below flag themselves without any extra data.
-const CARE_WARNING_EMOJI: Partial<Record<string, ActionType>> = { "🍖": "fed", "💧": "water", "🧹": "litter", "🦮": "walk" };
+import { Chevron, Chip, CoinPill, Group, Row, SectionHeader } from "@/components/ui";
+import { CARE_PLANS, VET, VETS, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
+import { dueLabel, level, levelProgress, levelStepXp, useStore } from "@/lib/store";
 
 export default function Home() {
-  const { state, hydrated, logAction, restockSupply, useSupply: consumeSupply, addWeight, editPet, toast, bookVetById } = useStore();
+  const { state, hydrated, restockSupply, addWeight, editPet, toast, bookVetById } = useStore();
   const [petIndex, setPetIndex] = useState(0);
-  const [justLogged, setJustLogged] = useState<ActionType | null>(null);
   const [editingStat, setEditingStat] = useState<"weight" | "age" | null>(null);
-  const [feedPortionOpen, setFeedPortionOpen] = useState(false);
-  const [feedFraction, setFeedFraction] = useState<(typeof PORTIONS)[number]["value"]>("1");
   const [levelSheetOpen, setLevelSheetOpen] = useState(false);
   const [streakSheetOpen, setStreakSheetOpen] = useState(false);
   const [justLeveled, setJustLeveled] = useState(false);
@@ -45,7 +26,6 @@ export default function Home() {
   const currentLevel = level(state.xp);
   const prevLevelRef = useRef(currentLevel);
   const prevStreakRef = useRef(state.streak);
-  const prevDayDoneRef = useRef<{ petId: string; done: boolean } | null>(null);
 
   const changePet = (dir: 1 | -1) =>
     setPetIndex((i) => Math.min(state.pets.length - 1, Math.max(0, i + dir)));
@@ -82,26 +62,6 @@ export default function Home() {
     prevStreakRef.current = state.streak;
   }, [state.streak]);
 
-  // "All caught up today": fire once when the CURRENT pet's day flips to complete
-  // (last plan item done / meals target hit) — not when switching to an already-
-  // complete pet, and not on mount.
-  useEffect(() => {
-    if (!pet) return;
-    const plan = CARE_PLANS[pet.breed];
-    const planItems = plan?.items.filter((i) => i.perDay && i.action) ?? [];
-    const dayDone =
-      state.premium && plan
-        ? planItems.length > 0 &&
-          planItems.every((item) => todays.filter((a) => a.type === item.action).length >= (item.perDay ?? 1))
-        : todays.filter((a) => a.type === "fed").length >= (plan?.items.find((i) => i.action === "fed")?.perDay ?? 2);
-    const prev = prevDayDoneRef.current;
-    if (prev && prev.petId === pet.id && !prev.done && dayDone) {
-      toast("🎉", "All caught up today!", `${pet.name}'s care is all done for today`);
-    }
-    prevDayDoneRef.current = { petId: pet.id, done: dayDone };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [todays, pet?.id, state.premium]);
-
   if (!hydrated || !pet) {
     return (
       <div className="px-4">
@@ -120,49 +80,11 @@ export default function Home() {
   const fedCount = todays.filter((a) => a.type === "fed").length;
   const fedPct = Math.min(100, Math.round((fedCount / fedTarget) * 100));
   const petAlerts = state.reminders.filter((r) => r.alert && !r.done && r.petId === pet.id);
-  // Every outstanding alert type for this pet, by action — drives the red
-  // "!" badge on the matching Log care box. Covers both kinds of alert
-  // reminder: basic-needs warnings (no vetId, matched by emoji) and the
-  // /plan over/under-target health alerts that suggest a vet (vetId set,
-  // matched by which ALERT_VERB shows up in the title) — those also flag
-  // the Vet box itself, since they're the ones suggesting a vet visit.
-  const careWarnings = new Set(
-    state.reminders
-      .filter((r) => r.alert && !r.done && r.petId === pet.id)
-      .flatMap((r): ActionType[] => {
-        if (!r.vetId) {
-          const t = CARE_WARNING_EMOJI[r.emoji];
-          return t ? [t] : [];
-        }
-        const t = ALERT_VERB_TYPES.find((t) => r.title.includes(ALERT_VERB[t]!));
-        return t ? [t, "vet"] : ["vet"];
-      })
-  );
+  const logHint = pet.species === "cat" ? "Fed, water, litter & more" : "Fed, water, walk & more";
 
   const nextReminder = state.reminders
     .filter((r) => !r.done && r.petId === pet.id)
     .sort((a, b) => a.due - b.due)[0];
-
-  const actions = pet.species === "cat" ? CAT_ACTIONS : DOG_ACTIONS;
-
-  const treatsSupply = pet.supplies.find((s) => s.icon === "star");
-
-  const confirmFeed = () => {
-    const frac = PORTIONS.find((p) => p.value === feedFraction)?.frac ?? 1;
-    const logged = logAction(pet.id, "fed", frac * pet.cupGrams);
-    setFeedPortionOpen(false);
-    if (logged) {
-      setJustLogged("fed");
-      setTimeout(() => setJustLogged(null), 700);
-    }
-  };
-
-  const confirmTreat = () => {
-    if (!treatsSupply) return;
-    consumeSupply(pet.id, treatsSupply.id);
-    setFeedPortionOpen(false);
-    toast("🦴", `${pet.name} got a treat`, `${treatsSupply.name} · ${Math.max(0, treatsSupply.level - 15)}% left`);
-  };
 
   return (
     <div className="px-4">
@@ -240,7 +162,8 @@ export default function Home() {
         </div>
         {petAlerts.length > 0 && (
           <div className="mt-3 flex flex-col gap-2">
-            {petAlerts.map((r) => {
+            {/* Cap at 3 so an alert-heavy day doesn't bury the rest of Home. */}
+            {petAlerts.slice(0, 3).map((r) => {
               const alertVet = r.vetId ? VETS.find((v) => v.id === r.vetId) ?? VET : null;
               return (
                 <div key={r.id} className="rounded-card bg-[oklch(0.6_0.21_25/0.06)] p-3">
@@ -259,6 +182,14 @@ export default function Home() {
                 </div>
               );
             })}
+            {petAlerts.length > 3 && (
+              <Link
+                href="/reminders"
+                className="flex items-center justify-center gap-1 rounded-card bg-[oklch(0.6_0.21_25/0.06)] p-2.5 text-[13px] font-semibold text-red transition-transform active:scale-[0.98]"
+              >
+                View all {petAlerts.length} alerts <Icon name="chevron-right" size={13} />
+              </Link>
+            )}
           </div>
         )}
         {state.pets.length > 1 && (
@@ -276,6 +207,21 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Primary action — logging now lives on its own tab to keep Home light */}
+      <Link
+        href="/logs"
+        className="mt-3 flex items-center gap-3 rounded-card bg-accent p-4 text-white shadow-[0_8px_24px_oklch(0.55_0.19_258/0.3)] transition-transform active:scale-[0.98]"
+      >
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)]">
+          <Icon name="plus" size={22} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[16px] font-bold">Log care</span>
+          <span className="block truncate text-[13px] font-medium text-white/80">{logHint} · family gets notified</span>
+        </span>
+        <Icon name="chevron-right" size={18} className="text-white/70" />
+      </Link>
 
       {/* Stats strip */}
       <div className="mt-3 flex gap-2">
@@ -312,77 +258,6 @@ export default function Home() {
             <p className="mt-0.5 text-[11px] font-medium text-label-2">coins</p>
           </div>
         </Link>
-      </div>
-
-      {/* Quick actions */}
-      <SectionHeader>Log care · family gets notified</SectionHeader>
-      <div className="grid grid-cols-3 gap-2.5">
-        {actions.map((type) => {
-          const a = ACTION_ICON[type];
-          const flash = justLogged === type;
-          const warning = !flash && careWarnings.has(type);
-          return (
-            <button
-              key={type}
-              onClick={() => {
-                if (type === "fed") {
-                  setFeedPortionOpen(true);
-                  return;
-                }
-                if (logAction(pet.id, type)) {
-                  setJustLogged(type);
-                  setTimeout(() => setJustLogged(null), 700);
-                }
-              }}
-              className="relative flex flex-col items-start gap-2.5 rounded-card bg-card p-3.5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform duration-150 active:scale-[0.96]"
-            >
-              {flash && (
-                <span className="font-pixel animate-coin-pop pointer-events-none absolute right-2 top-1 z-10 text-[9px] text-orange">
-                  +5
-                </span>
-              )}
-              {warning && (
-                <span className="pointer-events-none absolute right-2 top-2 z-10" aria-label={`${ACTIONS[type].label} warning`}>
-                  <PixelSprite sprite={WARNING_SPRITE} size={12} className="pixelated" />
-                </span>
-              )}
-              <span className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-300 ${flash ? "bg-green text-white" : `${a.bg} ${a.tint}`}`}>
-                {flash ? <Icon name="check" size={18} className="animate-pop" /> : <Icon name={a.icon} size={19} />}
-              </span>
-              <span className="flex items-center gap-1 text-[13px] font-semibold text-label">
-                {type === "meds" && pet.meds.length === 0 ? (
-                  <>
-                    No meds
-                    <PixelSprite sprite={SMILEY_SPRITE} size={13} className="pixelated" />
-                  </>
-                ) : (
-                  ACTIONS[type].label
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Quick shortcuts to the deeper features */}
-      <SectionHeader>Manage</SectionHeader>
-      <div className="grid grid-cols-3 gap-2.5">
-        {[
-          { href: `/pet/${pet.id}`, icon: "box" as const, label: "Supplies", tint: "text-accent", bg: "bg-accent-soft" },
-          { href: "/vets", icon: "cross" as const, label: "Find a Vet", tint: "text-green", bg: "bg-green-soft" },
-          { href: `/pet/${pet.id}`, icon: "chart" as const, label: "Weight", tint: "text-orange", bg: "bg-orange-soft" },
-        ].map((s) => (
-          <Link
-            key={s.label}
-            href={s.href}
-            className="flex flex-col items-start gap-2.5 rounded-card bg-card p-3.5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform duration-150 active:scale-[0.96]"
-          >
-            <span className={`flex h-9 w-9 items-center justify-center rounded-full ${s.bg} ${s.tint}`}>
-              <Icon name={s.icon} size={19} />
-            </span>
-            <span className="text-[13px] font-semibold text-label">{s.label}</span>
-          </Link>
-        ))}
       </div>
 
       {/* Supplies running low */}
@@ -425,7 +300,7 @@ export default function Home() {
         </>
       )}
 
-      {/* Premium: today's care plan on the dashboard */}
+      {/* Premium: today's care plan on the dashboard — glanceable status, tap Care to complete */}
       {state.premium && plan && (
         <>
           <SectionHeader
@@ -448,20 +323,6 @@ export default function Home() {
                 return (
                   <Row
                     key={item.title}
-                    onClick={
-                      complete
-                        ? undefined
-                        : () => {
-                            if (item.action === "fed") {
-                              setFeedPortionOpen(true);
-                              return;
-                            }
-                            if (logAction(pet.id, item.action!)) {
-                              setJustLogged(item.action!);
-                              setTimeout(() => setJustLogged(null), 700);
-                            }
-                          }
-                    }
                     leading={
                       complete ? (
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green text-white">
@@ -531,26 +392,6 @@ export default function Home() {
           toast("🎂", `${pet.name}'s age updated`, formatAge(ageYears));
         }}
       />
-
-      <Sheet open={feedPortionOpen} onClose={() => setFeedPortionOpen(false)}>
-        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">How much food?</h2>
-        <p className="mt-0.5 text-[13px] text-label-2">For {pet.name} · {pet.cupGrams} g per full cup</p>
-        <div className="mt-5">
-          <Segmented options={PORTIONS} value={feedFraction} onChange={setFeedFraction} />
-        </div>
-        <div className="mt-7">
-          <AccentButton onClick={confirmFeed}>Log feeding</AccentButton>
-        </div>
-        {treatsSupply && (
-          <div className="mt-6 border-t border-fill pt-5">
-            <h3 className="text-[15px] font-bold text-label">Give a treat instead?</h3>
-            <p className="mt-0.5 text-[13px] text-label-2">{treatsSupply.name} · {treatsSupply.level}% left</p>
-            <div className="mt-3">
-              <AccentButton variant="tinted" onClick={confirmTreat}>Give treat</AccentButton>
-            </div>
-          </div>
-        )}
-      </Sheet>
 
       <LevelStagesSheet open={levelSheetOpen} onClose={() => setLevelSheetOpen(false)} />
       <StreakCalendarSheet open={streakSheetOpen} onClose={() => setStreakSheetOpen(false)} />

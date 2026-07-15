@@ -1,39 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import BackBar from "@/components/BackBar";
 import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
-import Paywall from "@/components/Paywall";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
-import LevelStagesSheet from "@/components/LevelStagesSheet";
-import StreakCalendarSheet from "@/components/StreakCalendarSheet";
 import { Icon } from "@/components/Icons";
-import { AccentButton, Chevron, ConfirmRow, Group, Row, SectionHeader } from "@/components/ui";
+import { AccentButton, ConfirmRow, Group, Row, SectionHeader } from "@/components/ui";
 import { Member, Pet, formatAge, formatWeight, isAdminRole, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
-import { level, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
 
-export default function ProfilePage() {
+export default function FamilySettingsPage() {
   const router = useRouter();
-  const {
-    state,
-    hydrated,
-    switchMember,
-    setPremium,
-    editPet,
-    deletePet,
-    addMember,
-    editMember,
-    removeMember,
-    setFamilyPassword,
-    signOut,
-    toast,
-  } = useStore();
-  const [paywallOpen, setPaywallOpen] = useState(false);
-  const [levelSheetOpen, setLevelSheetOpen] = useState(false);
-  const [streakSheetOpen, setStreakSheetOpen] = useState(false);
+  const { state, hydrated, switchMember, editPet, deletePet, addMember, editMember, removeMember, setFamilyPassword, toast } =
+    useStore();
 
   const currentMember = state.members.find((m) => m.id === state.currentMemberId);
   const isAdmin = !!currentMember && isAdminRole(currentMember.role);
@@ -82,63 +64,8 @@ export default function ProfilePage() {
 
   return (
     <div className="px-4">
-      <Header
-        title="Family"
-        subtitle={`${state.members.length} member${state.members.length === 1 ? "" : "s"}`}
-        trailing={
-          <Link
-            href="/settings"
-            aria-label="Settings"
-            className="glass-strong flex h-9 w-9 items-center justify-center rounded-full text-label-2 transition-transform active:scale-90"
-          >
-            <Icon name="gear" size={18} />
-          </Link>
-        }
-      />
-
-      {/* Plus banner */}
-      {state.premium ? (
-        <Group>
-          <Row
-            leading={
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-linear-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.48_0.19_262)] text-white">
-                <Icon name="sparkles" size={18} />
-              </span>
-            }
-            title="PetPal+ is active"
-            subtitle="Care plans, smart reminders & vet booking"
-            trailing={
-              <button
-                onClick={() => {
-                  setPremium(false);
-                  toast("👋", "PetPal+ deactivated", "You can re-enable it anytime");
-                }}
-                className="rounded-full bg-fill px-3 py-1.5 text-[13px] font-semibold text-label transition-transform active:scale-95"
-              >
-                Turn off
-              </button>
-            }
-          />
-        </Group>
-      ) : (
-        <button
-          onClick={() => setPaywallOpen(true)}
-          className="w-full rounded-card bg-linear-to-br from-[oklch(0.6_0.19_258)] to-[oklch(0.45_0.19_268)] p-4 text-left shadow-[0_8px_24px_oklch(0.55_0.19_258/0.3)] transition-transform active:scale-[0.98]"
-        >
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)]">
-              <Icon name="sparkles" size={20} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[16px] font-bold text-white">Upgrade to PetPal+</span>
-              <span className="block text-[13px] font-medium text-white/80">
-                Vet-built plans · smart reminders · booking
-              </span>
-            </span>
-            <Icon name="chevron-right" size={16} className="text-white/70" />
-          </div>
-        </button>
-      )}
+      <Header title="Family" subtitle={`${state.members.length} member${state.members.length === 1 ? "" : "s"}`} />
+      <BackBar />
 
       {/* Members */}
       <SectionHeader
@@ -153,8 +80,6 @@ export default function ProfilePage() {
       <Group>
         {state.members.map((m) => {
           const active = m.id === state.currentMemberId;
-          // Row of independent controls: a primary "switch member" button plus a
-          // separate "Edit" button — no interactive element nested in another.
           return (
             <div key={m.id} className="flex w-full items-center gap-3 px-4 py-2.5 min-h-13">
               <button
@@ -196,7 +121,7 @@ export default function ProfilePage() {
       {/* Family ID + admin password — admin role only */}
       {isAdmin && (
         <>
-          <SectionHeader>Family</SectionHeader>
+          <SectionHeader>Household</SectionHeader>
           <Group>
             <Row
               leading={
@@ -241,7 +166,6 @@ export default function ProfilePage() {
       <SectionHeader>Pets</SectionHeader>
       <Group>
         {state.pets.map((p) => (
-          // Primary "edit pet" button + separate "View" nav button — no nesting.
           <div key={p.id} className="flex w-full items-center gap-3 px-4 py-2.5 min-h-13">
             <button
               onClick={() => openEditPet(p)}
@@ -269,37 +193,7 @@ export default function ProfilePage() {
       </Group>
       <p className="mt-1.5 px-1 text-[12px] text-label-3">Tap a pet to edit it, or View for full details.</p>
 
-      {/* About + reset */}
-      <SectionHeader>Demo</SectionHeader>
-      <Group>
-        <Row
-          onClick={() => setLevelSheetOpen(true)}
-          leading={
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
-              <Icon name="star" size={18} />
-            </span>
-          }
-          title={`Level ${level(state.xp)}`}
-          subtitle="Synced to your account"
-          trailing={<Chevron />}
-        />
-        <Row
-          onClick={() => setStreakSheetOpen(true)}
-          leading={
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
-              <Icon name="flame" size={18} />
-            </span>
-          }
-          title={`${state.streak}-day streak`}
-          subtitle="Synced to your account"
-          trailing={<Chevron />}
-        />
-        <Row destructive onClick={signOut} title="Sign out" />
-      </Group>
-
-      <Paywall open={paywallOpen} onClose={() => setPaywallOpen(false)} />
-      <LevelStagesSheet open={levelSheetOpen} onClose={() => setLevelSheetOpen(false)} />
-      <StreakCalendarSheet open={streakSheetOpen} onClose={() => setStreakSheetOpen(false)} />
+      <div className="h-4" />
 
       <Sheet open={editingPet !== null} onClose={() => setEditingPet(null)}>
         {editingPet && (
