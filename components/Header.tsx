@@ -1,15 +1,19 @@
 "use client";
 
 import { useScrollTop } from "./PhoneShell";
+import NotificationBell from "./NotificationBell";
 
 export default function Header({
   title,
   subtitle,
   trailing,
+  bell = false,
 }: {
   title: string;
   subtitle?: string;
   trailing?: React.ReactNode;
+  /** Show the persistent Activity bell in the top-right (top-level tab pages). */
+  bell?: boolean;
 }) {
   const scrollTop = useScrollTop();
   const condensed = scrollTop > 36;
@@ -38,7 +42,12 @@ export default function Header({
             {subtitle && <p className="text-[14px] font-medium text-label-2">{subtitle}</p>}
             <h1 className="font-pixel truncate text-[22px] leading-tight text-label">{title}</h1>
           </div>
-          {trailing && <div className="mb-1 shrink-0">{trailing}</div>}
+          {(trailing || bell) && (
+            <div className="mb-1 flex shrink-0 items-center gap-2">
+              {trailing}
+              {bell && <NotificationBell />}
+            </div>
+          )}
         </div>
       </div>
     </>

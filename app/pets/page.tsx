@@ -166,6 +166,7 @@ function PetsPageContent() {
         <Header
           title="Pets"
           subtitle="Style your companion"
+          bell
           trailing={
             <button
               onClick={() => setAddPetOpen(true)}
@@ -199,6 +200,7 @@ function PetsPageContent() {
       <Header
         title="Pets"
         subtitle="Style your companion"
+        bell
         trailing={
           <span className="flex items-center gap-2">
             <button

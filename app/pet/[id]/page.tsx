@@ -130,7 +130,7 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
       )}
 
       {/* Recent activity */}
-      <SectionHeader trailing={<Link href="/logs" className="text-[13px] font-semibold text-accent">All</Link>}>
+      <SectionHeader trailing={<Link href="/activity" className="text-[13px] font-semibold text-accent">All</Link>}>
         Recent activity
       </SectionHeader>
       <Group>

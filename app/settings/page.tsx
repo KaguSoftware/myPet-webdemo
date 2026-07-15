@@ -20,7 +20,7 @@ export default function SettingsPage() {
 
   return (
     <div className="px-4">
-      <Header title="Settings" />
+      <Header title="Settings" bell />
 
       {/* PetPal+ status / upgrade */}
       {state.premium ? (

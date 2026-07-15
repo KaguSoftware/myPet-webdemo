@@ -63,7 +63,7 @@ export default function PlanPage() {
   if (!state.premium) {
     return (
       <div className="flex h-full flex-col px-4">
-        <Header title="Care Plan" />
+        <Header title="Care Plan" bell />
         {remindersRow}
         <div className="flex flex-1 flex-col items-center justify-center pb-24 text-center">
           <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-accent-soft text-accent">
@@ -99,7 +99,7 @@ export default function PlanPage() {
 
   return (
     <div className="px-4">
-      <Header title="Care Plan" subtitle={`Vet-built for ${pet.breed}s`} />
+      <Header title="Care Plan" subtitle={`Vet-built for ${pet.breed}s`} bell />
 
       {state.pets.length > 1 && (
         <Segmented

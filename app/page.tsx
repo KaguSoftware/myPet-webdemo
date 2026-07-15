@@ -91,6 +91,7 @@ export default function Home() {
       <Header
         title="Home"
         subtitle={`Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}, ${me?.name}`}
+        bell
         trailing={
           <Link href="/pets?shop=1" aria-label="Open shop">
             <CoinPill amount={state.coins} />
