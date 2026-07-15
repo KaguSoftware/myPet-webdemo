@@ -17,17 +17,17 @@ export default function EditStatSheet({
   onClose: () => void;
   title: string;
   label: string;
-  initialValue: number;
+  initialValue: number | undefined;
   onSave: (value: number) => void;
 }) {
-  const [value, setValue] = useState(String(initialValue));
+  const [value, setValue] = useState(initialValue != null ? String(initialValue) : "");
   // Re-sync the input whenever the sheet opens (or its target value changes
   // while open) — adjusting state during render instead of an effect avoids
   // the extra render pass a `useEffect` + `setState` would trigger.
   const [synced, setSynced] = useState({ open, initialValue });
   if (open && (synced.open !== open || synced.initialValue !== initialValue)) {
     setSynced({ open, initialValue });
-    setValue(String(initialValue));
+    setValue(initialValue != null ? String(initialValue) : "");
   } else if (!open && synced.open !== open) {
     setSynced({ open, initialValue });
   }

@@ -6,23 +6,47 @@ import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
 import Paywall from "@/components/Paywall";
 import EmptyState from "@/components/EmptyState";
+import EditStatSheet from "@/components/EditStatSheet";
 import { ACTION_ICON, Icon, IconName } from "@/components/Icons";
 import { AccentButton, Chevron, Group, IconCircle, Row, SectionHeader, Segmented } from "@/components/ui";
-import { CARE_PLANS } from "@/lib/data";
+import { CARE_PLANS, Pet, formatAge, formatWeight, weightFeedingEntry } from "@/lib/data";
 import { useStore } from "@/lib/store";
+
+type CustomTargetKey = keyof NonNullable<Pet["customPlan"]>;
+
+const CUSTOM_TARGET_FIELDS: Record<"cat" | "dog", { key: CustomTargetKey; title: string; subtitle: string; icon: IconName }[]> = {
+  cat: [
+    { key: "fedPerDay", title: "Feeding", subtitle: "Meals per day", icon: "bowl" },
+    { key: "fedGrams", title: "Food amount", subtitle: "Total grams per day", icon: "box" },
+    { key: "waterPerDay", title: "Fresh water", subtitle: "Refreshes per day", icon: "drop" },
+    { key: "litterPerDay", title: "Litter", subtitle: "Scoops per day", icon: "broom" },
+  ],
+  dog: [
+    { key: "fedPerDay", title: "Feeding", subtitle: "Meals per day", icon: "bowl" },
+    { key: "fedGrams", title: "Food amount", subtitle: "Total grams per day", icon: "box" },
+    { key: "waterPerDay", title: "Fresh water", subtitle: "Refreshes per day", icon: "drop" },
+    { key: "walkPerDay", title: "Walks", subtitle: "Walks per day", icon: "paw" },
+  ],
+};
 
 const GENERIC_ICON: Record<string, IconName> = {
   "⚖️": "arrow-up",
   "🪥": "sparkles",
   "🛁": "drop",
   "👂": "bell",
+  "🧶": "yarn",
+  "🐾": "clipper",
+  "🛡️": "shield",
+  "🚪": "door",
+  "💊": "pill",
 };
 
 export default function PlanPage() {
   const router = useRouter();
-  const { state, hydrated } = useStore();
+  const { state, hydrated, editPet, toast } = useStore();
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [editingTarget, setEditingTarget] = useState<CustomTargetKey | null>(null);
 
   if (!hydrated) return <PageLoading title="Care Plan" />;
 
@@ -66,6 +90,7 @@ export default function PlanPage() {
     );
   }
   const plan = CARE_PLANS[pet.breed];
+  const feedingGuide = weightFeedingEntry(pet);
 
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
@@ -124,6 +149,33 @@ export default function PlanPage() {
 
       {plan ? (
         <>
+          {feedingGuide && (
+            <>
+              <SectionHeader>Weight & feeding guide</SectionHeader>
+              <p className="mb-3 px-1 text-[13px] leading-relaxed text-label-2">
+                Based on {formatAge(pet.ageYears)} ({feedingGuide.ageLabel.toLowerCase()} stage){pet.sex ? `, ${pet.sex}` : ""}. Updates automatically as {pet.name} ages.
+              </p>
+              <Group>
+                <div className="grid grid-cols-3 gap-2 px-4 py-3.5 text-center">
+                  <div>
+                    <p className="text-[11px] font-medium text-label-2">Ideal weight</p>
+                    <p className="text-[14px] font-semibold text-label">
+                      {formatWeight(feedingGuide.weightKgRange[0], state.units)}–{formatWeight(feedingGuide.weightKgRange[1], state.units)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-label-2">Calories/day</p>
+                    <p className="text-[14px] font-semibold text-label">{feedingGuide.calorieRange[0]}–{feedingGuide.calorieRange[1]} kcal</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-label-2">Dry kibble</p>
+                    <p className="text-[14px] font-semibold text-label">~{feedingGuide.kibbleGramsRange[0]}–{feedingGuide.kibbleGramsRange[1]} g</p>
+                  </div>
+                </div>
+              </Group>
+            </>
+          )}
+
           <SectionHeader>Today</SectionHeader>
           <Group>
             {plan.items
@@ -179,14 +231,56 @@ export default function PlanPage() {
           </Group>
         </>
       ) : (
-        <div className="mt-6 flex flex-col items-center rounded-card bg-card p-7 text-center shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)]">
-          <IconCircle icon="stethoscope" tint="text-accent" bg="bg-accent-soft" size={52} iconSize={26} />
-          <p className="mt-3 text-[15px] font-semibold text-label">No plan for {pet.breed} yet</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-label-2">
-            Our vet partners are writing it — we&apos;ll notify you when it&apos;s ready.
+        <>
+          <SectionHeader>Today</SectionHeader>
+          <p className="mb-3 px-1 text-[13px] leading-relaxed text-label-2">
+            {pet.breed} isn&apos;t on our vet-built breed list yet — set your own daily targets below and PetPal will track
+            against them.
           </p>
-        </div>
+          <Group>
+            {CUSTOM_TARGET_FIELDS[pet.species].map((f) => {
+              const value = pet.customPlan?.[f.key];
+              return (
+                <Row
+                  key={f.key}
+                  onClick={() => setEditingTarget(f.key)}
+                  leading={<IconCircle icon={f.icon} tint="text-accent" bg="bg-accent-soft" />}
+                  title={f.title}
+                  subtitle={value != null ? f.subtitle : `${f.subtitle} — not set`}
+                  trailing={
+                    <span className={`text-[13px] font-semibold ${value != null ? "text-label" : "text-label-3"}`}>
+                      {value != null ? value : "Set"}
+                    </span>
+                  }
+                />
+              );
+            })}
+          </Group>
+        </>
       )}
+
+      {!plan &&
+        CUSTOM_TARGET_FIELDS[pet.species].map((f) => (
+          <EditStatSheet
+            key={f.key}
+            open={editingTarget === f.key}
+            onClose={() => setEditingTarget(null)}
+            title={`${pet.name}'s ${f.title.toLowerCase()} target`}
+            label={f.subtitle}
+            initialValue={pet.customPlan?.[f.key]}
+            onSave={(value) => {
+              editPet(pet.id, {
+                name: pet.name,
+                breed: pet.breed,
+                ageYears: pet.ageYears,
+                weightKg: pet.weightKg,
+                cupGrams: pet.cupGrams,
+                customPlan: { ...pet.customPlan, [f.key]: value },
+              });
+              toast("📋", `${f.title} target updated`, `${value} ${f.subtitle.toLowerCase()}`);
+            }}
+          />
+        ))}
     </div>
   );
 }

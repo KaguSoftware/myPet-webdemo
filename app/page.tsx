@@ -5,26 +5,21 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
 import EditStatSheet from "@/components/EditStatSheet";
-import LevelStagesSheet from "@/components/LevelStagesSheet";
 import StreakCalendarSheet from "@/components/StreakCalendarSheet";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { Chevron, Chip, CoinPill, Group, Row, SectionHeader } from "@/components/ui";
 import { CARE_PLANS, VET, VETS, dailyTarget, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
-import { dueLabel, level, levelProgress, levelStepXp, useStore } from "@/lib/store";
+import { dueLabel, useStore } from "@/lib/store";
 
 export default function Home() {
   const { state, hydrated, restockSupply, addWeight, editPet, toast, bookVetById } = useStore();
   const [petIndex, setPetIndex] = useState(0);
   const [editingStat, setEditingStat] = useState<"weight" | "age" | null>(null);
-  const [levelSheetOpen, setLevelSheetOpen] = useState(false);
   const [streakSheetOpen, setStreakSheetOpen] = useState(false);
-  const [justLeveled, setJustLeveled] = useState(false);
   const [justStreaked, setJustStreaked] = useState(false);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const didSwipe = useRef(false);
 
-  const currentLevel = level(state.xp);
-  const prevLevelRef = useRef(currentLevel);
   const prevStreakRef = useRef(state.streak);
 
   const changePet = (dir: 1 | -1) =>
@@ -39,17 +34,6 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.activities, pet?.id]
   );
-
-  // Level-up: bounce the hero pet when the level crosses up (the ⭐ toast fires from the store).
-  useEffect(() => {
-    if (currentLevel > prevLevelRef.current) {
-      setJustLeveled(true);
-      const t = setTimeout(() => setJustLeveled(false), 950);
-      prevLevelRef.current = currentLevel;
-      return () => clearTimeout(t);
-    }
-    prevLevelRef.current = currentLevel;
-  }, [currentLevel]);
 
   // Streak-up: pop the flame when the streak grows (the 🔥 toast fires from the store).
   useEffect(() => {
@@ -79,7 +63,7 @@ export default function Home() {
   // Use the canonical daily target (breed plan → species default) so a
   // plan-less cat targets 3 meals here, matching the rest of the app, not a
   // hardcoded 2.
-  const fedTarget = dailyTarget(pet.species, pet.breed, "fed") ?? 2;
+  const fedTarget = dailyTarget(pet, "fed") ?? 2;
   const fedCount = todays.filter((a) => a.type === "fed").length;
   const fedPct = Math.min(100, Math.round((fedCount / fedTarget) * 100));
   const petAlerts = state.reminders.filter((r) => r.alert && !r.done && r.petId === pet.id);
@@ -96,9 +80,21 @@ export default function Home() {
         subtitle={`Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}, ${me?.name}`}
         bell
         trailing={
-          <Link href="/pets?shop=1" aria-label="Open shop">
-            <CoinPill amount={state.coins} />
-          </Link>
+          <>
+            <button
+              onClick={() => setStreakSheetOpen(true)}
+              aria-label={`${state.streak}-day streak`}
+              className="flex flex-col items-center justify-center gap-0.5 rounded-full bg-card px-2.5 py-1 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05)] transition-transform active:scale-95"
+            >
+              <span className={`inline-flex ${justStreaked ? "animate-coin-bump" : ""}`}>
+                <Icon name="flame" size={16} className="text-orange" />
+              </span>
+              <span className="text-[11px] font-bold leading-none text-label">{state.streak}</span>
+            </button>
+            <Link href="/pets?shop=1" aria-label="Open shop">
+              <CoinPill amount={state.coins} />
+            </Link>
+          </>
         }
       />
 
@@ -131,9 +127,7 @@ export default function Home() {
           }}
           className="flex items-center gap-4 transition-transform active:scale-[0.99]"
         >
-          <div className={justLeveled ? "animate-levelup" : ""}>
-            <PetAvatar pet={pet} size="lg" idle />
-          </div>
+          <PetAvatar pet={pet} size="lg" idle />
           <div className="min-w-0 flex-1">
             <h2 className="flex items-center gap-1 text-[22px] font-bold tracking-[-0.01em] text-label">
               {pet.name}
@@ -226,43 +220,6 @@ export default function Home() {
         </span>
         <Icon name="chevron-right" size={18} className="text-white/70" />
       </Link>
-
-      {/* Stats strip */}
-      <div className="mt-3 flex gap-2">
-        <button
-          onClick={() => setStreakSheetOpen(true)}
-          className="flex flex-1 items-center gap-2 rounded-card bg-card px-3.5 py-3 text-left shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform active:scale-95"
-        >
-          <span className={`inline-flex ${justStreaked ? "animate-coin-bump" : ""}`}>
-            <Icon name="flame" size={18} className="text-orange" />
-          </span>
-          <div>
-            <p className="text-[15px] font-bold leading-none text-label">{state.streak}</p>
-            <p className="mt-0.5 text-[11px] font-medium text-label-2">day streak</p>
-          </div>
-        </button>
-        <button
-          onClick={() => setLevelSheetOpen(true)}
-          className="flex flex-1 items-center gap-2 rounded-card bg-card px-3.5 py-3 text-left shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform active:scale-95"
-        >
-          <Icon name="star" size={18} className="text-accent" />
-          <div>
-            <p className="text-[15px] font-bold leading-none text-label">Lv {currentLevel}</p>
-            <p className="mt-0.5 text-[11px] font-medium text-label-2">{levelProgress(state.xp)}/{levelStepXp(currentLevel)} XP</p>
-          </div>
-        </button>
-        <Link
-          href="/pets?shop=1"
-          aria-label="Open shop"
-          className="flex flex-1 items-center gap-2 rounded-card bg-card px-3.5 py-3 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform active:scale-95"
-        >
-          <Icon name="coin" size={18} className="text-[oklch(0.55_0.13_60)]" />
-          <div>
-            <p className="text-[15px] font-bold leading-none text-label">{state.coins}</p>
-            <p className="mt-0.5 text-[11px] font-medium text-label-2">coins</p>
-          </div>
-        </Link>
-      </div>
 
       {/* Supplies running low */}
       {lowSupplies.length > 0 && (
@@ -397,7 +354,6 @@ export default function Home() {
         }}
       />
 
-      <LevelStagesSheet open={levelSheetOpen} onClose={() => setLevelSheetOpen(false)} />
       <StreakCalendarSheet open={streakSheetOpen} onClose={() => setStreakSheetOpen(false)} />
     </div>
   );

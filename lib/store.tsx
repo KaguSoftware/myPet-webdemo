@@ -90,8 +90,12 @@ interface Store {
     ageYears: number;
     weightKg: number;
     cupGrams: number;
+    customPlan?: Pet["customPlan"];
   }) => void;
-  editPet: (petId: string, patch: { name: string; breed: string; ageYears: number; weightKg: number; cupGrams: number }) => void;
+  editPet: (
+    petId: string,
+    patch: { name: string; breed: string; ageYears: number; weightKg: number; cupGrams: number; customPlan?: Pet["customPlan"] }
+  ) => void;
   deletePet: (petId: string) => void;
   addWeight: (petId: string, kg: number) => void;
   addMember: (name: string, role: string) => void;
@@ -122,7 +126,6 @@ const EMPTY_STATE: AppState = {
   currentMemberId: "",
   premium: false,
   coins: 0,
-  xp: 0,
   streak: 0,
   pets: [],
   members: [],
@@ -334,6 +337,7 @@ type PetRow = {
   gradient_from: string;
   gradient_to: string;
   cup_grams: number | null;
+  custom_plan: Pet["customPlan"] | null;
   weights?: { ts: number; kg: number; created_at?: string }[];
   supplies?: { supply_key: string; name: string; icon: string; level: number }[];
   meds?: { id: string; name: string; dosage: string | null; frequency: string | null }[];
@@ -399,10 +403,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
-  // Authoritative coins/xp for DB writes, mutated synchronously inside
+  // Authoritative coins for DB writes, mutated synchronously inside
   // logAction/buyCosmetic so two rapid taps can't both compute from the same
   // stale render and lose an increment. Reset from the server in load().
-  const rewardsRef = useRef({ coins: state.coins, xp: state.xp });
+  const rewardsRef = useRef({ coins: state.coins });
   const notifiedActivityIdsRef = useRef<Set<string>>(new Set());
   // setTimeout ids for the staggered "what everyone else did" toast batch
   // (see notifyRecentActivity below) — lets stopNotifications cancel any
@@ -492,7 +496,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [dismissToast]
   );
 
-  // Coins/XP/streak share one households row. Writing an absolute value on every
+  // Coins/streak share one households row. Writing an absolute value on every
   // tap makes rapid taps race at the DB — concurrent UPDATEs commit out of order
   // and an earlier value can win (observed: 4 quick logs persisted as +1).
   // rewardsRef already holds the authoritative running total, so we debounce a
@@ -507,12 +511,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       countersTimerRef.current = null;
       supabase
         .from("households")
-        .update({ coins: rewardsRef.current.coins, xp: rewardsRef.current.xp, streak: stateRef.current.streak })
+        .update({ coins: rewardsRef.current.coins, streak: stateRef.current.streak })
         .eq("id", h)
         .then(({ error }) => {
           if (error) {
             console.error("[petpal] counter sync failed:", error);
-            toast("⚠️", "Progress didn't save", "Coins and XP may reset on reload — try again");
+            toast("⚠️", "Progress didn't save", "Coins may reset on reload — try again");
           }
         });
     }, 250);
@@ -804,6 +808,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         equipped: p.equipped,
         gradient: [p.gradient_from, p.gradient_to],
         cupGrams: p.cup_grams ?? (p.species === "cat" ? 60 : 120),
+        customPlan: p.custom_plan ?? undefined,
         weights: [...(p.weights ?? [])]
           .sort((a, b) => Number(a.ts) - Number(b.ts))
           .map((w) => ({ ts: Number(w.ts), kg: Number(w.kg) })),
@@ -862,12 +867,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Derive the streak from real history so the headline always matches the
       // calendar's lit days; persist it back if the stored value drifted.
       const computedStreak = computeStreak(activityList);
-      rewardsRef.current = { coins: h.coins, xp: h.xp };
+      rewardsRef.current = { coins: h.coins };
       setState({
         currentMemberId,
         premium: h.premium,
         coins: h.coins,
-        xp: h.xp,
         streak: computedStreak,
         pets,
         members: mappedMembers,
@@ -912,7 +916,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         }
         (["water", "litter", "walk"] as const).forEach((type) => {
-          const target = dailyTarget(p.species, p.breed, type);
+          const target = dailyTarget(p, type);
           if (!target) return;
           const count = activityList.filter((a) => a.petId === p.id && a.type === type && sameCalendarDay(a.ts, yesterday)).length;
           if (count > 0 && count <= target * 0.5) {
@@ -976,13 +980,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const foodSupply = type === "fed" && grams != null ? pet.supplies.find((s) => s.icon === "bowl") : undefined;
       const foodLevel = foodSupply ? Math.max(0, foodSupply.level - 10 * (grams! / pet.cupGrams)) : null;
 
-      // Coins/XP via the synchronous shadow ref so rapid taps each build on the
+      // Coins via the synchronous shadow ref so rapid taps each build on the
       // previous increment instead of the same stale render value.
-      const oldXp = rewardsRef.current.xp;
       const newCoins = rewardsRef.current.coins + 5;
-      const newXp = oldXp + 10;
-      rewardsRef.current = { coins: newCoins, xp: newXp };
-      const leveledUp = level(newXp) > level(oldXp);
+      rewardsRef.current = { coins: newCoins };
 
       const newActivity: Activity = { id, petId, memberId, type, ts, grams };
       const newStreak = computeStreak([newActivity, ...stateRef.current.activities]);
@@ -990,7 +991,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Snapshot for rollback if the DB rejects the write.
       const before = {
         coins: stateRef.current.coins,
-        xp: stateRef.current.xp,
         streak: stateRef.current.streak,
         activities: stateRef.current.activities,
         pets: stateRef.current.pets,
@@ -999,7 +999,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setState((prev) => ({
         ...prev,
         coins: prev.coins + 5,
-        xp: prev.xp + 10,
         streak: newStreak,
         activities: [newActivity, ...prev.activities],
         pets: prev.pets.map((p) => {
@@ -1016,12 +1015,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       const time = new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       const gramsNote = type === "fed" && grams != null ? `${Math.round(grams)} g · ` : "";
-      toast(ACTIONS[type].emoji, `${pet.name} — ${ACTIONS[type].label.toLowerCase()} at ${time}`, `Family notified 📣 · ${gramsNote}+5 coins · +10 XP`);
-      if (leveledUp) toast("⭐", `Level ${level(newXp)} reached!`, "Nice — keep the daily care going");
+      toast(ACTIONS[type].emoji, `${pet.name} — ${ACTIONS[type].label.toLowerCase()} at ${time}`, `Family notified 📣 · ${gramsNote}+5 coins`);
       if (newStreak > before.streak) toast("🔥", `${newStreak}-day streak!`, "You're on a roll — keep it going");
 
       // Persist the activity (+ any supply drain) per-row; on failure roll the
-      // whole slice back. Coins/xp/streak go through the debounced syncCounters
+      // whole slice back. Coins/streak go through the debounced syncCounters
       // so rapid taps can't race at the DB.
       const ops: PromiseLike<{ error: unknown }>[] = [
         supabase.from("activities").insert({ id, household_id: h, pet_id: petId, member_id: memberId, type, ts, grams: grams ?? null }),
@@ -1034,8 +1032,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       persist(ops, {
         rollback: () => {
-          rewardsRef.current = { coins: before.coins, xp: before.xp };
-          setState((prev) => ({ ...prev, coins: before.coins, xp: before.xp, streak: before.streak, activities: before.activities, pets: before.pets }));
+          rewardsRef.current = { coins: before.coins };
+          setState((prev) => ({ ...prev, coins: before.coins, streak: before.streak, activities: before.activities, pets: before.pets }));
           syncCounters();
         },
         message: "Couldn't log that care action",
@@ -1074,7 +1072,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } else {
-        const target = dailyTarget(pet.species, pet.breed, type);
+        const target = dailyTarget(pet, type);
         if (target) {
           const todayCount =
             stateRef.current.activities.filter((a) => a.petId === petId && a.type === type && sameCalendarDay(a.ts, ts)).length + 1;
@@ -1257,8 +1255,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ageYears: number;
       weightKg: number;
       cupGrams: number;
+      customPlan?: Pet["customPlan"];
     }) => {
-      const { name, species, breed, sex, ageYears, weightKg, cupGrams } = input;
+      const { name, species, breed, sex, ageYears, weightKg, cupGrams, customPlan } = input;
       const h = hid();
       if (!h) {
         console.error("[petpal] addPet called before household loaded");
@@ -1284,7 +1283,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         pets: [
           ...prev.pets,
-          { id, name, species, breed, sex, emoji: species === "cat" ? "🐱" : "🐶", ageYears, weightKg, owned: [], equipped: {}, gradient, weights, supplies, meds: [], cupGrams },
+          { id, name, species, breed, sex, emoji: species === "cat" ? "🐱" : "🐶", ageYears, weightKg, owned: [], equipped: {}, gradient, weights, supplies, meds: [], cupGrams, customPlan },
         ],
       }));
       const rollback = () => setState((prev) => ({ ...prev, pets: prev.pets.filter((p) => p.id !== id) }));
@@ -1307,6 +1306,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           gradient_from: gradient[0],
           gradient_to: gradient[1],
           cup_grams: cupGrams,
+          custom_plan: customPlan ?? null,
         });
         if (petError) {
           console.error("[petpal] pet insert failed:", petError);
@@ -1333,7 +1333,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const editPet = useCallback(
-    (petId: string, patch: { name: string; breed: string; ageYears: number; weightKg: number; cupGrams: number }) => {
+    (
+      petId: string,
+      patch: { name: string; breed: string; ageYears: number; weightKg: number; cupGrams: number; customPlan?: Pet["customPlan"] }
+    ) => {
       const prev = stateRef.current.pets.find((p) => p.id === petId);
       // If the weight changed, append a history point (and persist it) so the
       // weight chart never diverges from weightKg — previously editing weight
@@ -1348,12 +1351,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             : p
         ),
       }));
-      const ops: PromiseLike<{ error: unknown }>[] = [
-        supabase
-          .from("pets")
-          .update({ name: patch.name, breed: patch.breed, age_years: patch.ageYears, weight_kg: patch.weightKg, cup_grams: patch.cupGrams })
-          .eq("id", petId),
-      ];
+      const updateRow: Record<string, unknown> = {
+        name: patch.name,
+        breed: patch.breed,
+        age_years: patch.ageYears,
+        weight_kg: patch.weightKg,
+        cup_grams: patch.cupGrams,
+      };
+      if ("customPlan" in patch) updateRow.custom_plan = patch.customPlan ?? null;
+      const ops: PromiseLike<{ error: unknown }>[] = [supabase.from("pets").update(updateRow).eq("id", petId)];
       if (weightChanged) ops.push(supabase.from("weights").insert({ pet_id: petId, ts, kg: patch.weightKg }));
       persist(ops, {
         rollback: () => prev && setState((s) => ({ ...s, pets: s.pets.map((p) => (p.id === petId ? prev : p)) })),
@@ -1784,18 +1790,6 @@ export function useStore() {
   if (!ctx) throw new Error("useStore outside provider");
   return ctx;
 }
-
-// Level curve gets incrementally harder: the XP cost of each level step grows
-// with the level (step n→n+1 costs 100*n XP), so `xpForLevel` is the
-// triangular-number cumulative total needed to have reached a given level.
-export const xpForLevel = (n: number) => (100 * (n - 1) * n) / 2;
-export const levelStepXp = (n: number) => 100 * n;
-export const level = (xp: number) => {
-  let n = 1;
-  while (xpForLevel(n + 1) <= xp) n++;
-  return n;
-};
-export const levelProgress = (xp: number) => xp - xpForLevel(level(xp));
 
 export function timeAgo(ts: number) {
   const diff = Date.now() - ts;

@@ -11,7 +11,7 @@ import EditStatSheet from "@/components/EditStatSheet";
 import Meds from "@/components/Meds";
 import { Icon } from "@/components/Icons";
 import { AccentButton, Chevron, Chip, CoinPill, Group, Row, SectionHeader, Segmented } from "@/components/ui";
-import { COSMETICS, Cosmetic, CosmeticSlot, Pet, cosmetic, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
+import { BREEDS_BY_SPECIES, COSMETICS, Cosmetic, CosmeticSlot, Pet, cosmetic, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
 /* One main slot gets a floating + button on the avatar's head; the rest live in "Other accessories" */
@@ -25,14 +25,6 @@ const OTHER_SLOTS: { slot: CosmeticSlot; hint: string }[] = [
   { slot: "body", hint: "Outfits & capes" },
 ];
 
-/* Breeds that have a vet-built care plan + weight-target band. Picking one of
-   these guarantees the new pet gets a care plan and chart band; "Other" falls
-   back to species-default targets. Expand these lists as data.ts grows. */
-const OTHER_BREED = "__other__";
-const PLAN_BREEDS: Record<"cat" | "dog", string[]> = {
-  cat: ["British Shorthair"],
-  dog: ["Golden Retriever"],
-};
 /* Sensible starting weight (kg) / cup size (g) per species for the prefilled inputs. */
 const SPECIES_DEFAULTS: Record<"cat" | "dog", { weightKg: number; cupGrams: number }> = {
   cat: { weightKg: 4, cupGrams: 60 },
@@ -103,8 +95,7 @@ function PetsPageContent() {
   const [addPetOpen, setAddPetOpen] = useState(false);
   const [petName, setPetName] = useState("");
   const [species, setSpecies] = useState<"cat" | "dog">("cat");
-  const [breed, setBreed] = useState("British Shorthair");
-  const [customBreed, setCustomBreed] = useState("");
+  const [breed, setBreed] = useState(BREEDS_BY_SPECIES.cat[0]);
   const [sex, setSex] = useState<"female" | "male">("female");
   const [ageInput, setAgeInput] = useState("1");
   const [weightInput, setWeightInput] = useState("");
@@ -131,8 +122,7 @@ function PetsPageContent() {
   };
   const openAddPet = () => {
     setSpecies("cat");
-    setBreed(PLAN_BREEDS.cat[0]);
-    setCustomBreed("");
+    setBreed(BREEDS_BY_SPECIES.cat[0]);
     setSex("female");
     setAgeInput("1");
     prefillFor("cat");
@@ -141,13 +131,9 @@ function PetsPageContent() {
   };
   const resetAddPetForm = () => {
     setPetName("");
-    setCustomBreed("");
   };
 
-  const usingCustomBreed = breed === OTHER_BREED;
-  const resolvedBreed = usingCustomBreed
-    ? customBreed.trim() || (species === "cat" ? "House cat" : "Mixed breed")
-    : breed;
+  const resolvedBreed = breed.trim() || (species === "cat" ? "House cat" : "Mixed breed");
   const parsedAge = Number(ageInput);
   const parsedWeightUnit = Number(weightInput);
   const parsedCup = Number(cupInput);
@@ -193,8 +179,7 @@ function PetsPageContent() {
             key={o.s}
             onClick={() => {
               setSpecies(o.s);
-              setBreed(PLAN_BREEDS[o.s][0]);
-              setCustomBreed("");
+              setBreed(BREEDS_BY_SPECIES[o.s][0]);
               prefillFor(o.s);
             }}
             className={`rounded-full px-5 py-2 text-[14px] font-semibold transition-all ${
@@ -207,27 +192,31 @@ function PetsPageContent() {
       </div>
 
       <p className={labelClass}>Breed</p>
-      <div className="flex flex-wrap gap-2">
-        {[...PLAN_BREEDS[species], OTHER_BREED].map((b) => (
-          <button
-            key={b}
-            onClick={() => setBreed(b)}
-            className={`rounded-full px-4 py-2 text-[14px] font-semibold transition-all ${
-              breed === b ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
-            }`}
-          >
-            {b === OTHER_BREED ? "Other" : b}
-          </button>
-        ))}
-      </div>
-      {usingCustomBreed && (
+      <div className="flex gap-2">
         <input
-          value={customBreed}
-          onChange={(e) => setCustomBreed(e.target.value)}
-          placeholder="Breed name (uses general care targets)"
-          className={`${fieldClass} mt-2`}
+          value={breed}
+          onChange={(e) => setBreed(e.target.value)}
+          placeholder="Start typing a breed…"
+          list="breed-options"
+          className={fieldClass}
         />
-      )}
+        <button
+          onClick={() => setBreed("")}
+          className="shrink-0 rounded-ios bg-card px-4 text-[14px] font-semibold text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)] transition-all active:scale-95"
+        >
+          Other
+        </button>
+      </div>
+      <datalist id="breed-options">
+        {BREEDS_BY_SPECIES[species].map((b) => (
+          <option key={b} value={b} />
+        ))}
+      </datalist>
+      <p className="mt-1.5 text-[12px] font-medium text-label-3">
+        {BREEDS_BY_SPECIES[species].includes(breed)
+          ? "This breed has a vet-built care plan."
+          : "Not on the list — you'll set custom feeding/water/care targets on the Care tab."}
+      </p>
 
       <p className={labelClass}>Sex</p>
       <Segmented

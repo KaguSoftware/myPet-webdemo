@@ -9,7 +9,7 @@ import PixelChart from "@/components/pixel/PixelChart";
 import EditStatSheet from "@/components/EditStatSheet";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { AccentButton, Chip, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
-import { ACTIONS, CARE_PLANS, WEIGHT_TARGETS, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
+import { ACTIONS, CARE_PLANS, formatAge, formatWeight, kgToUnit, unitToKg, weightFeedingEntry, weightTargetRange, weightUnitLabel } from "@/lib/data";
 import { timeAgo, useStore } from "@/lib/store";
 
 export default function PetDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -31,7 +31,8 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
   }
 
   const plan = CARE_PLANS[pet.breed];
-  const target = WEIGHT_TARGETS[pet.breed];
+  const target = weightTargetRange(pet);
+  const feedingGuide = weightFeedingEntry(pet);
   const recent = state.activities
     .filter((a) => a.petId === pet.id)
     .sort((a, b) => b.ts - a.ts)
@@ -67,6 +68,24 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
       <SectionHeader>Weight</SectionHeader>
       <div className="rounded-card bg-card p-4 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)]">
         <PixelChart points={pet.weights} target={target} units={state.units} onAddWeight={() => setEditing("weight")} />
+        {feedingGuide && (
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-fill pt-3 text-center">
+            <div>
+              <p className="text-[11px] font-medium text-label-2">Ideal weight</p>
+              <p className="text-[13px] font-semibold text-label">
+                {formatWeight(feedingGuide.weightKgRange[0], state.units)}–{formatWeight(feedingGuide.weightKgRange[1], state.units)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-label-2">Calories/day</p>
+              <p className="text-[13px] font-semibold text-label">{feedingGuide.calorieRange[0]}–{feedingGuide.calorieRange[1]} kcal</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-label-2">Dry kibble</p>
+              <p className="text-[13px] font-semibold text-label">~{feedingGuide.kibbleGramsRange[0]}–{feedingGuide.kibbleGramsRange[1]} g</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Supplies */}

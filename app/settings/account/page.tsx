@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import BackBar from "@/components/BackBar";
 import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
-import LevelStagesSheet from "@/components/LevelStagesSheet";
 import StreakCalendarSheet from "@/components/StreakCalendarSheet";
 import Sheet from "@/components/Sheet";
 import { InitialAvatar } from "@/components/PetAvatar";
@@ -13,12 +12,11 @@ import { Icon } from "@/components/Icons";
 import { AccentButton, Chevron, ConfirmRow, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyAuthError } from "@/lib/authErrors";
-import { level, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
 
 export default function AccountSettingsPage() {
   const router = useRouter();
   const { state, hydrated, signOut, setSeenWelcome, userEmail, toast } = useStore();
-  const [levelSheetOpen, setLevelSheetOpen] = useState(false);
   const [streakSheetOpen, setStreakSheetOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
@@ -100,13 +98,6 @@ export default function AccountSettingsPage() {
 
       <SectionHeader>Progress</SectionHeader>
       <Group>
-        <Row
-          onClick={() => setLevelSheetOpen(true)}
-          leading={<IconCircle icon="star" tint="text-accent" bg="bg-accent-soft" />}
-          title={`Level ${level(state.xp)}`}
-          subtitle="Synced to your account"
-          trailing={<Chevron />}
-        />
         <Row
           onClick={() => setStreakSheetOpen(true)}
           leading={<IconCircle icon="flame" tint="text-orange" bg="bg-orange-soft" />}
@@ -228,7 +219,6 @@ export default function AccountSettingsPage() {
         </div>
       </Sheet>
 
-      <LevelStagesSheet open={levelSheetOpen} onClose={() => setLevelSheetOpen(false)} />
       <StreakCalendarSheet open={streakSheetOpen} onClose={() => setStreakSheetOpen(false)} />
     </div>
   );
