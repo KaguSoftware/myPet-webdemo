@@ -22,13 +22,13 @@ function severityOf(emoji: string): "alert" | "success" | "info" {
 export default function Toasts() {
   const { toasts, dismissToast, stopNotifications } = useStore();
   return (
-    <div className="pointer-events-none absolute right-0 top-0 z-50 flex w-full max-w-82.5 flex-col items-end gap-2 px-3 pt-3 md:pt-11">
+    <div className="pointer-events-none absolute right-0 top-0 z-50 flex w-full max-w-82.5 flex-col items-end gap-2 px-3 pt-4 md:pt-13">
       {toasts.length > 0 && (
         <button
           onClick={stopNotifications}
-          className="glass pointer-events-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold text-label-2 animate-toast-in"
+          className="glass-strong pointer-events-auto flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-semibold text-label shadow-[0_6px_18px_oklch(0.2_0.01_264/0.18)] animate-toast-in"
         >
-          <Icon name="xmark" size={12} />
+          <Icon name="xmark" size={13} />
           Close notifications
         </button>
       )}
