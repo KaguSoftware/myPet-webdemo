@@ -66,7 +66,13 @@ export default function Meds({ pet }: { pet: Pet }) {
         </Group>
       )}
 
-      <Sheet open={addOpen} onClose={() => setAddOpen(false)}>
+      <Sheet
+        open={addOpen}
+        onClose={() => {
+          setAddOpen(false);
+          reset();
+        }}
+      >
         <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">New med</h2>
         <p className="mt-0.5 text-[13px] text-label-2">For {pet.name}</p>
 

@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import BackBar from "@/components/BackBar";
+import PageLoading from "@/components/PageLoading";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import PixelChart from "@/components/pixel/PixelChart";
 import EditStatSheet from "@/components/EditStatSheet";
@@ -13,9 +14,11 @@ import { timeAgo, useStore } from "@/lib/store";
 
 export default function PetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { state, restockSupply, addWeight, editPet, toast } = useStore();
+  const { state, hydrated, restockSupply, addWeight, editPet, toast } = useStore();
   const [scrollTop] = useState(0); // header handled inline here (nested route, simple sticky)
   const [editing, setEditing] = useState<"weight" | "age" | null>(null);
+
+  if (!hydrated) return <PageLoading title="Pet" />;
 
   const pet = state.pets.find((p) => p.id === id);
   if (!pet) {

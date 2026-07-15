@@ -62,6 +62,12 @@ export default function LoginPage() {
         </AccentButton>
       </form>
 
+      <p className="mt-4 text-center text-[14px]">
+        <Link href="/forgot-password" className="font-semibold text-accent">
+          Forgot password?
+        </Link>
+      </p>
+
       <p className="mt-6 text-center text-[14px] text-label-2">
         No account?{" "}
         <Link href="/signup" className="font-semibold text-accent">

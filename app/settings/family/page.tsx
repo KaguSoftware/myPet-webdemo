@@ -8,14 +8,24 @@ import PageLoading from "@/components/PageLoading";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
-import { AccentButton, ConfirmRow, Group, Row, SectionHeader } from "@/components/ui";
+import { AccentButton, Chevron, ConfirmRow, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
 import { Member, Pet, formatAge, formatWeight, isAdminRole, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
 export default function FamilySettingsPage() {
   const router = useRouter();
-  const { state, hydrated, switchMember, editPet, deletePet, addMember, editMember, removeMember, setFamilyPassword, toast } =
+  const { state, hydrated, switchMember, editPet, deletePet, addMember, editMember, removeMember, setFamilyPassword, verifyFamilyPassword, joinHousehold, setActiveHousehold, toast } =
     useStore();
+
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [joinId, setJoinId] = useState("");
+  const [joining, setJoining] = useState(false);
+
+  // Lock gate — component-local so it resets whenever the user leaves the page.
+  const [unlocked, setUnlocked] = useState(false);
+  const [unlockInput, setUnlockInput] = useState("");
+  const [unlockError, setUnlockError] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
 
   const currentMember = state.members.find((m) => m.id === state.currentMemberId);
   const isAdmin = !!currentMember && isAdminRole(currentMember.role);
@@ -37,6 +47,7 @@ export default function FamilySettingsPage() {
   const [editPetBreed, setEditPetBreed] = useState("");
   const [editPetAge, setEditPetAge] = useState("");
   const [editPetWeight, setEditPetWeight] = useState("");
+  const [editPetCup, setEditPetCup] = useState("");
 
   const openEditPet = (p: Pet) => {
     setEditingPet(p);
@@ -44,6 +55,7 @@ export default function FamilySettingsPage() {
     setEditPetBreed(p.breed);
     setEditPetAge(String(p.ageYears));
     setEditPetWeight(String(kgToUnit(p.weightKg, state.units)));
+    setEditPetCup(String(p.cupGrams));
   };
 
   const [addMemberOpen, setAddMemberOpen] = useState(false);
@@ -61,6 +73,53 @@ export default function FamilySettingsPage() {
   };
 
   if (!hydrated) return <PageLoading title="Family" />;
+
+  // On a shared device, the Family section is protected by the household's
+  // family password. Show an unlock gate until it's entered this visit.
+  if (state.familyPasswordSet && !unlocked) {
+    const submitUnlock = async () => {
+      setUnlockError("");
+      setUnlocking(true);
+      const ok = await verifyFamilyPassword(unlockInput);
+      setUnlocking(false);
+      if (ok) {
+        setUnlocked(true);
+        setUnlockInput("");
+      } else {
+        setUnlockError("Incorrect password.");
+      }
+    };
+    return (
+      <div className="px-4">
+        <Header title="Family" />
+        <BackBar />
+        <div className="mt-6 flex flex-col items-center rounded-card bg-card px-6 py-9 text-center shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)]">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-soft text-accent">
+            <Icon name="lock" size={26} />
+          </span>
+          <p className="mt-3 text-[15px] font-semibold text-label">Family section locked</p>
+          <p className="mt-1 max-w-60 text-[13px] leading-snug text-label-2">
+            Enter the family password to manage members, pets, and household settings.
+          </p>
+          <input
+            type="password"
+            autoFocus
+            value={unlockInput}
+            onChange={(e) => setUnlockInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submitUnlock()}
+            placeholder="Family password"
+            className="mt-4 h-12.5 w-full rounded-ios bg-fill px-4 text-[16px] text-label outline-none focus:ring-2 focus:ring-accent"
+          />
+          {unlockError && <p className="mt-2 text-[13px] text-red">{unlockError}</p>}
+          <div className="mt-3 w-full">
+            <AccentButton disabled={unlocking || !unlockInput} onClick={submitUnlock}>
+              {unlocking ? "Checking…" : "Unlock"}
+            </AccentButton>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4">
@@ -117,6 +176,38 @@ export default function FamilySettingsPage() {
         })}
       </Group>
       <p className="mt-1.5 px-1 text-[12px] text-label-3">Tap a member to view the demo as them, or Edit to manage them.</p>
+
+      {/* Households the user belongs to + join another */}
+      <SectionHeader>Households</SectionHeader>
+      <Group>
+        {state.households.map((hh) => {
+          const active = hh.id === state.activeHouseholdId;
+          return (
+            <Row
+              key={hh.id}
+              onClick={active ? undefined : () => setActiveHousehold(hh.id)}
+              leading={
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-label-2">
+                  <Icon name="people" size={18} />
+                </span>
+              }
+              title={hh.name}
+              subtitle={active ? "Current household" : "Tap to switch"}
+              trailing={active ? <Icon name="check" size={18} className="text-accent" /> : <Chevron />}
+            />
+          );
+        })}
+        <Row
+          onClick={() => {
+            setJoinId("");
+            setJoinOpen(true);
+          }}
+          leading={<IconCircle icon="plus" tint="text-accent" bg="bg-accent-soft" />}
+          title="Join a household"
+          subtitle="Enter a Family ID someone shared with you"
+          trailing={<Chevron />}
+        />
+      </Group>
 
       {/* Family ID + admin password — admin role only */}
       {isAdmin && (
@@ -237,6 +328,15 @@ export default function FamilySettingsPage() {
               </div>
             </div>
 
+            <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Cup size (grams of food per cup)</p>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={editPetCup}
+              onChange={(e) => setEditPetCup(e.target.value)}
+              className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+            />
+
             <div className="mt-7">
               <AccentButton
                 disabled={!editPetName.trim() || !editPetBreed.trim()}
@@ -246,7 +346,7 @@ export default function FamilySettingsPage() {
                     breed: editPetBreed.trim(),
                     ageYears: Number(editPetAge) || editingPet.ageYears,
                     weightKg: unitToKg(Number(editPetWeight) || kgToUnit(editingPet.weightKg, state.units), state.units),
-                    cupGrams: editingPet.cupGrams,
+                    cupGrams: Math.round(Number(editPetCup)) || editingPet.cupGrams,
                   });
                   toast("🐾", `${editPetName.trim()} updated`, "");
                   setEditingPet(null);
@@ -295,14 +395,14 @@ export default function FamilySettingsPage() {
           type="password"
           value={newPw}
           onChange={(e) => setNewPw(e.target.value)}
-          placeholder="At least 4 characters"
+          placeholder="At least 6 characters"
           className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60"
         />
         {pwError && <p className="mt-2 px-1 text-[13px] font-medium text-red-500">{pwError}</p>}
 
         <div className="mt-7">
           <AccentButton
-            disabled={newPw.trim().length < 4 || (state.familyPasswordSet && !currentPw)}
+            disabled={newPw.trim().length < 6 || (state.familyPasswordSet && !currentPw)}
             onClick={async () => {
               setPwError("");
               const ok = await setFamilyPassword(newPw.trim(), currentPw || undefined);
@@ -411,6 +511,39 @@ export default function FamilySettingsPage() {
             )}
           </>
         )}
+      </Sheet>
+
+      <Sheet
+        open={joinOpen}
+        onClose={() => {
+          setJoinOpen(false);
+          setJoinId("");
+        }}
+      >
+        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">Join a household</h2>
+        <p className="mt-1 text-[13px] text-label-3">
+          Paste the Family ID another member shared with you. You&apos;ll be added as a member and switched to it.
+        </p>
+        <input
+          value={joinId}
+          onChange={(e) => setJoinId(e.target.value)}
+          placeholder="Family ID"
+          className="mt-5 w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60"
+        />
+        <div className="mt-7">
+          <AccentButton
+            disabled={!joinId.trim() || joining}
+            onClick={async () => {
+              setJoining(true);
+              const ok = await joinHousehold(joinId.trim());
+              // On success the store triggers a full reload, so this component
+              // unmounts; only reset state if the join failed.
+              if (!ok) setJoining(false);
+            }}
+          >
+            {joining ? "Joining…" : "Join household"}
+          </AccentButton>
+        </div>
       </Sheet>
     </div>
   );

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
 import Paywall from "@/components/Paywall";
+import EmptyState from "@/components/EmptyState";
 import { ACTION_ICON, Icon, IconName } from "@/components/Icons";
 import { AccentButton, Chevron, Group, IconCircle, Row, SectionHeader, Segmented } from "@/components/ui";
 import { CARE_PLANS } from "@/lib/data";
@@ -49,8 +50,18 @@ export default function PlanPage() {
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
   if (!pet) {
     return (
-      <div className="px-4">
-        <Header title="Care Plan" />
+      <div className="flex h-full flex-col px-4">
+        <Header title="Care Plan" bell />
+        {remindersRow}
+        <div className="mt-3">
+          <EmptyState
+            icon="paw"
+            title="No pets yet"
+            body="Add a pet to see its care plan and daily checklist here."
+            cta="Add a pet"
+            onCta={() => router.push("/pets")}
+          />
+        </div>
       </div>
     );
   }

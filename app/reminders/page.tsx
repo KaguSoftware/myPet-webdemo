@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import BackBar from "@/components/BackBar";
 import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
 import Sheet from "@/components/Sheet";
@@ -98,6 +99,7 @@ export default function RemindersPage() {
           </button>
         }
       />
+      <BackBar />
 
       {state.premium && (
         <div className="rounded-card bg-card p-4 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05)] ring-1 ring-accent/15">
@@ -136,7 +138,13 @@ export default function RemindersPage() {
         </>
       )}
 
-      <Sheet open={addOpen} onClose={() => setAddOpen(false)}>
+      <Sheet
+        open={addOpen}
+        onClose={() => {
+          setAddOpen(false);
+          setTitle("");
+        }}
+      >
         <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">New reminder</h2>
 
         <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Task</p>

@@ -25,6 +25,20 @@ const OTHER_SLOTS: { slot: CosmeticSlot; hint: string }[] = [
   { slot: "body", hint: "Outfits & capes" },
 ];
 
+/* Breeds that have a vet-built care plan + weight-target band. Picking one of
+   these guarantees the new pet gets a care plan and chart band; "Other" falls
+   back to species-default targets. Expand these lists as data.ts grows. */
+const OTHER_BREED = "__other__";
+const PLAN_BREEDS: Record<"cat" | "dog", string[]> = {
+  cat: ["British Shorthair"],
+  dog: ["Golden Retriever"],
+};
+/* Sensible starting weight (kg) / cup size (g) per species for the prefilled inputs. */
+const SPECIES_DEFAULTS: Record<"cat" | "dog", { weightKg: number; cupGrams: number }> = {
+  cat: { weightKg: 4, cupGrams: 60 },
+  dog: { weightKg: 20, cupGrams: 120 },
+};
+
 function ItemCard({
   c,
   pet,
@@ -90,6 +104,11 @@ function PetsPageContent() {
   const [petName, setPetName] = useState("");
   const [species, setSpecies] = useState<"cat" | "dog">("cat");
   const [breed, setBreed] = useState("British Shorthair");
+  const [customBreed, setCustomBreed] = useState("");
+  const [sex, setSex] = useState<"female" | "male">("female");
+  const [ageInput, setAgeInput] = useState("1");
+  const [weightInput, setWeightInput] = useState("");
+  const [cupInput, setCupInput] = useState("");
   const [editingStat, setEditingStat] = useState<"weight" | "age" | "cupGrams" | null>(null);
   const [namesRef, setNamesRef] = useState<HTMLDivElement | null>(null);
   const [justReacted, setJustReacted] = useState(false);
@@ -103,31 +122,80 @@ function PetsPageContent() {
 
   if (!hydrated) return <PageLoading title="Pets" subtitle="Style your companion" />;
 
+  // Prefill the weight/cup inputs from the species defaults (weight shown in
+  // the household's unit) so the sheet opens with reasonable numbers to tweak.
+  const prefillFor = (sp: "cat" | "dog") => {
+    const d = SPECIES_DEFAULTS[sp];
+    setWeightInput(String(Math.round(kgToUnit(d.weightKg, state.units) * 10) / 10));
+    setCupInput(String(d.cupGrams));
+  };
+  const openAddPet = () => {
+    setSpecies("cat");
+    setBreed(PLAN_BREEDS.cat[0]);
+    setCustomBreed("");
+    setSex("female");
+    setAgeInput("1");
+    prefillFor("cat");
+    setPetName("");
+    setAddPetOpen(true);
+  };
+  const resetAddPetForm = () => {
+    setPetName("");
+    setCustomBreed("");
+  };
+
+  const usingCustomBreed = breed === OTHER_BREED;
+  const resolvedBreed = usingCustomBreed
+    ? customBreed.trim() || (species === "cat" ? "House cat" : "Mixed breed")
+    : breed;
+  const parsedAge = Number(ageInput);
+  const parsedWeightUnit = Number(weightInput);
+  const parsedCup = Number(cupInput);
+  const addPetValid =
+    hydrated &&
+    petName.trim().length > 0 &&
+    Number.isFinite(parsedAge) &&
+    parsedAge >= 0 &&
+    Number.isFinite(parsedWeightUnit) &&
+    parsedWeightUnit > 0 &&
+    Number.isFinite(parsedCup) &&
+    parsedCup > 0;
+
+  const fieldClass =
+    "w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60";
+  const labelClass = "mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2";
+
   const addPetSheet = (
-    <Sheet open={addPetOpen} onClose={() => setAddPetOpen(false)}>
+    <Sheet
+      open={addPetOpen}
+      onClose={() => {
+        setAddPetOpen(false);
+        resetAddPetForm();
+      }}
+    >
       <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">Add a pet</h2>
 
-      <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Name</p>
+      <p className={labelClass}>Name</p>
       <input
         value={petName}
         onChange={(e) => setPetName(e.target.value)}
         placeholder="e.g. Mochi"
-        className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60"
+        className={fieldClass}
       />
 
-      <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Species</p>
+      <p className={labelClass}>Species</p>
       <div className="flex gap-2">
-        {(
-          [
-            { s: "cat" as const, label: "Cat", defaultBreed: "British Shorthair" },
-            { s: "dog" as const, label: "Dog", defaultBreed: "Golden Retriever" },
-          ]
-        ).map((o) => (
+        {([
+          { s: "cat" as const, label: "Cat" },
+          { s: "dog" as const, label: "Dog" },
+        ]).map((o) => (
           <button
             key={o.s}
             onClick={() => {
               setSpecies(o.s);
-              setBreed(o.defaultBreed);
+              setBreed(PLAN_BREEDS[o.s][0]);
+              setCustomBreed("");
+              prefillFor(o.s);
             }}
             className={`rounded-full px-5 py-2 text-[14px] font-semibold transition-all ${
               species === o.s ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
@@ -138,20 +206,86 @@ function PetsPageContent() {
         ))}
       </div>
 
-      <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Breed</p>
+      <p className={labelClass}>Breed</p>
+      <div className="flex flex-wrap gap-2">
+        {[...PLAN_BREEDS[species], OTHER_BREED].map((b) => (
+          <button
+            key={b}
+            onClick={() => setBreed(b)}
+            className={`rounded-full px-4 py-2 text-[14px] font-semibold transition-all ${
+              breed === b ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
+            }`}
+          >
+            {b === OTHER_BREED ? "Other" : b}
+          </button>
+        ))}
+      </div>
+      {usingCustomBreed && (
+        <input
+          value={customBreed}
+          onChange={(e) => setCustomBreed(e.target.value)}
+          placeholder="Breed name (uses general care targets)"
+          className={`${fieldClass} mt-2`}
+        />
+      )}
+
+      <p className={labelClass}>Sex</p>
+      <Segmented
+        options={[
+          { value: "female", label: "Female" },
+          { value: "male", label: "Male" },
+        ]}
+        value={sex}
+        onChange={setSex}
+      />
+
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <p className={labelClass}>Age (years)</p>
+          <input
+            value={ageInput}
+            onChange={(e) => setAgeInput(e.target.value)}
+            inputMode="decimal"
+            placeholder="1"
+            className={fieldClass}
+          />
+        </div>
+        <div className="flex-1">
+          <p className={labelClass}>Weight ({weightUnitLabel(state.units)})</p>
+          <input
+            value={weightInput}
+            onChange={(e) => setWeightInput(e.target.value)}
+            inputMode="decimal"
+            placeholder="0"
+            className={fieldClass}
+          />
+        </div>
+      </div>
+
+      <p className={labelClass}>Cup size (grams of food per cup)</p>
       <input
-        value={breed}
-        onChange={(e) => setBreed(e.target.value)}
-        className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+        value={cupInput}
+        onChange={(e) => setCupInput(e.target.value)}
+        inputMode="numeric"
+        placeholder="60"
+        className={fieldClass}
       />
 
       <div className="mt-7">
         <AccentButton
-          disabled={!petName.trim() || !hydrated}
+          disabled={!addPetValid}
           onClick={() => {
-            addPet(petName.trim(), species, breed.trim() || (species === "cat" ? "House cat" : "Mixed breed"));
+            addPet({
+              name: petName.trim(),
+              species,
+              breed: resolvedBreed,
+              sex,
+              ageYears: parsedAge,
+              weightKg: unitToKg(parsedWeightUnit, state.units),
+              cupGrams: Math.round(parsedCup),
+            });
             setAddPetOpen(false);
-            setPetName("");
+            resetAddPetForm();
           }}
         >
           {hydrated ? "Add to family" : "Loading…"}
@@ -169,7 +303,7 @@ function PetsPageContent() {
           bell
           trailing={
             <button
-              onClick={() => setAddPetOpen(true)}
+              onClick={openAddPet}
               className="glass-strong flex h-9 items-center gap-1 rounded-full pl-2.5 pr-3.5 text-[13px] font-semibold text-label-2 transition-transform active:scale-90"
             >
               <Icon name="plus" size={16} />
@@ -204,7 +338,7 @@ function PetsPageContent() {
         trailing={
           <span className="flex items-center gap-2">
             <button
-              onClick={() => setAddPetOpen(true)}
+              onClick={openAddPet}
               className="glass-strong flex h-9 items-center gap-1 rounded-full pl-2.5 pr-3.5 text-[13px] font-semibold text-label-2 transition-transform active:scale-90"
             >
               <Icon name="plus" size={16} />

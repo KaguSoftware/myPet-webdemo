@@ -9,7 +9,7 @@ import LevelStagesSheet from "@/components/LevelStagesSheet";
 import StreakCalendarSheet from "@/components/StreakCalendarSheet";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { Chevron, Chip, CoinPill, Group, Row, SectionHeader } from "@/components/ui";
-import { CARE_PLANS, VET, VETS, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
+import { CARE_PLANS, VET, VETS, dailyTarget, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
 import { dueLabel, level, levelProgress, levelStepXp, useStore } from "@/lib/store";
 
 export default function Home() {
@@ -76,7 +76,10 @@ export default function Home() {
   const me = state.members.find((m) => m.id === state.currentMemberId);
   const lowSupplies = pet.supplies.filter((s) => s.level < 20);
   const plan = CARE_PLANS[pet.breed];
-  const fedTarget = plan?.items.find((i) => i.action === "fed")?.perDay ?? 2;
+  // Use the canonical daily target (breed plan → species default) so a
+  // plan-less cat targets 3 meals here, matching the rest of the app, not a
+  // hardcoded 2.
+  const fedTarget = dailyTarget(pet.species, pet.breed, "fed") ?? 2;
   const fedCount = todays.filter((a) => a.type === "fed").length;
   const fedPct = Math.min(100, Math.round((fedCount / fedTarget) * 100));
   const petAlerts = state.reminders.filter((r) => r.alert && !r.done && r.petId === pet.id);

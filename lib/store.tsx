@@ -82,7 +82,15 @@ interface Store {
   addReminder: (r: Omit<Reminder, "id" | "done" | "source">) => void;
   toggleReminder: (id: string) => void;
   deleteReminder: (id: string) => void;
-  addPet: (name: string, species: "cat" | "dog", breed: string) => void;
+  addPet: (input: {
+    name: string;
+    species: "cat" | "dog";
+    breed: string;
+    sex?: "male" | "female";
+    ageYears: number;
+    weightKg: number;
+    cupGrams: number;
+  }) => void;
   editPet: (petId: string, patch: { name: string; breed: string; ageYears: number; weightKg: number; cupGrams: number }) => void;
   deletePet: (petId: string) => void;
   addWeight: (petId: string, kg: number) => void;
@@ -90,6 +98,7 @@ interface Store {
   editMember: (memberId: string, patch: { name: string; role: string }) => void;
   removeMember: (memberId: string) => void;
   bookVetById: (vetId: string) => void;
+  unbookVetById: (vetId: string) => void;
   restockSupply: (petId: string, supplyId: string) => void;
   useSupply: (petId: string, supplyId: string) => void;
   addMed: (petId: string, name: string, dosage?: string, frequency?: string) => void;
@@ -98,6 +107,11 @@ interface Store {
   setUnits: (units: "kg" | "lb") => void;
   /** Set, change, or remove (pass null) the family password. Verifies `currentPassword` against the stored hash first if one is already set — returns false and toasts on mismatch. */
   setFamilyPassword: (newPassword: string | null, currentPassword?: string) => Promise<boolean>;
+  verifyFamilyPassword: (input: string) => Promise<boolean>;
+  /** Join an existing household by its Family ID (household UUID). Reloads on success. */
+  joinHousehold: (familyId: string) => Promise<boolean>;
+  /** Switch which household is shown on-screen (for users in more than one). */
+  setActiveHousehold: (householdId: string) => Promise<void>;
   setNotificationPref: (key: "notifyCareReminders" | "notifyFamilyActivity" | "notifyVetSuggestions", on: boolean) => void;
   signOut: () => void;
 }
@@ -120,6 +134,8 @@ const EMPTY_STATE: AppState = {
   units: "kg",
   familyId: "",
   familyPasswordSet: false,
+  households: [],
+  activeHouseholdId: "",
 };
 
 /** SHA-256 hex digest — used to avoid storing the family password in plaintext. */
@@ -167,7 +183,7 @@ async function bootstrapHousehold(
 ) {
   const { data: household, error: hErr } = await supabase
     .from("households")
-    .insert({ owner_id: userId, coins: 340, xp: 260, streak: 4, units: "kg" })
+    .insert({ owner_id: userId, name: `${name}'s household`, coins: 340, xp: 260, streak: 4, units: "kg" })
     .select()
     .single();
   if (hErr || !household) {
@@ -199,7 +215,14 @@ async function bootstrapHousehold(
     ])
     .select();
   const [you, mom, dad, sara] = members ?? [];
-  if (you) await supabase.from("households").update({ current_member_id: you.id }).eq("id", household.id);
+  if (you) {
+    await supabase.from("households").update({ current_member_id: you.id }).eq("id", household.id);
+    // Link the owner's auth user to their "You" card and mark this the active
+    // household. The on_household_created trigger already created the owner
+    // household_members row; here we just fill in member_id + user_profiles.
+    await supabase.from("household_members").update({ member_id: you.id }).eq("household_id", household.id).eq("user_id", userId);
+    await supabase.from("user_profiles").upsert({ user_id: userId, active_household_id: household.id });
+  }
 
   const now = Date.now();
   const H = 3_600_000;
@@ -336,6 +359,7 @@ const HOUSEHOLD_SELECT = `
 
 type HouseholdRow = {
   id: string;
+  name: string;
   current_member_id: string | null;
   premium: boolean;
   coins: number;
@@ -359,7 +383,7 @@ type HouseholdRow = {
   }[];
   pets: (PetRow & { created_at: string })[];
   activities: { id: string; pet_id: string; member_id: string; type: ActionType; ts: number; note: string | null; grams: number | null }[];
-  reminders: { id: string; pet_id: string; title: string; emoji: string; due: number; done: boolean; source: "manual" | "plan"; alert: boolean | null; vet_id: string | null }[];
+  reminders: { id: string; pet_id: string; title: string; emoji: string; due: number; done: boolean; source: "manual" | "plan"; alert: boolean | null; vet_id: string | null; alert_kind: string | null }[];
   booked_vets: { vet_id: string }[];
 };
 
@@ -370,6 +394,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const householdIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(null);
   const stateRef = useRef(state);
   useEffect(() => {
     stateRef.current = state;
@@ -485,10 +510,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .update({ coins: rewardsRef.current.coins, xp: rewardsRef.current.xp, streak: stateRef.current.streak })
         .eq("id", h)
         .then(({ error }) => {
-          if (error) console.error("[petpal] counter sync failed:", error);
+          if (error) {
+            console.error("[petpal] counter sync failed:", error);
+            toast("⚠️", "Progress didn't save", "Coins and XP may reset on reload — try again");
+          }
         });
     }, 250);
-  }, [supabase]);
+  }, [supabase, toast]);
   useEffect(
     () => () => {
       if (countersTimerRef.current) clearTimeout(countersTimerRef.current);
@@ -581,7 +609,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       supabase
         .from("reminders")
         .insert({ id, household_id: h, pet_id: pet.id, title, emoji: "🩺", due: ts, done: false, source: "manual", alert: true, vet_id: vetId })
-        .then();
+        .then(({ error }) => {
+          // Roll the optimistic alert back out if it didn't persist, so the
+          // in-memory reminders don't silently diverge from the DB.
+          if (error) {
+            console.error("[petpal] health alert insert failed:", error);
+            setState((prev) => ({ ...prev, reminders: prev.reminders.filter((r) => r.id !== id) }));
+          }
+        });
       if (currentMember()?.notifyVetSuggestions ?? true) {
         toast("🚨", title, kind === "over" ? `Might be worth keeping an eye on ${pet.name}` : "Might be worth a vet check");
       }
@@ -602,15 +637,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!h) return;
       const { verb, noun, emoji } = CARE_ALERT_CONFIG[kind];
       const title = `Don't forget to ${verb} ${pet.name}`;
-      const already = remindersSnapshot.some((r) => r.alert && !r.vetId && r.petId === pet.id && !r.done && r.title === title);
+      // Match on (pet, kind) — NOT the title — so a rename doesn't orphan the
+      // alert or let a duplicate for the new name coexist with the old one.
+      const already = remindersSnapshot.some((r) => r.alert && !r.vetId && r.petId === pet.id && !r.done && r.alertKind === kind);
       if (already) return;
       const id = crypto.randomUUID();
-      const reminder: Reminder = { id, petId: pet.id, title, emoji, due: ts, done: false, source: "manual", alert: true };
+      const reminder: Reminder = { id, petId: pet.id, title, emoji, due: ts, done: false, source: "manual", alert: true, alertKind: kind };
       setState((prev) => ({ ...prev, reminders: [...prev.reminders, reminder] }));
       supabase
         .from("reminders")
-        .insert({ id, household_id: h, pet_id: pet.id, title, emoji, due: ts, done: false, source: "manual", alert: true, vet_id: null })
-        .then();
+        .insert({ id, household_id: h, pet_id: pet.id, title, emoji, due: ts, done: false, source: "manual", alert: true, vet_id: null, alert_kind: kind })
+        .then(({ error }) => {
+          if (error) {
+            console.error("[petpal] care alert insert failed:", error);
+            setState((prev) => ({ ...prev, reminders: prev.reminders.filter((r) => r.id !== id) }));
+          }
+        });
       if (currentMember()?.notifyCareReminders ?? true) {
         toast(emoji, title, `${pet.name} hasn't had ${noun} in a while`);
       }
@@ -665,6 +707,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const user = session?.user ?? null;
       if (!user) {
         lastLoadedUserId = null;
+        userIdRef.current = null;
         if (!cancelled) {
           setUserEmail(null);
           setState(EMPTY_STATE);
@@ -675,15 +718,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (user.id === lastLoadedUserId) return;
       lastLoadedUserId = user.id;
       if (cancelled) return;
+      userIdRef.current = user.id;
       setUserEmail(user.email ?? null);
+
+      // Resolve which household is on-screen: the user's saved active household,
+      // else any membership (prefer one they own). Membership-based RLS lets us
+      // read any household the user belongs to, so a joined household loads too.
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("active_household_id")
+        .eq("user_id", user.id)
+        .maybeSingle<{ active_household_id: string | null }>();
+      const { data: memberships } = await supabase
+        .from("household_members")
+        .select("household_id, role, member_id, households(id, name)")
+        .eq("user_id", user.id);
+      type MembershipRow = { household_id: string; role: string; member_id: string | null; households: { id: string; name: string } | null };
+      const membershipList: MembershipRow[] = (memberships as MembershipRow[] | null) ?? [];
+      let activeId = profile?.active_household_id ?? null;
+      if (!activeId || !membershipList.some((m) => m.household_id === activeId)) {
+        const owned = membershipList.find((m) => m.role === "owner");
+        activeId = owned?.household_id ?? membershipList[0]?.household_id ?? null;
+      }
 
       // Single nested query for household + members/pets/weights/supplies/
       // activities/reminders/booked_vets in one round trip.
-      const { data: household, error: householdErr } = await supabase
-        .from("households")
-        .select(HOUSEHOLD_SELECT)
-        .eq("owner_id", user.id)
-        .maybeSingle<HouseholdRow>();
+      let household: HouseholdRow | null = null;
+      let householdErr: { code?: string; message?: string; details?: string; hint?: string } | null = null;
+      if (activeId) {
+        const res = await supabase.from("households").select(HOUSEHOLD_SELECT).eq("id", activeId).maybeSingle<HouseholdRow>();
+        household = res.data;
+        householdErr = res.error;
+      }
       if (householdErr) console.error("[petpal] household fetch failed:", describeErr(householdErr) ?? householdErr);
 
       let finalHousehold = household;
@@ -765,7 +831,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         note: a.note ?? undefined,
         grams: a.grams ?? undefined,
       }));
-      const currentMemberId = h.current_member_id ?? members[0]?.id ?? "";
+      // Per-user "view as": prefer the current user's own linked member card,
+      // then the household's shared pointer, then the first member. This keeps
+      // one user's member switch from dictating what other members see.
+      const myMembership = membershipList.find((m) => m.household_id === h.id);
+      const currentMemberId =
+        (myMembership?.member_id && members.some((m) => m.id === myMembership.member_id) ? myMembership.member_id : null) ??
+        h.current_member_id ??
+        members[0]?.id ??
+        "";
+      // Households for the switcher — from memberships, or synthesize from the
+      // loaded household when the fallback bootstrap path ran (no membership rows
+      // were read before the household existed).
+      const householdsList =
+        membershipList.length > 0
+          ? membershipList.map((m) => ({ id: m.household_id, name: m.households?.name ?? "Household" }))
+          : [{ id: h.id, name: h.name }];
       const reminderList: Reminder[] = reminders.map((r) => ({
         id: r.id,
         petId: r.pet_id,
@@ -776,6 +857,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         source: r.source,
         alert: r.alert ?? false,
         vetId: r.vet_id ?? undefined,
+        alertKind: r.alert_kind ?? undefined,
       }));
       // Derive the streak from real history so the headline always matches the
       // calendar's lit days; persist it back if the stored value drifted.
@@ -797,6 +879,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         units: h.units,
         familyId: h.id,
         familyPasswordSet: !!h.family_password_hash,
+        households: householdsList,
+        activeHouseholdId: h.id,
       });
       setHydrated(true);
       if (computedStreak !== h.streak) {
@@ -959,12 +1043,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       syncCounters();
 
       // Logging fed/water/litter/walk resolves that kind's outstanding
-      // "hasn't happened in a while" warning for this pet (matched by title,
-      // same as raiseCareAlert).
+      // "hasn't happened in a while" warning for this pet (matched by
+      // (pet, kind), same as raiseCareAlert — survives a rename).
       if (type === "fed" || type === "water" || type === "litter" || type === "walk") {
-        const alertTitle = `Don't forget to ${CARE_ALERT_CONFIG[type].verb} ${pet.name}`;
         const careAlerts = stateRef.current.reminders.filter(
-          (r) => r.alert && !r.vetId && r.petId === petId && !r.done && r.title === alertTitle
+          (r) => r.alert && !r.vetId && r.petId === petId && !r.done && r.alertKind === type
         );
         if (careAlerts.length > 0) {
           setState((prev) => ({
@@ -1013,8 +1096,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       notifyRecentActivity(id, stateRef.current.activities, stateRef.current.pets, stateRef.current.members);
       notifyCareWarnings(id, stateRef.current.reminders, stateRef.current.pets);
       const h = hid();
-      if (h)
-        persist(supabase.from("households").update({ current_member_id: id }).eq("id", h), {
+      const uid = userIdRef.current;
+      // Persist "view as" on the current user's OWN membership row, not the
+      // shared households.current_member_id — so one member switching doesn't
+      // change what the other members of a shared household see.
+      if (h && uid)
+        persist(supabase.from("household_members").update({ member_id: id }).eq("household_id", h).eq("user_id", uid), {
           rollback: () => setState((p) => ({ ...p, currentMemberId: prevId })),
           message: "Couldn't switch member",
         });
@@ -1162,7 +1249,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addPet = useCallback(
-    (name: string, species: "cat" | "dog", breed: string) => {
+    (input: {
+      name: string;
+      species: "cat" | "dog";
+      breed: string;
+      sex?: "male" | "female";
+      ageYears: number;
+      weightKg: number;
+      cupGrams: number;
+    }) => {
+      const { name, species, breed, sex, ageYears, weightKg, cupGrams } = input;
       const h = hid();
       if (!h) {
         console.error("[petpal] addPet called before household loaded");
@@ -1170,15 +1266,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const id = crypto.randomUUID();
-      const weightKg = species === "cat" ? 4 : 20;
-      const cupGrams = species === "cat" ? 60 : 120;
       const gradient: [string, string] =
         species === "cat"
           ? ["oklch(0.66 0.13 165)", "oklch(0.52 0.14 200)"]
           : ["oklch(0.68 0.15 350)", "oklch(0.55 0.17 20)"];
+      // Supply keys follow the seed convention (cat → "litter", dog →
+      // "poopbags") so new and seeded pets are consistent. logAction still
+      // drains sanitation by icon ("broom"), so the exact key never matters
+      // for draining, but keeping them aligned keeps id-keyed restock/use tidy.
       const supplies = [
         { id: "food", name: species === "cat" ? "Dry food" : "Kibble", icon: "bowl", level: 100 },
-        { id: "sanitation", name: species === "cat" ? "Litter" : "Poop bags", icon: "broom", level: 100 },
+        { id: species === "cat" ? "litter" : "poopbags", name: species === "cat" ? "Litter" : "Poop bags", icon: "broom", level: 100 },
         { id: "treats", name: "Treats", icon: "star", level: 100 },
       ];
       const weights = [{ ts: Date.now(), kg: weightKg }];
@@ -1186,37 +1284,50 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         pets: [
           ...prev.pets,
-          { id, name, species, breed, emoji: species === "cat" ? "🐱" : "🐶", ageYears: 1, weightKg, owned: [], equipped: {}, gradient, weights, supplies, meds: [], cupGrams },
+          { id, name, species, breed, sex, emoji: species === "cat" ? "🐱" : "🐶", ageYears, weightKg, owned: [], equipped: {}, gradient, weights, supplies, meds: [], cupGrams },
         ],
       }));
-      supabase
-        .from("pets")
-        .insert({
+      const rollback = () => setState((prev) => ({ ...prev, pets: prev.pets.filter((p) => p.id !== id) }));
+      // All three inserts are awaited together; a failure of ANY of them rolls
+      // the optimistic pet back out and warns, so we never leave a pet with no
+      // supplies/weights silently persisted (the old code ignored those errors).
+      (async () => {
+        const { error: petError } = await supabase.from("pets").insert({
           id,
           household_id: h,
           name,
           species,
           breed,
+          sex: sex ?? null,
           emoji: species === "cat" ? "🐱" : "🐶",
-          age_years: 1,
+          age_years: ageYears,
           weight_kg: weightKg,
           owned: [],
           equipped: {},
           gradient_from: gradient[0],
           gradient_to: gradient[1],
           cup_grams: cupGrams,
-        })
-        .then(({ error }) => {
-          if (error) {
-            console.error("[petpal] pet insert failed:", error);
-            toast("⚠️", `${name} wasn't saved`, "It'll disappear on reload — please try again");
-            setState((prev) => ({ ...prev, pets: prev.pets.filter((p) => p.id !== id) }));
-            return;
-          }
-          supabase.from("weights").insert({ pet_id: id, ts: weights[0].ts, kg: weightKg }).then();
-          supabase.from("supplies").insert(supplies.map((s) => ({ pet_id: id, supply_key: s.id, name: s.name, icon: s.icon, level: s.level }))).then();
-          toast("🐾", `${name} joined the family`, "Care tracking is ready");
         });
+        if (petError) {
+          console.error("[petpal] pet insert failed:", petError);
+          toast("⚠️", `${name} wasn't saved`, "It'll disappear on reload — please try again");
+          rollback();
+          return;
+        }
+        const [{ error: weightError }, { error: supplyError }] = await Promise.all([
+          supabase.from("weights").insert({ pet_id: id, ts: weights[0].ts, kg: weightKg }),
+          supabase.from("supplies").insert(supplies.map((s) => ({ pet_id: id, supply_key: s.id, name: s.name, icon: s.icon, level: s.level }))),
+        ]);
+        if (weightError || supplyError) {
+          console.error("[petpal] pet setup insert failed:", weightError ?? supplyError);
+          toast("⚠️", `${name} wasn't saved`, "Setup didn't finish — please try again");
+          // Undo the pet too so the partial row doesn't linger without supplies.
+          await supabase.from("pets").delete().eq("id", id);
+          rollback();
+          return;
+        }
+        toast("🐾", `${name} joined the family`, "Care tracking is ready");
+      })();
     },
     [supabase, toast]
   );
@@ -1224,20 +1335,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const editPet = useCallback(
     (petId: string, patch: { name: string; breed: string; ageYears: number; weightKg: number; cupGrams: number }) => {
       const prev = stateRef.current.pets.find((p) => p.id === petId);
+      // If the weight changed, append a history point (and persist it) so the
+      // weight chart never diverges from weightKg — previously editing weight
+      // here bypassed the weights table entirely.
+      const weightChanged = prev != null && patch.weightKg !== prev.weightKg;
+      const ts = Date.now();
       setState((s) => ({
         ...s,
-        pets: s.pets.map((p) => (p.id === petId ? { ...p, ...patch } : p)),
+        pets: s.pets.map((p) =>
+          p.id === petId
+            ? { ...p, ...patch, weights: weightChanged ? [...p.weights, { ts, kg: patch.weightKg }] : p.weights }
+            : p
+        ),
       }));
-      persist(
+      const ops: PromiseLike<{ error: unknown }>[] = [
         supabase
           .from("pets")
           .update({ name: patch.name, breed: patch.breed, age_years: patch.ageYears, weight_kg: patch.weightKg, cup_grams: patch.cupGrams })
           .eq("id", petId),
-        {
-          rollback: () => prev && setState((s) => ({ ...s, pets: s.pets.map((p) => (p.id === petId ? prev : p)) })),
-          message: "Couldn't save pet changes",
-        }
-      );
+      ];
+      if (weightChanged) ops.push(supabase.from("weights").insert({ pet_id: petId, ts, kg: patch.weightKg }));
+      persist(ops, {
+        rollback: () => prev && setState((s) => ({ ...s, pets: s.pets.map((p) => (p.id === petId ? prev : p)) })),
+        message: "Couldn't save pet changes",
+      });
     },
     [supabase, persist]
   );
@@ -1378,6 +1499,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [supabase, persist]
   );
 
+  const unbookVetById = useCallback(
+    (vetId: string) => {
+      const h = hid();
+      if (!h) return;
+      const before = { bookedVet: stateRef.current.bookedVet, bookedVetIds: stateRef.current.bookedVetIds };
+      const remaining = before.bookedVetIds.filter((id) => id !== vetId);
+      setState((p) => ({ ...p, bookedVet: remaining.length > 0, bookedVetIds: remaining }));
+      persist(supabase.from("booked_vets").delete().eq("household_id", h).eq("vet_id", vetId), {
+        rollback: () => setState((p) => ({ ...p, bookedVet: before.bookedVet, bookedVetIds: before.bookedVetIds })),
+        message: "Couldn't cancel the vet request",
+      });
+    },
+    [supabase, persist]
+  );
+
   const restockSupply = useCallback(
     (petId: string, supplyId: string) => {
       const prevLevel = stateRef.current.pets.find((p) => p.id === petId)?.supplies.find((s) => s.id === supplyId)?.level;
@@ -1469,7 +1605,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (seen: boolean) => {
       setState((p) => ({ ...p, seenWelcome: seen }));
       const h = hid();
-      if (h) supabase.from("households").update({ seen_welcome: seen }).eq("id", h).then();
+      // No rollback here: reverting would re-open the intro overlay mid-session.
+      // A failed write just means the intro may replay on next load — harmless.
+      if (h)
+        supabase
+          .from("households")
+          .update({ seen_welcome: seen })
+          .eq("id", h)
+          .then(({ error }) => {
+            if (error) console.error("[petpal] seen_welcome update failed:", error);
+          });
     },
     [supabase]
   );
@@ -1510,6 +1655,58 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setState((prev) => ({ ...prev, familyPasswordSet: !!newHash }));
       toast(newHash ? "🔒" : "🔓", newHash ? "Family password set" : "Family password removed", "");
       return true;
+    },
+    [supabase, toast]
+  );
+
+  // Checks a typed family password against the stored hash. Used by the Family
+  // section's lock gate on shared devices. Returns true if it matches (or if no
+  // password is set, i.e. nothing to protect).
+  const verifyFamilyPassword = useCallback(
+    async (input: string) => {
+      const h = hid();
+      if (!h) return false;
+      if (!stateRef.current.familyPasswordSet) return true;
+      const { data } = await supabase.from("households").select("family_password_hash").eq("id", h).single();
+      const storedHash = data?.family_password_hash ?? null;
+      if (!storedHash) return true;
+      return storedHash === (await sha256Hex(input));
+    },
+    [supabase]
+  );
+
+  const joinHousehold = useCallback(
+    async (familyId: string) => {
+      const target = familyId.trim();
+      if (!target) return false;
+      const { error } = await supabase.rpc("join_household", { target });
+      if (error) {
+        const notFound = (error as { code?: string }).code === "P0002" || /not found/i.test(error.message ?? "");
+        toast(
+          "⚠️",
+          notFound ? "Couldn't find that household" : "Couldn't join household",
+          notFound ? "Check the Family ID and try again" : "Please try again"
+        );
+        return false;
+      }
+      toast("🏡", "Joined household", "Loading it now…");
+      // Full reload so the store re-hydrates against the newly-active household.
+      window.location.reload();
+      return true;
+    },
+    [supabase, toast]
+  );
+
+  const setActiveHousehold = useCallback(
+    async (householdId: string) => {
+      const uid = userIdRef.current;
+      if (!uid || householdId === stateRef.current.activeHouseholdId) return;
+      const { error } = await supabase.from("user_profiles").upsert({ user_id: uid, active_household_id: householdId });
+      if (error) {
+        toast("⚠️", "Couldn't switch household", "Please try again");
+        return;
+      }
+      window.location.reload();
     },
     [supabase, toast]
   );
@@ -1562,6 +1759,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         editMember,
         removeMember,
         bookVetById,
+        unbookVetById,
         restockSupply,
         useSupply,
         addMed,
@@ -1569,6 +1767,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setSeenWelcome,
         setUnits,
         setFamilyPassword,
+        verifyFamilyPassword,
+        joinHousehold,
+        setActiveHousehold,
         setNotificationPref,
         signOut,
       }}

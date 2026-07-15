@@ -30,15 +30,25 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname.startsWith("/signup");
+  const path = request.nextUrl.pathname;
+  // Reachable without a session. Matched exactly (not by prefix) so
+  // "/login-anything" is NOT treated as public. Everything under /auth/* (the
+  // email-confirm callback and password-reset landing) is public too — the
+  // reset page needs the recovery session to load without a bounce to /login.
+  const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password"];
+  const isPublic = PUBLIC_PATHS.includes(path) || path.startsWith("/auth/");
+  // Entry pages a signed-in user has no reason to see — bounce them home.
+  // (Deliberately excludes /auth/* so a logged-in recovery session can still
+  // reach /auth/reset to set a new password.)
+  const isAuthEntry = PUBLIC_PATHS.includes(path);
 
-  if (!user && !isAuthRoute) {
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  if (user && isAuthEntry) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

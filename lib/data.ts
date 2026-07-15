@@ -104,6 +104,9 @@ export interface Reminder {
   alert?: boolean;
   /** Vet suggested alongside an alert reminder, for a "Book vet" CTA. */
   vetId?: string;
+  /** Care-warning kind (fed/water/litter/walk) for stable raise/resolve
+   * matching that survives a pet rename. Only set on care-warning reminders. */
+  alertKind?: string;
 }
 
 export interface AppState {
@@ -124,6 +127,10 @@ export interface AppState {
   familyId: string;
   /** Whether the family admin has set a password — the hash itself never reaches client state. */
   familyPasswordSet: boolean;
+  /** Every household this user belongs to (for the household switcher). */
+  households: { id: string; name: string }[];
+  /** The household currently loaded on-screen (one of `households`). */
+  activeHouseholdId: string;
 }
 
 export const ACTIONS: Record<ActionType, { label: string; emoji: string; verb: string }> = {

@@ -21,7 +21,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export default function VetsPage() {
-  const { state, bookVetById, toast } = useStore();
+  const { state, bookVetById, unbookVetById, toast } = useStore();
   const [selected, setSelected] = useState<Vet | null>(null);
 
   const cat = state.pets.find((p) => p.breed === "British Shorthair") ?? state.pets[0];
@@ -64,21 +64,29 @@ export default function VetsPage() {
                   <Chip key={s}>{s}</Chip>
                 ))}
               </div>
-              <button
-                onClick={() => setSelected(v)}
-                disabled={booked}
-                className="mt-3 flex h-[42px] w-full items-center justify-center gap-2 rounded-ios bg-accent text-[15px] font-semibold text-white shadow-[0_4px_14px_oklch(0.55_0.19_258/0.3)] transition-transform active:scale-[0.97] disabled:bg-green-soft disabled:text-green disabled:shadow-none"
-              >
-                {booked ? (
-                  <>
+              {booked ? (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="flex h-10.5 flex-1 items-center justify-center gap-2 rounded-ios bg-green-soft text-[15px] font-semibold text-green">
                     <Icon name="check" size={15} /> Requested
-                  </>
-                ) : (
-                  <>
-                    <Icon name="calendar" size={15} /> Book appointment
-                  </>
-                )}
-              </button>
+                  </span>
+                  <button
+                    onClick={() => {
+                      unbookVetById(v.id);
+                      toast("↩️", "Request cancelled", `Cancelled your visit with ${v.name}`);
+                    }}
+                    className="flex h-10.5 items-center justify-center rounded-ios bg-fill px-4 text-[15px] font-semibold text-label-2 transition-transform active:scale-[0.97]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setSelected(v)}
+                  className="mt-3 flex h-10.5 w-full items-center justify-center gap-2 rounded-ios bg-accent text-[15px] font-semibold text-white shadow-[0_4px_14px_oklch(0.55_0.19_258/0.3)] transition-transform active:scale-[0.97]"
+                >
+                  <Icon name="calendar" size={15} /> Book appointment
+                </button>
+              )}
             </div>
           );
         })}
