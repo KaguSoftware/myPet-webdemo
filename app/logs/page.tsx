@@ -4,11 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import EmptyState from "@/components/EmptyState";
 import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
+import PetAvatar from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
 import PixelSprite from "@/components/pixel/PixelSprite";
 import { SMILEY_SPRITE, WARNING_SPRITE } from "@/components/pixel/hudSprites";
 import { ACTION_ICON, Icon } from "@/components/Icons";
-import { AccentButton, SectionHeader, Segmented } from "@/components/ui";
+import { AccentButton, Chevron, Group, Row, SectionHeader, Segmented } from "@/components/ui";
 import { ACTIONS, ActionType, CARE_PLANS, PORTIONS } from "@/lib/data";
 import { ALERT_VERB, useStore } from "@/lib/store";
 
@@ -24,6 +25,7 @@ export default function LogsPage() {
   const [justLogged, setJustLogged] = useState<ActionType | null>(null);
   const [feedPortionOpen, setFeedPortionOpen] = useState(false);
   const [feedFraction, setFeedFraction] = useState<(typeof PORTIONS)[number]["value"]>("1");
+  const [petPickerOpen, setPetPickerOpen] = useState(false);
   const prevDayDoneRef = useRef<{ petId: string; done: boolean } | null>(null);
 
   const activePetId = petId || state.pets[0]?.id || "";
@@ -108,8 +110,34 @@ export default function LogsPage() {
       <Header title="Logs" subtitle="Log care · everyone's notified" bell />
 
       {state.pets.length > 1 && (
-        <Segmented options={state.pets.map((p) => ({ value: p.id, label: p.name }))} value={pet.id} onChange={setPetId} />
+        <button
+          type="button"
+          onClick={() => setPetPickerOpen(true)}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 px-1"
+        >
+          <span className="text-[18px] font-semibold text-label">{pet.name}</span>
+          <Chevron />
+        </button>
       )}
+
+      <Sheet open={petPickerOpen} onClose={() => setPetPickerOpen(false)} ariaLabel="Switch pet">
+        <h2 className="mb-3 px-1 text-[20px] font-bold tracking-[-0.01em] text-label">Switch pet</h2>
+        <Group>
+          {state.pets.map((p) => (
+            <Row
+              key={p.id}
+              onClick={() => {
+                setPetId(p.id);
+                setPetPickerOpen(false);
+              }}
+              leading={<PetAvatar pet={p} size="sm" />}
+              title={p.name}
+              subtitle={p.breed}
+              trailing={p.id === pet.id ? <Icon name="check" size={18} className="text-accent" /> : undefined}
+            />
+          ))}
+        </Group>
+      </Sheet>
 
       {/* Log care grid — the whole point of this tab */}
       <SectionHeader>Log care</SectionHeader>

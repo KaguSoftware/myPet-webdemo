@@ -49,6 +49,9 @@ export default function FamilySettingsPage() {
   const [editPetWeight, setEditPetWeight] = useState("");
   const [editPetCup, setEditPetCup] = useState("");
 
+  const [deletingPet, setDeletingPet] = useState<Pet | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+
   const openEditPet = (p: Pet) => {
     setEditingPet(p);
     setEditPetName(p.name);
@@ -357,17 +360,71 @@ export default function FamilySettingsPage() {
             </div>
 
             <Group className="mt-3">
-              <ConfirmRow
-                label="Delete pet"
-                confirmLabel="Tap again to delete"
-                onConfirm={() => {
-                  const name = editingPet.name;
-                  deletePet(editingPet.id);
-                  setEditingPet(null);
-                  toast("👋", `${name} was removed`, "");
+              <Row
+                destructive
+                title="Delete pet"
+                onClick={() => {
+                  setDeletingPet(editingPet);
+                  setDeleteConfirm("");
                 }}
               />
             </Group>
+          </>
+        )}
+      </Sheet>
+
+      <Sheet
+        open={deletingPet !== null}
+        onClose={() => {
+          setDeletingPet(null);
+          setDeleteConfirm("");
+        }}
+      >
+        {deletingPet && (
+          <>
+            <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">Delete {deletingPet.name}?</h2>
+            <p className="mt-1.5 text-[13px] text-label-3">
+              This permanently removes {deletingPet.name}, along with its supplies, plan progress, and history.
+              This can&apos;t be undone.
+            </p>
+
+            <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">
+              Type <span className="text-label">{deletingPet.name}</span> to confirm
+            </p>
+            <input
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              autoCapitalize="off"
+              autoCorrect="off"
+              placeholder={deletingPet.name}
+              className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+            />
+
+            <div className="mt-7 flex flex-col gap-2">
+              <AccentButton
+                disabled={deleteConfirm.trim().toLowerCase() !== deletingPet.name.trim().toLowerCase()}
+                onClick={() => {
+                  const name = deletingPet.name;
+                  deletePet(deletingPet.id);
+                  setDeletingPet(null);
+                  setDeleteConfirm("");
+                  setEditingPet(null);
+                  toast("👋", `${name} was removed`, "");
+                }}
+                className="bg-red! text-white! shadow-none!"
+              >
+                Delete {deletingPet.name}
+              </AccentButton>
+              <AccentButton
+                variant="gray"
+                onClick={() => {
+                  setDeletingPet(null);
+                  setDeleteConfirm("");
+                }}
+              >
+                Cancel
+              </AccentButton>
+            </div>
           </>
         )}
       </Sheet>

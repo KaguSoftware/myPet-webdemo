@@ -14,9 +14,17 @@ export function Group({ children, className = "", flush = false }: { children: R
   );
 }
 
-export function SectionHeader({ children, trailing }: { children: React.ReactNode; trailing?: React.ReactNode }) {
+export function SectionHeader({
+  children,
+  trailing,
+  className = "",
+}: {
+  children: React.ReactNode;
+  trailing?: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="mt-7 mb-2 flex items-end justify-between px-1">
+    <div className={`mt-7 mb-2 flex items-end justify-between px-1 ${className}`}>
       <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-label-2">{children}</h2>
       {trailing}
     </div>
@@ -131,8 +139,8 @@ export function ConfirmRow({
   );
 }
 
-export function Chevron() {
-  return <Icon name="chevron-right" size={15} className="text-label-3" />;
+export function Chevron({ className = "" }: { className?: string }) {
+  return <Icon name="chevron-right" size={15} className={`text-label-3 transition-transform ${className}`} />;
 }
 
 export function AccentButton({

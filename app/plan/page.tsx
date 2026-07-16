@@ -7,9 +7,11 @@ import PageLoading from "@/components/PageLoading";
 import Paywall from "@/components/Paywall";
 import EmptyState from "@/components/EmptyState";
 import EditStatSheet from "@/components/EditStatSheet";
+import PetAvatar from "@/components/PetAvatar";
+import Sheet from "@/components/Sheet";
 import { ACTION_ICON, Icon, IconName } from "@/components/Icons";
-import { AccentButton, Chevron, Group, IconCircle, Row, SectionHeader, Segmented } from "@/components/ui";
-import { CARE_PLANS, Pet, formatAge, formatWeight, weightFeedingEntry } from "@/lib/data";
+import { AccentButton, Chevron, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
+import { CARE_PLANS, Pet, formatWeight, weightFeedingEntry } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
 type CustomTargetKey = keyof NonNullable<Pet["customPlan"]>;
@@ -41,12 +43,64 @@ const GENERIC_ICON: Record<string, IconName> = {
   "💊": "pill",
 };
 
+type GuideGroupKey = "daily" | "weekly" | "vet";
+
+const GUIDE_GROUPS: { key: GuideGroupKey; label: string }[] = [
+  { key: "daily", label: "Daily" },
+  { key: "weekly", label: "Weekly" },
+  { key: "vet", label: "Vet controlled" },
+];
+
+// Every PlanItem title used across CARE_PLANS maps to one of the three cadence groups.
+const GUIDE_GROUP_BY_TITLE: Record<string, GuideGroupKey> = {
+  "Feeding": "daily",
+  "Fresh water": "daily",
+  "Litter box maintenance": "daily",
+  "Play & mental stimulation": "daily",
+  "Potty breaks": "daily",
+  "Exercise & play": "daily",
+  "Exercise & training": "daily",
+  "Walks": "daily",
+  "Brushing / grooming": "weekly",
+  "Brushing / wrinkle cleaning": "weekly",
+  "Ear cleaning": "weekly",
+  "Bathing": "weekly",
+  "Nail trimming": "weekly",
+  "Dental care": "vet",
+  "Weight check": "vet",
+  "Parasite preventative": "vet",
+  "Vet checkup": "vet",
+  "Medication tracking": "vet",
+};
+
 export default function PlanPage() {
   const router = useRouter();
   const { state, hydrated, editPet, toast } = useStore();
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<CustomTargetKey | null>(null);
+  const [petPickerOpen, setPetPickerOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [openItems, setOpenItems] = useState<Set<string>>(new Set());
+  const [openGroups, setOpenGroups] = useState<Set<GuideGroupKey>>(new Set());
+
+  const toggleItem = (title: string) => {
+    setOpenItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      return next;
+    });
+  };
+
+  const toggleGroup = (key: GuideGroupKey) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   if (!hydrated) return <PageLoading title="Care Plan" />;
 
@@ -135,17 +189,39 @@ export default function PlanPage() {
 
   return (
     <div className="px-4">
-      <Header title="Care Plan" subtitle={`Vet-built for ${pet.breed}s`} bell />
+      <Header title="Care Plan" subtitle={`Vet-Built ${pet.breed}`} bell />
 
       {state.pets.length > 1 && (
-        <Segmented
-          options={state.pets.map((p) => ({ value: p.id, label: p.name }))}
-          value={pet.id}
-          onChange={setPetId}
-        />
+        <button
+          type="button"
+          onClick={() => setPetPickerOpen(true)}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 px-1"
+        >
+          <span className="text-[18px] font-semibold text-label">{pet.name}</span>
+          <Chevron />
+        </button>
       )}
 
       {remindersRow}
+
+      <Sheet open={petPickerOpen} onClose={() => setPetPickerOpen(false)} ariaLabel="Switch pet">
+        <h2 className="mb-3 px-1 text-[20px] font-bold tracking-[-0.01em] text-label">Switch pet</h2>
+        <Group>
+          {state.pets.map((p) => (
+            <Row
+              key={p.id}
+              onClick={() => {
+                setPetId(p.id);
+                setPetPickerOpen(false);
+              }}
+              leading={<PetAvatar pet={p} size="sm" />}
+              title={p.name}
+              subtitle={p.breed}
+              trailing={p.id === pet.id ? <Icon name="check" size={18} className="text-accent" /> : undefined}
+            />
+          ))}
+        </Group>
+      </Sheet>
 
       {plan ? (
         <>
@@ -153,7 +229,7 @@ export default function PlanPage() {
             <>
               <SectionHeader>Weight & feeding guide</SectionHeader>
               <p className="mb-3 px-1 text-[13px] leading-relaxed text-label-2">
-                Based on {formatAge(pet.ageYears)} ({feedingGuide.ageLabel.toLowerCase()} stage){pet.sex ? `, ${pet.sex}` : ""}. Updates automatically as {pet.name} ages.
+                Updates automatically as {pet.name} ages.
               </p>
               <Group>
                 <div className="grid grid-cols-3 gap-2 px-4 py-3.5 text-center">
@@ -209,26 +285,62 @@ export default function PlanPage() {
               })}
           </Group>
 
-          <SectionHeader>Full {pet.breed} guide</SectionHeader>
-          <p className="mb-3 px-1 text-[13px] leading-relaxed text-label-2">{plan.intro}</p>
-          <Group>
-            {plan.items.map((item) => {
-              const ai = item.action ? ACTION_ICON[item.action] : null;
-              const icon: IconName = ai?.icon ?? GENERIC_ICON[item.emoji] ?? "heart-text";
-              return (
-                <div key={item.title} className="px-4 py-3.5">
-                  <div className="flex items-center gap-3">
-                    <IconCircle icon={icon} tint={ai?.tint ?? "text-label-2"} bg={ai?.bg ?? "bg-fill"} size={32} iconSize={16} />
-                    <p className="flex-1 text-[15px] font-semibold text-label">{item.title}</p>
-                    <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-semibold text-accent">
-                      {item.cadence}
-                    </span>
-                  </div>
-                  <p className="mt-2 pl-11 text-[13px] leading-relaxed text-label-2">{item.detail}</p>
-                </div>
-              );
-            })}
-          </Group>
+          <button
+            type="button"
+            onClick={() => setGuideOpen((v) => !v)}
+            className="mt-5 flex w-full items-center justify-between px-1"
+          >
+            <SectionHeader className="mb-0">Click for full {pet.breed} guide</SectionHeader>
+            <Chevron className={guideOpen ? "rotate-90" : ""} />
+          </button>
+          {guideOpen && (
+            <p className="mb-3 px-1 text-[13px] leading-relaxed text-label-2">{plan.intro}</p>
+          )}
+          {GUIDE_GROUPS.map((group) => {
+            const items = plan.items.filter((item) => (GUIDE_GROUP_BY_TITLE[item.title] ?? "vet") === group.key);
+            if (items.length === 0) return null;
+            const isGroupOpen = openGroups.has(group.key);
+            return (
+              <div key={group.key} className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.key)}
+                  className="flex w-full items-center justify-between rounded-card bg-card px-4 py-3.5 text-left shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] hairline"
+                >
+                  <span className="text-[15px] font-semibold text-label">{group.label}</span>
+                  <Chevron className={isGroupOpen ? "rotate-90" : ""} />
+                </button>
+                {isGroupOpen && (
+                  <Group className="mt-2">
+                    {items.map((item) => {
+                      const ai = item.action ? ACTION_ICON[item.action] : null;
+                      const icon: IconName = ai?.icon ?? GENERIC_ICON[item.emoji] ?? "heart-text";
+                      const isOpen = openItems.has(item.title);
+                      return (
+                        <div key={item.title} className="px-4 py-3.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleItem(item.title)}
+                            className="flex w-full items-center gap-3 text-left"
+                          >
+                            <IconCircle icon={icon} tint={ai?.tint ?? "text-label-2"} bg={ai?.bg ?? "bg-fill"} size={32} iconSize={16} />
+                            <p className="flex-1 text-[15px] font-semibold text-label">{item.title}</p>
+                            <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-semibold text-accent">
+                              {item.cadence}
+                            </span>
+                            <Chevron className={isOpen ? "rotate-90" : ""} />
+                          </button>
+                          {isOpen && (
+                            <p className="mt-2 pl-11 text-[13px] leading-relaxed text-label-2">{item.detail}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </Group>
+                )}
+              </div>
+            );
+          })}
         </>
       ) : (
         <>

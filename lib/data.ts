@@ -279,7 +279,7 @@ export const CARE_PLANS: Record<string, { intro: string; items: PlanItem[] }> = 
     items: [
       { emoji: "🍖", title: "Feeding", detail: "Strict portion-controlled meals — avoid free-feeding, this breed overeats readily.", cadence: "2× daily", perDay: 2, action: "fed" },
       { emoji: "💧", title: "Fresh water", detail: "Clean water refreshed daily.", cadence: "Daily", perDay: 1, action: "water" },
-      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1-2× daily", perDay: 2, action: "litter" },
+      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1× daily", perDay: 1, action: "litter" },
       { emoji: "🧶", title: "Play & mental stimulation", detail: "Engaging daily play to encourage movement and combat their natural sedentary, lazy tendency.", cadence: "1-2× daily, 15-20 min" },
       { emoji: "✂️", title: "Brushing / grooming", detail: "Weekly brushing (more frequent in spring) to manage their incredibly dense, thick double coat.", cadence: "Weekly", action: "groomed" },
       { emoji: "🐾", title: "Nail trimming", detail: "Regular clipping to prevent overgrowth and snagging.", cadence: "Every 2-4 weeks" },
@@ -442,7 +442,7 @@ export const CARE_PLANS: Record<string, { intro: string; items: PlanItem[] }> = 
     items: [
       { emoji: "🍖", title: "Feeding", detail: "Daily portion-controlled meals. Transition slowly to a high-quality commercial diet to prevent GI upset.", cadence: "2× daily", perDay: 2, action: "fed" },
       { emoji: "💧", title: "Fresh water", detail: "Clean water refreshed daily.", cadence: "Daily", perDay: 1, action: "water" },
-      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1-2× daily", perDay: 2, action: "litter" },
+      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1× daily", perDay: 1, action: "litter" },
       { emoji: "🧶", title: "Play & mental stimulation", detail: "Gentle, interactive daily play to build trust, reduce anxiety, and prevent boredom.", cadence: "1-2× daily, 15-20 min" },
       { emoji: "✂️", title: "Brushing / grooming", detail: "Routine brushing to manage shedding and frequently assess skin condition.", cadence: "1-2× weekly", action: "groomed" },
       { emoji: "🐾", title: "Nail trimming", detail: "Regular clipping to prevent overgrowth, alongside providing proper scratching posts as they adapt to indoor life.", cadence: "Every 2-4 weeks" },
@@ -459,7 +459,7 @@ export const CARE_PLANS: Record<string, { intro: string; items: PlanItem[] }> = 
     items: [
       { emoji: "🍖", title: "Feeding", detail: "Portion-controlled meals served in wide, shallow bowls or plates to accommodate their flat faces and make eating easier.", cadence: "2× daily", perDay: 2, action: "fed" },
       { emoji: "💧", title: "Fresh water", detail: "Clean water refreshed daily.", cadence: "Daily", perDay: 1, action: "water" },
-      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1-2× daily", perDay: 2, action: "litter" },
+      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1× daily", perDay: 1, action: "litter" },
       { emoji: "🧶", title: "Play & mental stimulation", detail: "Gentle daily interactive play — typically laid-back and prefers low-impact activities.", cadence: "1× daily, 10-15 min" },
       { emoji: "✂️", title: "Brushing / grooming", detail: "Extensive daily combing and brushing is essential to prevent severe matting. Daily eye wiping is also required due to tear staining and shallow eye sockets.", cadence: "Daily, 10-15 min", action: "groomed" },
       { emoji: "🐾", title: "Nail trimming", detail: "Regular clipping to prevent overgrowth and snagging.", cadence: "Every 2-4 weeks" },
@@ -476,7 +476,7 @@ export const CARE_PLANS: Record<string, { intro: string; items: PlanItem[] }> = 
     items: [
       { emoji: "🍖", title: "Feeding", detail: "Portion-controlled, high-protein meals served in extra-wide bowls to prevent whisker fatigue.", cadence: "2× daily", perDay: 2, action: "fed" },
       { emoji: "💧", title: "Fresh water", detail: "Clean water refreshed daily — many prefer water fountains, as they love playing in moving water.", cadence: "Daily", perDay: 1, action: "water" },
-      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping; requires an extra-large litter box to accommodate their massive size.", cadence: "1-2× daily", perDay: 2, action: "litter" },
+      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping; requires an extra-large litter box to accommodate their massive size.", cadence: "1× daily", perDay: 1, action: "litter" },
       { emoji: "🧶", title: "Play & mental stimulation", detail: "Daily interactive play to keep them active and prevent boredom.", cadence: "1-2× daily, 15-30 min" },
       { emoji: "✂️", title: "Brushing / grooming", detail: "Routine brushing, especially their thick undercoat, to manage shedding and prevent oil buildup and mats.", cadence: "2-3× weekly", action: "groomed" },
       { emoji: "🐾", title: "Nail trimming", detail: "Regular clipping to prevent overgrowth and snagging.", cadence: "Every 2-4 weeks" },
@@ -493,7 +493,7 @@ export const CARE_PLANS: Record<string, { intro: string; items: PlanItem[] }> = 
     items: [
       { emoji: "🍖", title: "Feeding", detail: "Daily portion-controlled meals based on age and weight.", cadence: "2× daily", perDay: 2, action: "fed" },
       { emoji: "💧", title: "Fresh water", detail: "Clean water refreshed daily.", cadence: "Daily", perDay: 1, action: "water" },
-      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1-2× daily", perDay: 2, action: "litter" },
+      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1× daily", perDay: 1, action: "litter" },
       { emoji: "🧶", title: "Play & mental stimulation", detail: "Extremely high need — interactive toys, puzzles, and dedicated play sessions to satisfy their highly intelligent, vocal nature.", cadence: "2-3× daily, 20-30 min" },
       { emoji: "✂️", title: "Brushing / grooming", detail: "Routine weekly brushing to manage shedding of their short coat.", cadence: "Weekly", action: "groomed" },
       { emoji: "🐾", title: "Nail trimming", detail: "Regular clipping to prevent overgrowth and snagging.", cadence: "Every 2-4 weeks" },
@@ -510,7 +510,7 @@ export const CARE_PLANS: Record<string, { intro: string; items: PlanItem[] }> = 
     items: [
       { emoji: "🍖", title: "Feeding", detail: "Daily portion-controlled meals based on age and weight.", cadence: "2× daily", perDay: 2, action: "fed" },
       { emoji: "💧", title: "Fresh water", detail: "Clean water refreshed daily.", cadence: "Daily", perDay: 1, action: "water" },
-      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1-2× daily", perDay: 2, action: "litter" },
+      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1× daily", perDay: 1, action: "litter" },
       { emoji: "🧶", title: "Play & mental stimulation", detail: "Moderate interactive play — known for their highly docile, relaxed temperament.", cadence: "1-2× daily, 15 min" },
       { emoji: "✂️", title: "Brushing / grooming", detail: "Frequent brushing (at least twice a week) to maintain their semi-long, plush coat and prevent tangles/mats.", cadence: "2× weekly", action: "groomed" },
       { emoji: "🐾", title: "Nail trimming", detail: "Regular clipping to prevent overgrowth and snagging.", cadence: "Every 2-4 weeks" },
@@ -527,7 +527,7 @@ export const CARE_PLANS: Record<string, { intro: string; items: PlanItem[] }> = 
     items: [
       { emoji: "🍖", title: "Feeding", detail: "Portion-controlled meals — food puzzles or foraging mats are highly recommended to simulate hunting and satisfy their wild instincts.", cadence: "2× daily", perDay: 2, action: "fed" },
       { emoji: "💧", title: "Fresh water", detail: "Clean water refreshed daily — they often love playing in water, so fountains are a great choice.", cadence: "Daily", perDay: 1, action: "water" },
-      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1-2× daily", perDay: 2, action: "litter" },
+      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping and a routine full litter change every 2-4 weeks.", cadence: "1× daily", perDay: 1, action: "litter" },
       { emoji: "🧶", title: "Play & mental stimulation", detail: "Intense daily physical and mental stimulation. Vertical spaces (tall cat trees), exercise wheels, and highly active play prevent boredom and destructive behaviors.", cadence: "2-3× daily, 30+ min" },
       { emoji: "✂️", title: "Brushing / grooming", detail: "Minimal routine brushing — their unique pelt-like coat is short and requires little maintenance.", cadence: "Weekly", action: "groomed" },
       { emoji: "🐾", title: "Nail trimming", detail: "Regular clipping to prevent overgrowth and snagging.", cadence: "Every 2-4 weeks" },
@@ -544,7 +544,7 @@ export const CARE_PLANS: Record<string, { intro: string; items: PlanItem[] }> = 
     items: [
       { emoji: "🍖", title: "Feeding", detail: "Portion-controlled meals placed in easily accessible locations so the cat doesn't have to jump or strain to reach food.", cadence: "2× daily", perDay: 2, action: "fed" },
       { emoji: "💧", title: "Fresh water", detail: "Clean water refreshed daily, kept at ground level.", cadence: "Daily", perDay: 1, action: "water" },
-      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping. Use a litter box with a low entry point to accommodate potential joint stiffness.", cadence: "1-2× daily", perDay: 2, action: "litter" },
+      { emoji: "🧹", title: "Litter box maintenance", detail: "Daily scooping. Use a litter box with a low entry point to accommodate potential joint stiffness.", cadence: "1× daily", perDay: 1, action: "litter" },
       { emoji: "🧶", title: "Play & mental stimulation", detail: "Low-impact interactive play that keeps them moving without excessive jumping stress on their joints.", cadence: "1-2× daily, 10-15 min" },
       { emoji: "✂️", title: "Brushing / grooming", detail: "Gentle routine brushing — be highly sensitive and cautious to avoid causing pain to stiff or arthritic joints.", cadence: "Weekly", action: "groomed" },
       { emoji: "🐾", title: "Nail trimming", detail: "Regular clipping — reduced mobility may prevent them from naturally wearing down claws on scratching posts.", cadence: "Every 2-4 weeks" },

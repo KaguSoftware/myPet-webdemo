@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
+import PetAvatar from "@/components/PetAvatar";
 import PixelPet, { PixelCosmetic } from "@/components/pixel/PixelPet";
 import Pet3D from "@/components/pixel/Pet3D";
 import Sheet from "@/components/Sheet";
@@ -95,13 +96,14 @@ function PetsPageContent() {
   const [addPetOpen, setAddPetOpen] = useState(false);
   const [petName, setPetName] = useState("");
   const [species, setSpecies] = useState<"cat" | "dog">("cat");
-  const [breed, setBreed] = useState(BREEDS_BY_SPECIES.cat[0]);
+  const [breed, setBreed] = useState("");
+  const [breedFocus, setBreedFocus] = useState(false);
   const [sex, setSex] = useState<"female" | "male">("female");
   const [ageInput, setAgeInput] = useState("1");
   const [weightInput, setWeightInput] = useState("");
   const [cupInput, setCupInput] = useState("");
   const [editingStat, setEditingStat] = useState<"weight" | "age" | "cupGrams" | null>(null);
-  const [namesRef, setNamesRef] = useState<HTMLDivElement | null>(null);
+  const [petPickerOpen, setPetPickerOpen] = useState(false);
   const [justReacted, setJustReacted] = useState(false);
   const react = () => {
     setJustReacted(true);
@@ -122,7 +124,8 @@ function PetsPageContent() {
   };
   const openAddPet = () => {
     setSpecies("cat");
-    setBreed(BREEDS_BY_SPECIES.cat[0]);
+    setBreed("");
+    setBreedFocus(false);
     setSex("female");
     setAgeInput("1");
     prefillFor("cat");
@@ -133,7 +136,15 @@ function PetsPageContent() {
     setPetName("");
   };
 
-  const resolvedBreed = breed.trim() || (species === "cat" ? "House cat" : "Mixed breed");
+  // Resolve the typed breed against the known list case-insensitively, so a
+  // match (however the user capitalised it) is saved under its canonical name
+  // and picks up the vet-built CARE_PLANS entry; anything else is a custom breed.
+  const breedQuery = breed.trim().toLowerCase();
+  const canonicalBreed = BREEDS_BY_SPECIES[species].find((b) => b.toLowerCase() === breedQuery);
+  const breedSuggestions = breedQuery
+    ? BREEDS_BY_SPECIES[species].filter((b) => b.toLowerCase().includes(breedQuery) && b.toLowerCase() !== breedQuery)
+    : [];
+  const resolvedBreed = canonicalBreed ?? (breed.trim() || (species === "cat" ? "House cat" : "Mixed breed"));
   const parsedAge = Number(ageInput);
   const parsedWeightUnit = Number(weightInput);
   const parsedCup = Number(cupInput);
@@ -179,7 +190,8 @@ function PetsPageContent() {
             key={o.s}
             onClick={() => {
               setSpecies(o.s);
-              setBreed(BREEDS_BY_SPECIES[o.s][0]);
+              setBreed("");
+              setBreedFocus(false);
               prefillFor(o.s);
             }}
             className={`rounded-full px-5 py-2 text-[14px] font-semibold transition-all ${
@@ -192,31 +204,44 @@ function PetsPageContent() {
       </div>
 
       <p className={labelClass}>Breed</p>
-      <div className="flex gap-2">
+      <div className="relative">
         <input
           value={breed}
           onChange={(e) => setBreed(e.target.value)}
+          onFocus={() => setBreedFocus(true)}
+          onBlur={() => setBreedFocus(false)}
           placeholder="Start typing a breed…"
-          list="breed-options"
+          autoComplete="off"
           className={fieldClass}
         />
-        <button
-          onClick={() => setBreed("")}
-          className="shrink-0 rounded-ios bg-card px-4 text-[14px] font-semibold text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)] transition-all active:scale-95"
-        >
-          Other
-        </button>
+        {breedFocus && breedSuggestions.length > 0 && (
+          <ul className="absolute z-30 mt-1.5 max-h-56 w-full overflow-y-auto rounded-ios bg-card py-1 shadow-[0_4px_16px_oklch(0.2_0.01_264/0.14)] ring-1 ring-black/5">
+            {breedSuggestions.map((b) => (
+              <li key={b}>
+                <button
+                  // preventDefault on mousedown keeps the input focused so the
+                  // click lands before onBlur closes the dropdown.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    setBreed(b);
+                    setBreedFocus(false);
+                  }}
+                  className="block w-full px-4 py-2.5 text-left text-[15px] font-medium text-label transition-colors active:bg-fill"
+                >
+                  {b}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      <datalist id="breed-options">
-        {BREEDS_BY_SPECIES[species].map((b) => (
-          <option key={b} value={b} />
-        ))}
-      </datalist>
-      <p className="mt-1.5 text-[12px] font-medium text-label-3">
-        {BREEDS_BY_SPECIES[species].includes(breed)
-          ? "This breed has a vet-built care plan."
-          : "Not on the list — you'll set custom feeding/water/care targets on the Care tab."}
-      </p>
+      {breed.trim().length > 0 && (
+        <p className="mt-1.5 text-[12px] font-medium text-label-3">
+          {canonicalBreed
+            ? "This breed has a vet-built care plan."
+            : "Not on the list — you'll set custom feeding/water/care targets on the Care tab."}
+        </p>
+      )}
 
       <p className={labelClass}>Sex</p>
       <Segmented
@@ -339,34 +364,34 @@ function PetsPageContent() {
       />
 
       {state.pets.length > 1 && (
-        <div className="mb-4 flex items-center gap-1.5">
-          {state.pets.length > 4 && (
-            <button
-              onClick={() => namesRef?.scrollBy({ left: -namesRef.clientWidth, behavior: "smooth" })}
-              aria-label="Previous pets"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fill text-label-2 transition-transform active:scale-90"
-            >
-              <Icon name="chevron-left" size={15} />
-            </button>
-          )}
-          <Segmented
-            options={state.pets.map((p) => ({ value: p.id, label: p.name }))}
-            value={pet.id}
-            onChange={setPetId}
-            scrollable
-            containerRef={setNamesRef}
-          />
-          {state.pets.length > 4 && (
-            <button
-              onClick={() => namesRef?.scrollBy({ left: namesRef.clientWidth, behavior: "smooth" })}
-              aria-label="Next pets"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fill text-label-2 transition-transform active:scale-90"
-            >
-              <Icon name="chevron-right" size={15} />
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => setPetPickerOpen(true)}
+          className="mb-4 flex w-full items-center justify-center gap-1.5 px-1"
+        >
+          <span className="text-[18px] font-semibold text-label">{pet.name}</span>
+          <Chevron />
+        </button>
       )}
+
+      <Sheet open={petPickerOpen} onClose={() => setPetPickerOpen(false)} ariaLabel="Switch pet">
+        <h2 className="mb-3 px-1 text-[20px] font-bold tracking-[-0.01em] text-label">Switch pet</h2>
+        <Group>
+          {state.pets.map((p) => (
+            <Row
+              key={p.id}
+              onClick={() => {
+                setPetId(p.id);
+                setPetPickerOpen(false);
+              }}
+              leading={<PetAvatar pet={p} size="sm" />}
+              title={p.name}
+              subtitle={p.breed}
+              trailing={p.id === pet.id ? <Icon name="check" size={18} className="text-accent" /> : undefined}
+            />
+          ))}
+        </Group>
+      </Sheet>
 
       {/* Dressing stage */}
       <div className="relative overflow-hidden rounded-sheet bg-card shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)]">
