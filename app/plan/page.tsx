@@ -7,6 +7,7 @@ import PageLoading from "@/components/PageLoading";
 import Paywall from "@/components/Paywall";
 import EmptyState from "@/components/EmptyState";
 import EditStatSheet from "@/components/EditStatSheet";
+import EditTextSheet from "@/components/EditTextSheet";
 import PetAvatar from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
 import { ACTION_ICON, Icon, IconName } from "@/components/Icons";
@@ -14,7 +15,7 @@ import { AccentButton, Chevron, Group, IconCircle, Row, SectionHeader } from "@/
 import { CARE_PLANS, Pet, formatWeight, weightFeedingEntry } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
-type CustomTargetKey = keyof NonNullable<Pet["customPlan"]>;
+type CustomTargetKey = Exclude<keyof NonNullable<Pet["customPlan"]>, "cadences">;
 
 const CUSTOM_TARGET_FIELDS: Record<"cat" | "dog", { key: CustomTargetKey; title: string; subtitle: string; icon: IconName }[]> = {
   cat: [
@@ -28,6 +29,33 @@ const CUSTOM_TARGET_FIELDS: Record<"cat" | "dog", { key: CustomTargetKey; title:
     { key: "fedGrams", title: "Food amount", subtitle: "Total grams per day", icon: "box" },
     { key: "waterPerDay", title: "Fresh water", subtitle: "Refreshes per day", icon: "drop" },
     { key: "walkPerDay", title: "Walks", subtitle: "Walks per day", icon: "paw" },
+  ],
+};
+
+/* The non-daily "other" care activities a custom breed still gets — mirrors the
+ * grooming/health/vet items in the vet-built CARE_PLANS. Each has a default
+ * cadence the family can edit (stored per-pet in customPlan.cadences[id]). */
+type OtherCareField = { id: string; title: string; detail: string; cadence: string; icon: IconName };
+const OTHER_CARE_FIELDS: Record<"cat" | "dog", OtherCareField[]> = {
+  cat: [
+    { id: "grooming", title: "Brushing / grooming", detail: "Regular brushing to manage shedding and prevent matting.", cadence: "Weekly", icon: "scissors" },
+    { id: "nails", title: "Nail trimming", detail: "Clip nails to prevent overgrowth and snagging.", cadence: "Every 2-4 weeks", icon: "clipper" },
+    { id: "dental", title: "Dental care", detail: "Teeth cleaning, water additives, or dental treats.", cadence: "3-7× weekly", icon: "sparkles" },
+    { id: "weight", title: "Weight check", detail: "Routine monitoring to catch weight gain early.", cadence: "1-2× monthly", icon: "arrow-up" },
+    { id: "parasite", title: "Parasite preventative", detail: "Routine flea, tick, and worm prevention.", cadence: "Monthly", icon: "shield" },
+    { id: "vet", title: "Vet checkup", detail: "Wellness exams and vaccinations.", cadence: "Yearly", icon: "stethoscope" },
+    { id: "meds", title: "Medication tracking", detail: "Log any medication prescribed by the vet.", cadence: "As prescribed", icon: "pill" },
+  ],
+  dog: [
+    { id: "grooming", title: "Brushing / grooming", detail: "Regular brushing to manage shedding and prevent matting.", cadence: "1-2× weekly", icon: "scissors" },
+    { id: "bathing", title: "Bathing", detail: "Occasional baths, or after muddy play.", cadence: "Every 6-8 weeks", icon: "drop" },
+    { id: "ears", title: "Ear cleaning", detail: "Clean ears to prevent moisture buildup and infection.", cadence: "Weekly", icon: "bell" },
+    { id: "nails", title: "Nail trimming", detail: "Clip nails to maintain proper paw structure.", cadence: "Every 3-4 weeks", icon: "clipper" },
+    { id: "dental", title: "Dental care", detail: "Teeth brushing or dental chews to prevent tartar.", cadence: "3-7× weekly", icon: "sparkles" },
+    { id: "weight", title: "Weight check", detail: "Routine monitoring to catch weight gain early.", cadence: "1-2× monthly", icon: "arrow-up" },
+    { id: "parasite", title: "Parasite preventative", detail: "Routine heartworm, flea, and tick prevention.", cadence: "Monthly", icon: "shield" },
+    { id: "vet", title: "Vet checkup", detail: "Wellness exams and vaccinations.", cadence: "Yearly", icon: "stethoscope" },
+    { id: "meds", title: "Medication tracking", detail: "Log any medication prescribed by the vet.", cadence: "Daily or as prescribed", icon: "pill" },
   ],
 };
 
@@ -79,6 +107,7 @@ export default function PlanPage() {
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<CustomTargetKey | null>(null);
+  const [editingCadence, setEditingCadence] = useState<string | null>(null);
   const [petPickerOpen, setPetPickerOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [openItems, setOpenItems] = useState<Set<string>>(new Set());
@@ -145,10 +174,6 @@ export default function PlanPage() {
   }
   const plan = CARE_PLANS[pet.breed];
   const feedingGuide = weightFeedingEntry(pet);
-
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const todays = state.activities.filter((a) => a.petId === pet.id && a.ts >= startOfDay.getTime());
 
   if (!state.premium) {
     return (
@@ -252,39 +277,6 @@ export default function PlanPage() {
             </>
           )}
 
-          <SectionHeader>Today</SectionHeader>
-          <Group>
-            {plan.items
-              .filter((i) => i.perDay)
-              .map((item) => {
-                const done = todays.filter((a) => a.type === item.action).length;
-                const target = item.perDay ?? 1;
-                const complete = done >= target;
-                const ai = item.action ? ACTION_ICON[item.action] : null;
-                return (
-                  <Row
-                    key={item.title}
-                    leading={
-                      complete ? (
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green text-white">
-                          <Icon name="check" size={18} />
-                        </span>
-                      ) : ai ? (
-                        <IconCircle icon={ai.icon} tint={ai.tint} bg={ai.bg} />
-                      ) : null
-                    }
-                    title={item.title}
-                    subtitle={complete ? "Complete" : `${Math.min(done, target)} of ${target} done`}
-                    trailing={
-                      <span className={`text-[13px] font-semibold ${complete ? "text-green" : "text-label-3"}`}>
-                        {Math.min(done, target)}/{target}
-                      </span>
-                    }
-                  />
-                );
-              })}
-          </Group>
-
           <button
             type="button"
             onClick={() => setGuideOpen((v) => !v)}
@@ -368,6 +360,30 @@ export default function PlanPage() {
               );
             })}
           </Group>
+
+          <SectionHeader>Grooming, health & vet</SectionHeader>
+          <p className="mb-3 px-1 text-[13px] leading-relaxed text-label-2">
+            The rest of {pet.name}&apos;s routine. Tap any activity to set how often it should happen.
+          </p>
+          <Group>
+            {OTHER_CARE_FIELDS[pet.species].map((f) => {
+              const cadence = pet.customPlan?.cadences?.[f.id] ?? f.cadence;
+              return (
+                <Row
+                  key={f.id}
+                  onClick={() => setEditingCadence(f.id)}
+                  leading={<IconCircle icon={f.icon} tint="text-accent" bg="bg-accent-soft" />}
+                  title={f.title}
+                  subtitle={f.detail}
+                  trailing={
+                    <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-semibold text-accent">
+                      {cadence}
+                    </span>
+                  }
+                />
+              );
+            })}
+          </Group>
         </>
       )}
 
@@ -390,6 +406,33 @@ export default function PlanPage() {
                 customPlan: { ...pet.customPlan, [f.key]: value },
               });
               toast("📋", `${f.title} target updated`, `${value} ${f.subtitle.toLowerCase()}`);
+            }}
+          />
+        ))}
+
+      {!plan &&
+        OTHER_CARE_FIELDS[pet.species].map((f) => (
+          <EditTextSheet
+            key={f.id}
+            open={editingCadence === f.id}
+            onClose={() => setEditingCadence(null)}
+            title={`${f.title} frequency`}
+            label="How often"
+            placeholder={f.cadence}
+            initialValue={pet.customPlan?.cadences?.[f.id] ?? f.cadence}
+            onSave={(value) => {
+              editPet(pet.id, {
+                name: pet.name,
+                breed: pet.breed,
+                ageYears: pet.ageYears,
+                weightKg: pet.weightKg,
+                cupGrams: pet.cupGrams,
+                customPlan: {
+                  ...pet.customPlan,
+                  cadences: { ...pet.customPlan?.cadences, [f.id]: value },
+                },
+              });
+              toast("📋", `${f.title} updated`, value);
             }}
           />
         ))}

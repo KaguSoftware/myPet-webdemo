@@ -55,6 +55,10 @@ export interface Pet {
     waterPerDay?: number;
     litterPerDay?: number;
     walkPerDay?: number;
+    /** User-edited frequencies for the non-daily "other" care activities
+     *  (grooming, dental, vet checkup, …), keyed by the activity's stable id.
+     *  Absent keys fall back to the default cadence for that activity. */
+    cadences?: Record<string, string>;
   };
 }
 
@@ -719,7 +723,7 @@ export const DEFAULT_TARGETS: Record<"cat" | "dog", Partial<Record<ActionType, n
 };
 
 /** Maps an ActionType to its key on Pet.customPlan, for the ones a custom plan can override. */
-const CUSTOM_PLAN_KEYS: Partial<Record<ActionType, keyof NonNullable<Pet["customPlan"]>>> = {
+const CUSTOM_PLAN_KEYS: Partial<Record<ActionType, Exclude<keyof NonNullable<Pet["customPlan"]>, "cadences">>> = {
   fed: "fedPerDay",
   water: "waterPerDay",
   litter: "litterPerDay",
