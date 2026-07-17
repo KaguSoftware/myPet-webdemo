@@ -11,6 +11,7 @@ export interface Cosmetic {
 }
 
 export interface WeightPoint {
+  id: string;
   ts: number;
   kg: number;
 }

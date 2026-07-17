@@ -29,6 +29,8 @@ export default function ActivityPage() {
   const { state, hydrated, bookVetById, toast } = useStore();
   const [bookOpen, setBookOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [filterPetId, setFilterPetId] = useState<string | null>(null);
+  const [visible, setVisible] = useState(40);
 
   if (!hydrated) return <PageLoading title="Activity" compact />;
 
@@ -53,8 +55,11 @@ export default function ActivityPage() {
     .map((p) => ({ pet: p, items: alerts.filter((r) => r.petId === p.id) }))
     .filter((g) => g.items.length > 0);
 
-  // Family feed
-  const sorted = [...state.activities].sort((a, b) => b.ts - a.ts).slice(0, 40);
+  // Family feed — optionally filtered to one pet, paged in blocks of 40
+  const filtered = state.activities
+    .filter((a) => !filterPetId || a.petId === filterPetId)
+    .sort((a, b) => b.ts - a.ts);
+  const sorted = filtered.slice(0, visible);
   const groups: { day: string; items: Activity[] }[] = [];
   for (const a of sorted) {
     const day = dayKey(a.ts);
@@ -173,6 +178,28 @@ export default function ActivityPage() {
 
       {/* Family feed */}
       <SectionHeader>Recent activity</SectionHeader>
+      {state.pets.length > 1 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {[null, ...state.pets.map((p) => p.id)].map((id) => {
+            const p = id ? petById(id) : null;
+            const active = filterPetId === id;
+            return (
+              <button
+                key={id ?? "all"}
+                onClick={() => {
+                  setFilterPetId(id);
+                  setVisible(40);
+                }}
+                className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-all ${
+                  active ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
+                }`}
+              >
+                {p ? p.name : "All"}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {groups.length === 0 ? (
         <EmptyState icon="bell" title="No activity yet" body="Log some care from the Logs tab and it'll show up here for the whole family." />
       ) : (
@@ -203,6 +230,11 @@ export default function ActivityPage() {
             </Group>
           </div>
         ))
+      )}
+      {visible < filtered.length && (
+        <AccentButton variant="tinted" size="sm" className="mt-3" onClick={() => setVisible((v) => v + 40)}>
+          Show more
+        </AccentButton>
       )}
 
       {/* Booking sheet */}

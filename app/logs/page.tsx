@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import EmptyState from "@/components/EmptyState";
+import FeedPortionSheet from "@/components/FeedPortionSheet";
 import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
 import PetAvatar from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { AccentButton, Chevron, Group, Row, SectionHeader, Segmented } from "@/components/ui";
-import { ACTIONS, ActionType, CARE_PLANS, PORTIONS } from "@/lib/data";
+import { ACTIONS, ActionType, CARE_PLANS } from "@/lib/data";
 import { ALERT_VERB, useStore } from "@/lib/store";
 
 const CAT_ACTIONS: ActionType[] = ["fed", "water", "litter", "groomed", "meds", "vet"];
@@ -18,12 +20,16 @@ const ALERT_VERB_TYPES = Object.keys(ALERT_VERB) as ActionType[];
 const CARE_WARNING_EMOJI: Partial<Record<string, ActionType>> = { "🍖": "fed", "💧": "water", "🧹": "litter", "🦮": "walk" };
 
 export default function LogsPage() {
-  const { state, hydrated, logAction, useSupply: consumeSupply, toast } = useStore();
+  const { state, hydrated, logAction, toast } = useStore();
+  const router = useRouter();
   const [petId, setPetId] = useState("");
   const [justLogged, setJustLogged] = useState<ActionType | null>(null);
   const [feedPortionOpen, setFeedPortionOpen] = useState(false);
-  const [feedFraction, setFeedFraction] = useState<(typeof PORTIONS)[number]["value"]>("1");
   const [petPickerOpen, setPetPickerOpen] = useState(false);
+  const [retroOpen, setRetroOpen] = useState(false);
+  const [retroType, setRetroType] = useState<ActionType | null>(null);
+  const [retroDay, setRetroDay] = useState<"today" | "yesterday">("today");
+  const [retroTime, setRetroTime] = useState("");
   const prevDayDoneRef = useRef<{ petId: string; done: boolean } | null>(null);
 
   const activePetId = petId || state.pets[0]?.id || "";
@@ -62,14 +68,31 @@ export default function LogsPage() {
       <div className="px-4">
         <Header title="Logs" subtitle="Log care · everyone's notified" bell />
         <div className="mt-4">
-          <EmptyState icon="list" title="No pets yet" body="Add a pet from Settings ▸ Family to start logging care." />
+          <EmptyState
+            icon="list"
+            title="No pets yet"
+            body="Add your first pet to start logging care."
+            cta="Add a pet"
+            onCta={() => router.push("/pets")}
+          />
         </div>
       </div>
     );
   }
 
   const actions = pet.species === "cat" ? CAT_ACTIONS : DOG_ACTIONS;
-  const treatsSupply = pet.supplies.find((s) => s.icon === "star");
+
+  // Timestamp for the retro-log sheet — null while incomplete or in the future.
+  const retroTs = () => {
+    if (!retroTime) return null;
+    const d = new Date();
+    if (retroDay === "yesterday") d.setDate(d.getDate() - 1);
+    const [hh, mm] = retroTime.split(":").map(Number);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+    d.setHours(hh, mm, 0, 0);
+    const ts = d.getTime();
+    return ts > Date.now() ? null : ts;
+  };
 
   // Every outstanding alert type for this pet — drives the red "!" badge on the
   // matching log box.
@@ -85,23 +108,6 @@ export default function LogsPage() {
         return t ? [t, "vet"] : ["vet"];
       })
   );
-
-  const confirmFeed = () => {
-    const frac = PORTIONS.find((p) => p.value === feedFraction)?.frac ?? 1;
-    const logged = logAction(pet.id, "fed", frac * pet.cupGrams);
-    setFeedPortionOpen(false);
-    if (logged) {
-      setJustLogged("fed");
-      setTimeout(() => setJustLogged(null), 700);
-    }
-  };
-
-  const confirmTreat = () => {
-    if (!treatsSupply) return;
-    consumeSupply(pet.id, treatsSupply.id);
-    setFeedPortionOpen(false);
-    toast("star", `${pet.name} got a treat`, `${treatsSupply.name} · ${Math.max(0, treatsSupply.level - 15)}% left`);
-  };
 
   return (
     <div className="px-4">
@@ -180,29 +186,91 @@ export default function LogsPage() {
         })}
       </div>
 
-      <p className="mt-4 px-1 text-[13px] leading-relaxed text-label-2">
+      <button
+        type="button"
+        onClick={() => {
+          setRetroType(null);
+          setRetroDay("today");
+          setRetroTime("");
+          setRetroOpen(true);
+        }}
+        className="mt-4 flex items-center gap-1.5 px-1 text-[13px] font-semibold text-accent"
+      >
+        <Icon name="clock" size={13} /> Forgot to log something earlier?
+      </button>
+
+      <p className="mt-3 px-1 text-[13px] leading-relaxed text-label-2">
         Every action is shared with the family and shows up in Activity. Tap the bell any time to see what everyone&apos;s been up to.
       </p>
 
-      <Sheet open={feedPortionOpen} onClose={() => setFeedPortionOpen(false)}>
-        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">How much food?</h2>
-        <p className="mt-0.5 text-[13px] text-label-2">For {pet.name} · {pet.cupGrams} g per full cup</p>
-        <div className="mt-5">
-          <Segmented options={PORTIONS} value={feedFraction} onChange={setFeedFraction} />
+      <Sheet open={retroOpen} onClose={() => setRetroOpen(false)}>
+        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">Log an earlier action</h2>
+        <p className="mt-0.5 text-[13px] text-label-2">For {pet.name} — backfill something you forgot</p>
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">What happened</p>
+        <div className="flex flex-wrap gap-2">
+          {actions
+            .filter((t) => !(t === "meds" && pet.meds.length === 0))
+            .map((type) => {
+              const a = ACTION_ICON[type];
+              const active = retroType === type;
+              return (
+                <button
+                  key={type}
+                  onClick={() => setRetroType(type)}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[14px] font-semibold transition-all ${
+                    active ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
+                  }`}
+                >
+                  <Icon name={a.icon} size={14} /> {ACTIONS[type].label}
+                </button>
+              );
+            })}
         </div>
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">When</p>
+        <Segmented
+          options={[
+            { value: "today", label: "Earlier today" },
+            { value: "yesterday", label: "Yesterday" },
+          ]}
+          value={retroDay}
+          onChange={setRetroDay}
+        />
+        <input
+          type="time"
+          value={retroTime}
+          onChange={(e) => setRetroTime(e.target.value)}
+          className="mt-2.5 w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+        />
+
         <div className="mt-7">
-          <AccentButton onClick={confirmFeed}>Log feeding</AccentButton>
+          <AccentButton
+            disabled={!retroType || !retroTime}
+            onClick={() => {
+              const ts = retroTs();
+              if (!retroType) return;
+              if (ts == null) {
+                toast("alert", "That time hasn't happened yet", "Pick a time in the past");
+                return;
+              }
+              if (logAction(pet.id, retroType, undefined, ts)) setRetroOpen(false);
+            }}
+          >
+            Log it
+          </AccentButton>
         </div>
-        {treatsSupply && (
-          <div className="mt-6 border-t border-fill pt-5">
-            <h3 className="text-[15px] font-bold text-label">Give a treat instead?</h3>
-            <p className="mt-0.5 text-[13px] text-label-2">{treatsSupply.name} · {treatsSupply.level}% left</p>
-            <div className="mt-3">
-              <AccentButton variant="tinted" onClick={confirmTreat}>Give treat</AccentButton>
-            </div>
-          </div>
-        )}
       </Sheet>
+
+      <FeedPortionSheet
+        pet={pet}
+        open={feedPortionOpen}
+        onClose={() => setFeedPortionOpen(false)}
+        onLogged={() => {
+          setJustLogged("fed");
+          setTimeout(() => setJustLogged(null), 700);
+        }}
+      />
     </div>
   );
 }

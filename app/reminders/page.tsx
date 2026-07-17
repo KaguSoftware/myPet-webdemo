@@ -25,6 +25,25 @@ export default function RemindersPage() {
   const done = state.reminders.filter((r) => r.done);
   const petOf = (id: string) => state.pets.find((p) => p.id === id);
 
+  // Agenda grouping — one section per calendar day so the list reads as a
+  // schedule, not a flat pile.
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const agendaKey = (due: number) => {
+    const diff = Math.floor((due - startOfToday.getTime()) / 86_400_000);
+    if (diff < 0) return "Overdue";
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Tomorrow";
+    return new Date(due).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+  };
+  const agenda: { day: string; items: typeof upcoming }[] = [];
+  for (const r of upcoming) {
+    const day = agendaKey(r.due);
+    const g = agenda[agenda.length - 1];
+    if (g && g.day === day) g.items.push(r);
+    else agenda.push({ day, items: [r] });
+  }
+
   // One calm row per reminder — alerts get red title text only (the red wall,
   // dedupe, and book-vet actions live on /activity).
   const renderRow = (r: (typeof state.reminders)[number]) => {
@@ -80,18 +99,25 @@ export default function RemindersPage() {
         }
       />
 
-      <SectionHeader>Upcoming</SectionHeader>
-      <Group flush>
-        {upcoming.length > 0 ? (
-          upcoming.map(renderRow)
-        ) : (
-          <div className="flex flex-col items-center px-6 py-9 text-center">
-            <IconCircle icon="check" tint="text-green" bg="bg-green-soft" size={48} iconSize={22} />
-            <p className="mt-3 text-[15px] font-semibold text-label">All clear</p>
-            <p className="mt-0.5 text-[13px] text-label-2">Add a reminder and the whole family sees it.</p>
+      {upcoming.length > 0 ? (
+        agenda.map((g) => (
+          <div key={g.day}>
+            <SectionHeader>{g.day}</SectionHeader>
+            <Group flush>{g.items.map(renderRow)}</Group>
           </div>
-        )}
-      </Group>
+        ))
+      ) : (
+        <>
+          <SectionHeader>Upcoming</SectionHeader>
+          <Group flush>
+            <div className="flex flex-col items-center px-6 py-9 text-center">
+              <IconCircle icon="check" tint="text-green" bg="bg-green-soft" size={48} iconSize={22} />
+              <p className="mt-3 text-[15px] font-semibold text-label">All clear</p>
+              <p className="mt-0.5 text-[13px] text-label-2">Add a reminder and the whole family sees it.</p>
+            </div>
+          </Group>
+        </>
+      )}
 
       {done.length > 0 && (
         <>

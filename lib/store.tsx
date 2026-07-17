@@ -72,11 +72,14 @@ interface Store {
   state: AppState;
   hydrated: boolean;
   userEmail: string | null;
-  toast: (icon: IconName, title: string, body?: string) => void;
+  toast: (icon: IconName, title: string, body?: string, action?: Toast["action"]) => void;
   toasts: Toast[];
   dismissToast: (id: number) => void;
   stopNotifications: () => void;
-  logAction: (petId: string, type: ActionType, grams?: number) => boolean;
+  /** Log a care action. `ts` (default now) allows retro logging — earlier today or yesterday. */
+  logAction: (petId: string, type: ActionType, grams?: number, ts?: number) => boolean;
+  /** Compensating undo for a just-logged action: removes the activity, takes back the coins, recomputes the streak. */
+  undoLogAction: (activityId: string) => void;
   switchMember: (id: string) => void;
   setPremium: (on: boolean) => void;
   buyCosmetic: (petId: string, cosmeticId: string) => void;
@@ -99,7 +102,9 @@ interface Store {
     patch: { name: string; breed: string; ageYears: number; weightKg: number; cupGrams: number; customPlan?: Pet["customPlan"] }
   ) => void;
   deletePet: (petId: string) => void;
-  addWeight: (petId: string, kg: number) => void;
+  /** Append a weight point. `ts` (default now) allows date-picked entries; the headline weight always tracks the latest point. */
+  addWeight: (petId: string, kg: number, ts?: number) => void;
+  deleteWeight: (petId: string, weightId: string) => void;
   addMember: (name: string, role: string) => void;
   editMember: (memberId: string, patch: { name: string; role: string }) => void;
   removeMember: (memberId: string) => void;
@@ -340,7 +345,7 @@ type PetRow = {
   gradient_to: string;
   cup_grams: number | null;
   custom_plan: Pet["customPlan"] | null;
-  weights?: { ts: number; kg: number; created_at?: string }[];
+  weights?: { id: string; ts: number; kg: number; created_at?: string }[];
   supplies?: { supply_key: string; name: string; icon: string; level: number }[];
   meds?: { id: string; name: string; dosage: string | null; frequency: string | null }[];
 };
@@ -434,9 +439,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    (icon: IconName, title: string, body?: string) => {
+    (icon: IconName, title: string, body?: string, action?: Toast["action"]) => {
       const id = Date.now() + Math.floor(Math.random() * 1000);
-      setToasts((t) => [...t.slice(-2), { id, icon, title, body }]);
+      setToasts((t) => [...t.slice(-2), { id, icon, title, body, action }]);
       setTimeout(() => dismissToast(id), 4200);
     },
     [dismissToast]
@@ -794,7 +799,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         customPlan: p.custom_plan ?? undefined,
         weights: [...(p.weights ?? [])]
           .sort((a, b) => Number(a.ts) - Number(b.ts))
-          .map((w) => ({ ts: Number(w.ts), kg: Number(w.kg) })),
+          .map((w) => ({ id: w.id, ts: Number(w.ts), kg: Number(w.kg) })),
         supplies: (p.supplies ?? []).map((s) => ({ id: s.supply_key, name: s.name, icon: s.icon, level: s.level })),
         meds: (p.meds ?? []).map((m) => ({ id: m.id, name: m.name, dosage: m.dosage ?? undefined, frequency: m.frequency ?? undefined })),
       }));
@@ -938,8 +943,64 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, toast, notifyRecentActivity, raiseFeedingAlert, checkCareAlerts, notifyCareWarnings]);
 
+  // Compensating undo for a just-logged action. The activity insert already
+  // fired, so this deletes it back out; coins go through rewardsRef (the sole
+  // authoritative coins path) and the streak is recomputed from what remains.
+  // The supply drained by the original log is topped back up with the same
+  // formula logAction used, clamped to 100.
+  const undoLogAction = useCallback(
+    (activityId: string) => {
+      const removed = stateRef.current.activities.find((a) => a.id === activityId);
+      if (!removed) return;
+      const pet = stateRef.current.pets.find((p) => p.id === removed.petId);
+      const remaining = stateRef.current.activities.filter((a) => a.id !== activityId);
+      rewardsRef.current = { coins: Math.max(0, rewardsRef.current.coins - 5) };
+      const newStreak = computeStreak(remaining);
+      // Mirror logAction's supply drain in reverse (litter/walk: broom −15;
+      // fed-with-grams: bowl −10 per full cup).
+      const refill =
+        pet &&
+        (removed.type === "litter" || removed.type === "walk"
+          ? { supply: pet.supplies.find((s) => s.icon === "broom"), amount: 15 }
+          : removed.type === "fed" && removed.grams != null
+            ? { supply: pet.supplies.find((s) => s.icon === "bowl"), amount: 10 * (removed.grams / pet.cupGrams) }
+            : null);
+      setState((prev) => ({
+        ...prev,
+        coins: Math.max(0, prev.coins - 5),
+        streak: newStreak,
+        activities: prev.activities.filter((a) => a.id !== activityId),
+        pets:
+          refill?.supply != null
+            ? prev.pets.map((p) =>
+                p.id === removed.petId
+                  ? {
+                      ...p,
+                      supplies: p.supplies.map((s) =>
+                        s.id === refill.supply!.id ? { ...s, level: Math.min(100, s.level + refill.amount) } : s
+                      ),
+                    }
+                  : p
+              )
+            : prev.pets,
+      }));
+      syncCounters();
+      const ops: PromiseLike<{ error: unknown }>[] = [supabase.from("activities").delete().eq("id", activityId)];
+      if (refill?.supply != null) {
+        const level = Math.min(100, refill.supply.level + refill.amount);
+        ops.push(supabase.from("supplies").update({ level }).eq("pet_id", removed.petId).eq("supply_key", refill.supply.id));
+      }
+      Promise.all(ops).then((results) => {
+        const failed = results.find((r) => r && r.error);
+        if (failed) console.error("[petpal] undo log failed:", failed.error);
+      });
+      toast(ACTION_ICON[removed.type].icon, "Log removed", `${pet?.name ?? "Pet"} — entry undone`);
+    },
+    [supabase, syncCounters, toast]
+  );
+
   const logAction = useCallback(
-    (petId: string, type: ActionType, grams?: number): boolean => {
+    (petId: string, type: ActionType, grams?: number, tsArg?: number): boolean => {
       const h = hid();
       if (!h) return false;
       const pet = stateRef.current.pets.find((p) => p.id === petId);
@@ -950,7 +1011,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       const id = crypto.randomUUID();
-      const ts = Date.now();
+      const ts = tsArg ?? Date.now();
+      // Retro logs (earlier today / yesterday) skip the same-day alert
+      // machinery below — a backfilled entry must not raise or resolve
+      // "today"-shaped warnings.
+      const isToday = sameCalendarDay(ts, Date.now());
       const memberId = stateRef.current.currentMemberId;
       // Logging litter (cats) or a walk (dogs) drains the sanitation supply,
       // matched by icon rather than a hardcoded id — seed cats use "litter",
@@ -997,8 +1062,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
 
       const time = new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const timeLabel = isToday ? time : `${time} yesterday`;
       const gramsNote = type === "fed" && grams != null ? `${Math.round(grams)} g · ` : "";
-      toast(ACTION_ICON[type].icon, `${pet.name} — ${ACTIONS[type].label.toLowerCase()} at ${time}`, `Family notified · ${gramsNote}+5 coins`);
+      toast(ACTION_ICON[type].icon, `${pet.name} — ${ACTIONS[type].label.toLowerCase()} at ${timeLabel}`, `Family notified · ${gramsNote}+5 coins`, {
+        label: "Undo",
+        onClick: () => undoLogAction(id),
+      });
       if (newStreak > before.streak) toast("flame", `${newStreak}-day streak!`, "You're on a roll — keep it going");
 
       // Persist the activity (+ any supply drain) per-row; on failure roll the
@@ -1026,7 +1095,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Logging fed/water/litter/walk resolves that kind's outstanding
       // "hasn't happened in a while" warning for this pet (matched by
       // (pet, kind), same as raiseCareAlert — survives a rename).
-      if (type === "fed" || type === "water" || type === "litter" || type === "walk") {
+      if (isToday && (type === "fed" || type === "water" || type === "litter" || type === "walk")) {
         const careAlerts = stateRef.current.reminders.filter(
           (r) => r.alert && !r.vetId && r.petId === petId && !r.done && r.alertKind === type
         );
@@ -1042,7 +1111,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Over-target check: raise a health alert and suggest a vet visit.
       // Feeding is judged on grams fed today vs the pet's daily gram target;
       // every other tracked action is judged on raw tap count vs its /plan
-      // (or species-default) daily target.
+      // (or species-default) daily target. Skipped for retro logs — a
+      // backfilled yesterday entry can't mean "way more than usual today".
+      if (!isToday) return true;
       if (type === "fed" && grams != null) {
         const gramTarget = dailyGramTarget(pet);
         if (gramTarget) {
@@ -1067,7 +1138,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       return true;
     },
-    [supabase, toast, persist, syncCounters, raiseFeedingAlert]
+    [supabase, toast, persist, syncCounters, raiseFeedingAlert, undoLogAction]
   );
 
   const switchMember = useCallback(
@@ -1261,7 +1332,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         { id: species === "cat" ? "litter" : "poopbags", name: species === "cat" ? "Litter" : "Poop bags", icon: "broom", level: 100 },
         { id: "treats", name: "Treats", icon: "star", level: 100 },
       ];
-      const weights = [{ ts: Date.now(), kg: weightKg }];
+      const weights = [{ id: crypto.randomUUID(), ts: Date.now(), kg: weightKg }];
       setState((prev) => ({
         ...prev,
         pets: [
@@ -1298,7 +1369,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         const [{ error: weightError }, { error: supplyError }] = await Promise.all([
-          supabase.from("weights").insert({ pet_id: id, ts: weights[0].ts, kg: weightKg }),
+          supabase.from("weights").insert({ id: weights[0].id, pet_id: id, ts: weights[0].ts, kg: weightKg }),
           supabase.from("supplies").insert(supplies.map((s) => ({ pet_id: id, supply_key: s.id, name: s.name, icon: s.icon, level: s.level }))),
         ]);
         if (weightError || supplyError) {
@@ -1326,11 +1397,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // here bypassed the weights table entirely.
       const weightChanged = prev != null && patch.weightKg !== prev.weightKg;
       const ts = Date.now();
+      const weightId = crypto.randomUUID();
       setState((s) => ({
         ...s,
         pets: s.pets.map((p) =>
           p.id === petId
-            ? { ...p, ...patch, weights: weightChanged ? [...p.weights, { ts, kg: patch.weightKg }] : p.weights }
+            ? { ...p, ...patch, weights: weightChanged ? [...p.weights, { id: weightId, ts, kg: patch.weightKg }] : p.weights }
             : p
         ),
       }));
@@ -1343,7 +1415,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       };
       if ("customPlan" in patch) updateRow.custom_plan = patch.customPlan ?? null;
       const ops: PromiseLike<{ error: unknown }>[] = [supabase.from("pets").update(updateRow).eq("id", petId)];
-      if (weightChanged) ops.push(supabase.from("weights").insert({ pet_id: petId, ts, kg: patch.weightKg }));
+      if (weightChanged) ops.push(supabase.from("weights").insert({ id: weightId, pet_id: petId, ts, kg: patch.weightKg }));
       persist(ops, {
         rollback: () => prev && setState((s) => ({ ...s, pets: s.pets.map((p) => (p.id === petId ? prev : p)) })),
         message: "Couldn't save pet changes",
@@ -1366,27 +1438,70 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addWeight = useCallback(
-    (petId: string, kg: number) => {
-      const ts = Date.now();
+    (petId: string, kg: number, tsArg?: number) => {
+      const ts = tsArg ?? Date.now();
+      const id = crypto.randomUUID();
       const prev = stateRef.current.pets.find((p) => p.id === petId);
+      if (!prev) return;
+      // Date-picked entries can land mid-history — keep the list sorted and
+      // let the headline weight track whatever point is now latest.
+      const weights = [...prev.weights, { id, ts, kg }].sort((a, b) => a.ts - b.ts);
+      const latestKg = weights[weights.length - 1].kg;
       setState((s) => ({
         ...s,
-        pets: s.pets.map((p) =>
-          p.id === petId ? { ...p, weightKg: kg, weights: [...p.weights, { ts, kg }] } : p
-        ),
+        pets: s.pets.map((p) => (p.id === petId ? { ...p, weightKg: latestKg, weights } : p)),
       }));
       persist(
         [
-          supabase.from("weights").insert({ pet_id: petId, ts, kg }),
-          supabase.from("pets").update({ weight_kg: kg }).eq("id", petId),
+          supabase.from("weights").insert({ id, pet_id: petId, ts, kg }),
+          supabase.from("pets").update({ weight_kg: latestKg }).eq("id", petId),
         ],
         {
-          rollback: () => prev && setState((s) => ({ ...s, pets: s.pets.map((p) => (p.id === petId ? prev : p)) })),
+          rollback: () => setState((s) => ({ ...s, pets: s.pets.map((p) => (p.id === petId ? prev : p)) })),
           message: "Couldn't save weight",
         }
       );
     },
     [supabase, persist]
+  );
+
+  const deleteWeight = useCallback(
+    (petId: string, weightId: string) => {
+      const pet = stateRef.current.pets.find((p) => p.id === petId);
+      const removed = pet?.weights.find((w) => w.id === weightId);
+      if (!pet || !removed) return;
+      if (pet.weights.length <= 1) {
+        toast("scale", "Can't delete the only entry", `${pet.name} needs at least one weight on record`);
+        return;
+      }
+      const remaining = pet.weights.filter((w) => w.id !== weightId);
+      const latestKg = remaining[remaining.length - 1].kg;
+      const beforeKg = pet.weightKg;
+      undoableDelete({
+        remove: () =>
+          setState((prev) => ({
+            ...prev,
+            pets: prev.pets.map((p) =>
+              p.id === petId ? { ...p, weightKg: latestKg, weights: p.weights.filter((w) => w.id !== weightId) } : p
+            ),
+          })),
+        restore: () =>
+          setState((prev) => ({
+            ...prev,
+            pets: prev.pets.map((p) =>
+              p.id === petId && !p.weights.some((w) => w.id === weightId)
+                ? { ...p, weightKg: beforeKg, weights: [...p.weights, removed].sort((a, b) => a.ts - b.ts) }
+                : p
+            ),
+          })),
+        commit: () => {
+          supabase.from("weights").delete().eq("id", weightId).then();
+          supabase.from("pets").update({ weight_kg: latestKg }).eq("id", petId).then();
+        },
+        message: "Weight entry deleted",
+      });
+    },
+    [supabase, undoableDelete, toast]
   );
 
   const addMember = useCallback(
@@ -1733,6 +1848,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         dismissToast,
         stopNotifications,
         logAction,
+        undoLogAction,
         switchMember,
         setPremium,
         buyCosmetic,
@@ -1744,6 +1860,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         editPet,
         deletePet,
         addWeight,
+        deleteWeight,
         addMember,
         editMember,
         removeMember,

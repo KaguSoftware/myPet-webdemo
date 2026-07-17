@@ -8,6 +8,7 @@ import PageLoading from "@/components/PageLoading";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import PixelChart from "@/components/pixel/PixelChart";
 import EditStatSheet from "@/components/EditStatSheet";
+import Sheet from "@/components/Sheet";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { AccentButton, Chip, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
 import { ACTIONS, CARE_PLANS, formatAge, formatWeight, kgToUnit, unitToKg, weightFeedingEntry, weightTargetRange, weightUnitLabel } from "@/lib/data";
@@ -15,9 +16,13 @@ import { timeAgo, useStore } from "@/lib/store";
 
 export default function PetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { state, hydrated, restockSupply, addWeight, editPet, toast } = useStore();
+  const { state, hydrated, restockSupply, addWeight, deleteWeight, editPet, toast } = useStore();
   const [scrollTop] = useState(0); // header handled inline here (nested route, simple sticky)
   const [editing, setEditing] = useState<"weight" | "age" | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [backfillOpen, setBackfillOpen] = useState(false);
+  const [bfWeight, setBfWeight] = useState("");
+  const [bfDate, setBfDate] = useState("");
 
   if (!hydrated) return <PageLoading title="Pet" compact />;
 
@@ -50,11 +55,17 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
         <h1 className="mt-3 text-[24px] font-bold tracking-[-0.02em] text-label">{pet.name}</h1>
         <p className="text-[14px] font-medium text-label-2">{pet.breed}</p>
         <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
-          <button onClick={() => setEditing("age")}>
-            <Chip>{formatAge(pet.ageYears)}</Chip>
+          <button onClick={() => setEditing("age")} aria-label="Edit age" className="transition-transform active:scale-95">
+            <Chip>
+              {formatAge(pet.ageYears)}
+              <Icon name="chevron-right" size={9} className="text-label-3" />
+            </Chip>
           </button>
-          <button onClick={() => setEditing("weight")}>
-            <Chip>{formatWeight(pet.weightKg, state.units)}</Chip>
+          <button onClick={() => setEditing("weight")} aria-label="Edit weight" className="transition-transform active:scale-95">
+            <Chip>
+              {formatWeight(pet.weightKg, state.units)}
+              <Icon name="chevron-right" size={9} className="text-label-3" />
+            </Chip>
           </button>
           <Chip>{pet.owned.length} items</Chip>
         </div>
@@ -85,6 +96,49 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
               <p className="text-[11px] font-medium text-label-2">Dry kibble</p>
               <p className="text-[13px] font-semibold text-label">~{feedingGuide.kibbleGramsRange[0]}–{feedingGuide.kibbleGramsRange[1]} g</p>
             </div>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setHistoryOpen((v) => !v)}
+          className="mt-3 flex w-full items-center justify-between border-t border-fill pt-3"
+        >
+          <span className="text-[13px] font-semibold text-label-2">History · {pet.weights.length} entries</span>
+          <Icon name="chevron-right" size={13} className={`text-label-3 transition-transform ${historyOpen ? "rotate-90" : ""}`} />
+        </button>
+        {historyOpen && (
+          <div className="mt-1">
+            {[...pet.weights]
+              .sort((a, b) => b.ts - a.ts)
+              .slice(0, 10)
+              .map((w) => (
+                <div key={w.id} className="flex items-center justify-between py-2">
+                  <span className="text-[13px] text-label-2">
+                    {new Date(w.ts).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })}
+                  </span>
+                  <span className="flex items-center gap-2.5">
+                    <span className="text-[13px] font-semibold text-label">{formatWeight(w.kg, state.units)}</span>
+                    <button
+                      onClick={() => deleteWeight(pet.id, w.id)}
+                      aria-label={`Delete weight entry from ${new Date(w.ts).toLocaleDateString()}`}
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-label-3 transition-colors active:bg-fill active:text-red"
+                    >
+                      <Icon name="xmark" size={13} />
+                    </button>
+                  </span>
+                </div>
+              ))}
+            <button
+              type="button"
+              onClick={() => {
+                setBfWeight("");
+                setBfDate("");
+                setBackfillOpen(true);
+              }}
+              className="mt-1 flex items-center gap-1.5 py-1 text-[13px] font-semibold text-accent"
+            >
+              <Icon name="plus" size={13} /> Add for a past date
+            </button>
           </div>
         )}
       </div>
@@ -197,6 +251,50 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
           toast("scale", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
         }}
       />
+      <Sheet open={backfillOpen} onClose={() => setBackfillOpen(false)}>
+        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">Past weight entry</h2>
+        <p className="mt-0.5 text-[13px] text-label-2">For {pet.name} — from an old vet note or memory</p>
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">
+          Weight ({weightUnitLabel(state.units)})
+        </p>
+        <input
+          type="number"
+          inputMode="decimal"
+          value={bfWeight}
+          onChange={(e) => setBfWeight(e.target.value)}
+          className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+        />
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Date</p>
+        <input
+          type="date"
+          value={bfDate}
+          max={new Date().toISOString().slice(0, 10)}
+          onChange={(e) => setBfDate(e.target.value)}
+          className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+        />
+
+        <div className="mt-7">
+          <AccentButton
+            disabled={!bfDate || bfWeight.trim() === "" || !Number.isFinite(Number(bfWeight)) || Number(bfWeight) <= 0}
+            onClick={() => {
+              const kg = unitToKg(Number(bfWeight), state.units);
+              const ts = new Date(`${bfDate}T12:00:00`).getTime();
+              if (ts > Date.now()) {
+                toast("alert", "That date is in the future", "Pick today or an earlier date");
+                return;
+              }
+              addWeight(pet.id, kg, ts);
+              setBackfillOpen(false);
+              toast("scale", "Weight entry added", `${formatWeight(kg, state.units)} · ${new Date(ts).toLocaleDateString()}`);
+            }}
+          >
+            Add entry
+          </AccentButton>
+        </div>
+      </Sheet>
+
       <EditStatSheet
         open={editing === "age"}
         onClose={() => setEditing(null)}

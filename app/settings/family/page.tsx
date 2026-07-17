@@ -223,16 +223,40 @@ export default function FamilySettingsPage() {
               title="Family ID"
               subtitle={state.familyId ? `${state.familyId.slice(0, 8)}…` : "Loading…"}
               trailing={
-                <button
-                  onClick={() => {
-                    if (!state.familyId) return;
-                    navigator.clipboard.writeText(state.familyId);
-                    toast("list", "Family ID copied", "");
-                  }}
-                  className="text-[13px] font-semibold text-accent"
-                >
-                  Copy
-                </button>
+                <span className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      if (!state.familyId) return;
+                      navigator.clipboard.writeText(state.familyId);
+                      toast("list", "Family ID copied", "");
+                    }}
+                    className="text-[13px] font-semibold text-accent"
+                  >
+                    Copy
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!state.familyId) return;
+                      const url = `${window.location.origin}/join?f=${state.familyId}`;
+                      const text = "Join our PetPal household to share pet care:";
+                      // navigator.share throws AbortError when the user closes
+                      // the OS sheet — that's a cancel, not a failure.
+                      if (navigator.share) {
+                        try {
+                          await navigator.share({ title: "Join our PetPal family", text, url });
+                          return;
+                        } catch (e) {
+                          if ((e as DOMException)?.name === "AbortError") return;
+                        }
+                      }
+                      await navigator.clipboard.writeText(`${text} ${url}`);
+                      toast("people", "Invite link copied", "Send it to a family member");
+                    }}
+                    className="text-[13px] font-semibold text-accent"
+                  >
+                    Invite
+                  </button>
+                </span>
               }
             />
             <Row

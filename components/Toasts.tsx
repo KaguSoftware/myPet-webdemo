@@ -39,7 +39,10 @@ export default function Toasts() {
           </button>
           {t.action && (
             <button
-              onClick={t.action.onClick}
+              onClick={() => {
+                t.action!.onClick();
+                dismissToast(t.id);
+              }}
               className="shrink-0 rounded-full bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-white transition-transform active:scale-95"
             >
               {t.action.label}

@@ -19,6 +19,7 @@ const SUBROUTE_PARENT: [prefix: string, parent: string][] = [
   ["/reminders", "/"],
   ["/vets", "/"],
   ["/activity", "/"],
+  ["/join", "/"],
   ["/settings", "/settings"],
   ["/pet/", "/"],
 ];
