@@ -31,7 +31,7 @@ export default function TabBar() {
     TABS.find((t) => t.href === pathname)?.href ??
     SUBROUTE_PARENT.find(([prefix]) => pathname.startsWith(prefix))?.[1];
   return (
-    <nav className="absolute inset-x-4 bottom-[max(env(safe-area-inset-bottom),0.9rem)] z-20">
+    <nav className="absolute inset-x-4 bottom-[max(env(safe-area-inset-bottom),0.9rem)] z-20 print:hidden">
       <div className="glass-strong flex items-stretch justify-around rounded-[2rem] px-2 py-1.5">
         {TABS.map((t) => {
           const active = t.href === activeHref;

@@ -21,7 +21,7 @@ function toneOf(icon: IconName): "alert" | "success" | "info" {
 export default function Toasts() {
   const { toasts, dismissToast } = useStore();
   return (
-    <div className="pointer-events-none absolute right-0 top-0 z-50 flex w-full max-w-82.5 flex-col items-end gap-2 px-3 pt-4 md:pt-13">
+    <div className="pointer-events-none absolute right-0 top-0 z-50 flex w-full max-w-82.5 flex-col items-end gap-2 px-3 pt-4 md:pt-13 print:hidden">
       {toasts.map((t) => (
         <div
           key={t.id}

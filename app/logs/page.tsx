@@ -20,7 +20,7 @@ const ALERT_VERB_TYPES = Object.keys(ALERT_VERB) as ActionType[];
 const CARE_WARNING_EMOJI: Partial<Record<string, ActionType>> = { "🍖": "fed", "💧": "water", "🧹": "litter", "🦮": "walk" };
 
 export default function LogsPage() {
-  const { state, hydrated, logAction, toast } = useStore();
+  const { state, hydrated, logAction, addVetVisit, toast } = useStore();
   const router = useRouter();
   const [petId, setPetId] = useState("");
   const [justLogged, setJustLogged] = useState<ActionType | null>(null);
@@ -30,6 +30,9 @@ export default function LogsPage() {
   const [retroType, setRetroType] = useState<ActionType | null>(null);
   const [retroDay, setRetroDay] = useState<"today" | "yesterday">("today");
   const [retroTime, setRetroTime] = useState("");
+  const [vetDetailOpen, setVetDetailOpen] = useState(false);
+  const [vetReason, setVetReason] = useState("");
+  const [vetClinic, setVetClinic] = useState("");
   const prevDayDoneRef = useRef<{ petId: string; done: boolean } | null>(null);
 
   const activePetId = petId || state.pets[0]?.id || "";
@@ -161,6 +164,13 @@ export default function LogsPage() {
                 if (logAction(pet.id, type)) {
                   setJustLogged(type);
                   setTimeout(() => setJustLogged(null), 700);
+                  // A vet tap naturally produces a health-history record — offer
+                  // the details right away, skippable.
+                  if (type === "vet") {
+                    setVetReason("");
+                    setVetClinic("");
+                    setVetDetailOpen(true);
+                  }
                 }
               }}
               className="relative flex flex-col items-start gap-2.5 rounded-card bg-card p-3.5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform duration-150 active:scale-[0.96]"
@@ -258,6 +268,43 @@ export default function LogsPage() {
             }}
           >
             Log it
+          </AccentButton>
+        </div>
+      </Sheet>
+
+      <Sheet open={vetDetailOpen} onClose={() => setVetDetailOpen(false)}>
+        <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">Add visit details?</h2>
+        <p className="mt-0.5 text-[13px] text-label-2">Saved to {pet.name}&apos;s health history — skip if it was nothing</p>
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Reason</p>
+        <input
+          value={vetReason}
+          onChange={(e) => setVetReason(e.target.value)}
+          placeholder="e.g. Annual checkup, vaccination…"
+          className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60"
+        />
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Vet or clinic (optional)</p>
+        <input
+          value={vetClinic}
+          onChange={(e) => setVetClinic(e.target.value)}
+          placeholder="e.g. Dr. Weber, Happy Paws Clinic"
+          className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60"
+        />
+
+        <div className="mt-7 flex flex-col gap-2.5">
+          <AccentButton
+            disabled={!vetReason.trim() && !vetClinic.trim()}
+            onClick={() => {
+              addVetVisit(pet.id, { ts: Date.now(), reason: vetReason.trim() || undefined, vetName: vetClinic.trim() || undefined });
+              setVetDetailOpen(false);
+              toast("stethoscope", "Visit saved", `${pet.name}'s health history updated`);
+            }}
+          >
+            Save details
+          </AccentButton>
+          <AccentButton variant="gray" onClick={() => setVetDetailOpen(false)}>
+            Skip
           </AccentButton>
         </div>
       </Sheet>

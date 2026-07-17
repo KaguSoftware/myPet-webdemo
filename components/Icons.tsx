@@ -8,6 +8,7 @@ export type IconName =
   | "chart" | "box" | "gear" | "cross" | "refresh" | "pin" | "cube"
   | "list" | "eye" | "person"
   | "yarn" | "clipper" | "shield" | "door"
+  | "syringe" | "repeat" | "share" | "gift"
   | "alert" | "trash" | "scale";
 
 /*
@@ -261,6 +262,39 @@ const P: Record<IconName, React.ReactNode> = {
     <>
       <circle cx="12" cy="5.5" r="3" />
       <path d="M7 8.5a2 2 0 0 0-1.9 1.4l-2.5 9A2 2 0 0 0 4.5 21.5h15a2 2 0 0 0 1.9-2.6l-2.5-9A2 2 0 0 0 17 8.5Z" />
+    </>
+  ),
+  syringe: (
+    <>
+      <path d="m18 2 4 4" />
+      <path d="m17 7 3-3" />
+      <path d="M19 9 8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4L15 5" />
+      <path d="m9 11 4 4" />
+      <path d="m5 19-3 3" />
+    </>
+  ),
+  repeat: (
+    <>
+      <path d="m17 2 4 4-4 4" />
+      <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+      <path d="m7 22-4-4 4-4" />
+      <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+    </>
+  ),
+  share: (
+    <>
+      <path d="M12 3v12" />
+      <path d="m8 6.5 4-4 4 4" />
+      <path d="M7.5 10.5H6a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6.5a2 2 0 0 0-2-2h-1.5" />
+    </>
+  ),
+  gift: (
+    <>
+      <rect x="3.5" y="8" width="17" height="4" rx="1" />
+      <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+      <path d="M12 8v13" />
+      <path d="M12 8H8.5a2.25 2.25 0 1 1 0-4.5C11 3.5 12 8 12 8Z" />
+      <path d="M12 8h3.5a2.25 2.25 0 1 0 0-4.5C13 3.5 12 8 12 8Z" />
     </>
   ),
 };

@@ -219,7 +219,16 @@ export default function Home() {
         label="Age (years)"
         initialValue={pet.ageYears}
         onSave={(ageYears) => {
-          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg, cupGrams: pet.cupGrams });
+          // Typing an age switches the pet back to approximate-age mode — a
+          // stored birth date would otherwise silently win on next load.
+          editPet(pet.id, {
+            name: pet.name,
+            breed: pet.breed,
+            ageYears,
+            weightKg: pet.weightKg,
+            cupGrams: pet.cupGrams,
+            ...(pet.birthDate != null ? { birthDate: null } : {}),
+          });
           toast("calendar", `${pet.name}'s age updated`, formatAge(ageYears));
         }}
       />

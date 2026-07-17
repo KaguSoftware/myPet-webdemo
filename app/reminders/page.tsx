@@ -6,7 +6,18 @@ import PageLoading from "@/components/PageLoading";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
 import { AccentButton, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
+import { RepeatKind, nextRepeatDue } from "@/lib/data";
 import { dueLabel, useStore } from "@/lib/store";
+
+const REPEAT_LABEL: Record<RepeatKind, string> = {
+  daily: "daily",
+  weekly: "weekly",
+  every_n_days: "every few days",
+};
+
+function repeatLabel(kind: RepeatKind, interval?: number) {
+  return kind === "every_n_days" ? `every ${Math.max(1, Math.round(interval ?? 1))} days` : REPEAT_LABEL[kind];
+}
 
 export default function RemindersPage() {
   const { state, hydrated, addReminder, toggleReminder, deleteReminder, toast } = useStore();
@@ -14,6 +25,11 @@ export default function RemindersPage() {
   const [title, setTitle] = useState("");
   const [petId, setPetId] = useState("");
   const [days, setDays] = useState(1);
+  const [pickDate, setPickDate] = useState(false);
+  const [dateStr, setDateStr] = useState("");
+  const [timeStr, setTimeStr] = useState("");
+  const [repeat, setRepeat] = useState<"none" | RepeatKind>("none");
+  const [intervalDays, setIntervalDays] = useState("3");
 
   if (!hydrated) return <PageLoading title="Reminders" compact />;
 
@@ -56,7 +72,9 @@ export default function RemindersPage() {
           <button
             onClick={() => {
               toggleReminder(r.id);
-              if (!r.done) toast("check", `Done: ${r.title}`, "Marked complete for the family");
+              if (r.repeatKind && !r.done)
+                toast("repeat", `Done: ${r.title}`, `Next ${dueLabel(nextRepeatDue(r.due, r.repeatKind, r.repeatInterval))}`);
+              else if (!r.done) toast("check", `Done: ${r.title}`, "Marked complete for the family");
               else toast("refresh", `Reopened: ${r.title}`, "Marked as not done");
             }}
             aria-label={r.done ? "Mark as not done" : "Mark as done"}
@@ -70,7 +88,16 @@ export default function RemindersPage() {
         title={
           <span className={r.done ? "text-label-3 line-through" : isAlert ? "text-red" : undefined}>{r.title}</span>
         }
-        subtitle={`${pet ? `${pet.name} · ` : ""}${r.done ? "completed" : dueLabel(r.due)}`}
+        subtitle={
+          <span className="inline-flex items-center gap-1">
+            {`${pet ? `${pet.name} · ` : ""}${r.done ? "completed" : dueLabel(r.due)}`}
+            {r.repeatKind && !r.done && (
+              <>
+                <Icon name="repeat" size={11} className="text-label-3" /> {repeatLabel(r.repeatKind, r.repeatInterval)}
+              </>
+            )}
+          </span>
+        }
         trailing={
           <button
             onClick={() => deleteReminder(r.id)}
@@ -131,6 +158,10 @@ export default function RemindersPage() {
         onClose={() => {
           setAddOpen(false);
           setTitle("");
+          setPickDate(false);
+          setDateStr("");
+          setTimeStr("");
+          setRepeat("none");
         }}
       >
         <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">New reminder</h2>
@@ -168,24 +199,106 @@ export default function RemindersPage() {
           ].map((o) => (
             <button
               key={o.d}
-              onClick={() => setDays(o.d)}
+              onClick={() => {
+                setDays(o.d);
+                setPickDate(false);
+              }}
               className={`rounded-full px-4 py-2 text-[14px] font-semibold transition-all ${
-                days === o.d ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
+                !pickDate && days === o.d ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
               }`}
             >
               {o.label}
             </button>
           ))}
+          <button
+            onClick={() => setPickDate(true)}
+            className={`rounded-full px-4 py-2 text-[14px] font-semibold transition-all ${
+              pickDate ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
+            }`}
+          >
+            Pick date…
+          </button>
+        </div>
+        {pickDate && (
+          <div className="mt-2.5 flex gap-2">
+            <input
+              type="date"
+              value={dateStr}
+              onChange={(e) => setDateStr(e.target.value)}
+              aria-label="Due date"
+              className="min-w-0 flex-1 rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+            />
+            <input
+              type="time"
+              value={timeStr}
+              onChange={(e) => setTimeStr(e.target.value)}
+              aria-label="Time of day (optional)"
+              className="w-28 rounded-ios bg-card px-3 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+            />
+          </div>
+        )}
+
+        <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Repeat</p>
+        <div className="flex flex-wrap items-center gap-2">
+          {(
+            [
+              { value: "none", label: "Once" },
+              { value: "daily", label: "Daily" },
+              { value: "weekly", label: "Weekly" },
+              { value: "every_n_days", label: "Every… days" },
+            ] as { value: "none" | RepeatKind; label: string }[]
+          ).map((o) => (
+            <button
+              key={o.value}
+              onClick={() => setRepeat(o.value)}
+              className={`rounded-full px-4 py-2 text-[14px] font-semibold transition-all ${
+                repeat === o.value ? "bg-accent text-white" : "bg-card text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.06)]"
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+          {repeat === "every_n_days" && (
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              value={intervalDays}
+              onChange={(e) => setIntervalDays(e.target.value)}
+              aria-label="Days between repeats"
+              className="w-20 rounded-ios bg-card px-3 py-2 text-center text-[15px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+            />
+          )}
         </div>
 
         <div className="mt-7">
           <AccentButton
-            disabled={!title.trim() || !activePetId}
+            disabled={
+              !title.trim() ||
+              !activePetId ||
+              (pickDate && !dateStr) ||
+              (repeat === "every_n_days" && (!Number.isFinite(Number(intervalDays)) || Number(intervalDays) < 1))
+            }
             onClick={() => {
-              addReminder({ petId: activePetId, title: title.trim(), emoji: "📝", due: Date.now() + days * 86_400_000 });
+              const due =
+                pickDate && dateStr
+                  ? new Date(`${dateStr}T${timeStr || "09:00"}:00`).getTime()
+                  : Date.now() + days * 86_400_000;
+              addReminder({
+                petId: activePetId,
+                title: title.trim(),
+                emoji: "📝",
+                due,
+                repeatKind: repeat === "none" ? undefined : repeat,
+                repeatInterval: repeat === "every_n_days" ? Math.round(Number(intervalDays)) : undefined,
+              });
               setAddOpen(false);
               setTitle("");
-              toast("clock", "Reminder added", "Visible to the whole family");
+              toast(
+                repeat === "none" ? "clock" : "repeat",
+                "Reminder added",
+                repeat === "none" ? "Visible to the whole family" : `Repeats ${repeatLabel(repeat, Number(intervalDays))}`
+              );
             }}
           >
             Add reminder

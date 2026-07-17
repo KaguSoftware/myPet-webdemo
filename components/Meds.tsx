@@ -5,10 +5,12 @@ import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
 import { AccentButton, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
 import { Pet } from "@/lib/data";
-import { useStore } from "@/lib/store";
+import { timeAgo, useStore } from "@/lib/store";
 
 export default function Meds({ pet }: { pet: Pet }) {
-  const { addMed, deleteMed, toast } = useStore();
+  const { state, addMed, deleteMed, toast } = useStore();
+  // Light adherence signal — the most recent "meds" activity for this pet.
+  const lastGiven = state.activities.find((a) => a.petId === pet.id && a.type === "meds")?.ts;
   const [addOpen, setAddOpen] = useState(false);
   const [name, setName] = useState("");
   const [dosage, setDosage] = useState("");
@@ -55,6 +57,9 @@ export default function Meds({ pet }: { pet: Pet }) {
               }
             />
           ))}
+          {lastGiven != null && (
+            <p className="px-4 pb-3 pt-1 text-[12px] text-label-3">Last given {timeAgo(lastGiven)} — log doses from the Logs tab</p>
+          )}
         </Group>
       ) : (
         <Group>
