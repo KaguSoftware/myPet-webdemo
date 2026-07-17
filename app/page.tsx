@@ -192,7 +192,7 @@ export default function Home() {
             title={nextReminder ? nextReminder.title : "No upcoming reminders"}
             subtitle={
               nextReminder
-                ? `${pet.name} · due ${dueLabel(nextReminder.due)}`
+                ? `${pet.name} · ${dueLabel(nextReminder.due) === "overdue" ? "overdue" : `due ${dueLabel(nextReminder.due)}`}`
                 : "Tap to add one for the family"
             }
             trailing={<Chevron />}
