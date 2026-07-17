@@ -133,33 +133,11 @@ export default function PlanPage() {
 
   if (!hydrated) return <PageLoading title="Care Plan" />;
 
-  // Reminders are a free feature — surface them from the Care tab in both the
-  // premium plan view and the (otherwise paywalled) free view.
-  const remindersRow = (
-    <Group className="mt-3">
-      <Row
-        onClick={() => router.push("/reminders")}
-        leading={<IconCircle icon="bell" tint="text-accent" bg="bg-accent-soft" />}
-        title="Reminders"
-        subtitle="Tasks & alerts the whole family sees"
-        trailing={<Chevron />}
-      />
-      <Row
-        onClick={() => router.push("/vets")}
-        leading={<IconCircle icon="cross" tint="text-green" bg="bg-green-soft" />}
-        title="Find a vet"
-        subtitle="Browse clinics near you"
-        trailing={<Chevron />}
-      />
-    </Group>
-  );
-
   const pet = state.pets.find((p) => p.id === petId) ?? state.pets[0];
   if (!pet) {
     return (
       <div className="flex h-full flex-col px-4">
         <Header title="Care Plan" bell />
-        {remindersRow}
         <div className="mt-3">
           <EmptyState
             icon="paw"
@@ -175,11 +153,16 @@ export default function PlanPage() {
   const plan = CARE_PLANS[pet.breed];
   const feedingGuide = weightFeedingEntry(pet);
 
+  // Today's logged actions for the selected pet — drives the "Today" checklist
+  // (this glanceable status used to live on Home; Care is its single surface now).
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const todays = state.activities.filter((a) => a.petId === pet.id && a.ts >= startOfDay.getTime());
+
   if (!state.premium) {
     return (
       <div className="flex h-full flex-col px-4">
         <Header title="Care Plan" bell />
-        {remindersRow}
         <div className="flex flex-1 flex-col items-center justify-center pb-24 text-center">
           <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-accent-soft text-accent">
             <Icon name="lock" size={34} />
@@ -227,8 +210,6 @@ export default function PlanPage() {
         </button>
       )}
 
-      {remindersRow}
-
       <Sheet open={petPickerOpen} onClose={() => setPetPickerOpen(false)} ariaLabel="Switch pet">
         <h2 className="mb-3 px-1 text-[20px] font-bold tracking-[-0.01em] text-label">Switch pet</h2>
         <Group>
@@ -250,6 +231,41 @@ export default function PlanPage() {
 
       {plan ? (
         <>
+          <SectionHeader>Today</SectionHeader>
+          <Group>
+            {plan.items
+              .filter((i) => i.perDay && i.action)
+              .map((item) => {
+                const target = item.perDay ?? 1;
+                const done = todays.filter((a) => a.type === item.action).length;
+                const complete = done >= target;
+                const ai = ACTION_ICON[item.action!];
+                return (
+                  <Row
+                    key={item.title}
+                    leading={
+                      complete ? (
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green text-white">
+                          <Icon name="check" size={18} />
+                        </span>
+                      ) : (
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${ai.bg} ${ai.tint}`}>
+                          <Icon name={ai.icon} size={19} />
+                        </span>
+                      )
+                    }
+                    title={item.title}
+                    subtitle={complete ? "Complete for today" : item.detail.split(".")[0]}
+                    trailing={
+                      <span className={`text-[13px] font-semibold ${complete ? "text-green" : "text-label-3"}`}>
+                        {Math.min(done, target)}/{target}
+                      </span>
+                    }
+                  />
+                );
+              })}
+          </Group>
+
           {feedingGuide && (
             <>
               <SectionHeader>Weight & feeding guide</SectionHeader>

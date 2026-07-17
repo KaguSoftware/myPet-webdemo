@@ -1,7 +1,6 @@
 "use client";
 
 import BackBar from "@/components/BackBar";
-import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
 import { Group, IconCircle, Row, SectionHeader, Segmented } from "@/components/ui";
 import { useStore } from "@/lib/store";
@@ -10,12 +9,11 @@ export default function GeneralSettingsPage() {
   const { state, hydrated, setUnits, setNotificationPref, toast } = useStore();
   const currentMember = state.members.find((m) => m.id === state.currentMemberId);
 
-  if (!hydrated) return <PageLoading title="General" />;
+  if (!hydrated) return <PageLoading title="General" compact />;
 
   return (
     <div className="px-4">
-      <Header title="General" />
-      <BackBar />
+      <BackBar title="General" />
 
       <SectionHeader>Units</SectionHeader>
       <Group>

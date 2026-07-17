@@ -1,7 +1,6 @@
 "use client";
 
 import BackBar from "@/components/BackBar";
-import Header from "@/components/Header";
 import { Group, IconCircle, Row, SectionHeader } from "@/components/ui";
 import { useA11y } from "@/lib/a11y";
 
@@ -29,8 +28,7 @@ export default function AccessibilitySettingsPage() {
 
   return (
     <div className="px-4">
-      <Header title="Accessibility" />
-      <BackBar />
+      <BackBar title="Accessibility" />
 
       <SectionHeader>Display</SectionHeader>
       <Group>

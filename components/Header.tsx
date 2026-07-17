@@ -36,7 +36,7 @@ export default function Header({
       </div>
 
       {/* Large title block — scrolls away */}
-      <div className="px-5 pb-2 pt-15 md:pt-16">
+      <div className="px-5 pb-2 pt-12 md:pt-16">
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
             {subtitle && <p className="text-[14px] font-medium text-label-2">{subtitle}</p>}

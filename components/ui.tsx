@@ -24,7 +24,7 @@ export function SectionHeader({
   className?: string;
 }) {
   return (
-    <div className={`mt-7 mb-2 flex items-end justify-between px-1 ${className}`}>
+    <div className={`mt-8 mb-2.5 flex items-end justify-between px-1 ${className}`}>
       <h2 className="text-[13px] font-semibold uppercase tracking-[0.03em] text-label-2">{children}</h2>
       {trailing}
     </div>
@@ -88,7 +88,7 @@ export function Row({
       {trailing}
     </>
   );
-  const cls = "flex w-full items-center gap-3 px-4 py-2.5 text-left min-h-[52px]";
+  const cls = "flex w-full items-center gap-3 px-4 py-3 text-left min-h-14";
   if (onClick)
     return (
       <button
@@ -148,12 +148,14 @@ export function AccentButton({
   onClick,
   disabled = false,
   variant = "primary",
+  size = "md",
   className = "",
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   variant?: "primary" | "tinted" | "gray";
+  size?: "md" | "sm";
   className?: string;
 }) {
   const styles = {
@@ -161,11 +163,12 @@ export function AccentButton({
     tinted: "bg-accent-soft text-accent",
     gray: "bg-fill text-label",
   }[variant];
+  const sizing = size === "sm" ? "h-10.5 text-[15px]" : "h-[50px] text-[17px]";
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`flex h-[50px] w-full items-center justify-center gap-2 rounded-ios text-[17px] font-semibold transition-[transform,opacity] duration-150 active:scale-[0.97] disabled:opacity-40 disabled:shadow-none ${styles} ${className}`}
+      className={`flex w-full items-center justify-center gap-2 rounded-ios font-semibold transition-[transform,opacity] duration-150 active:scale-[0.97] disabled:opacity-40 disabled:shadow-none ${sizing} ${styles} ${className}`}
     >
       {children}
     </button>
