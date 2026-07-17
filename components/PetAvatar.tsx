@@ -41,9 +41,9 @@ export default function PetAvatar({
 }
 
 /**
- * Member avatar in the pixel style: a rounded-pixel tile with the initial set
- * in the arcade font and a subtle inner pixel frame, to read clearly as an
- * avatar (distinct from the round pet sprites) while matching the theme.
+ * Member avatar: a clean iOS-style gradient circle with the initial in the
+ * system font — distinct from the round pixel pet sprites (people are not
+ * part of the pixel pet world).
  */
 export function InitialAvatar({
   name,
@@ -56,11 +56,11 @@ export function InitialAvatar({
 }) {
   return (
     <span
-      className="font-pixel flex shrink-0 items-center justify-center rounded-[28%] text-white shadow-[inset_0_0_0_2px_rgba(255,255,255,0.25),inset_0_1px_1px_rgba(255,255,255,0.4),0_1px_2px_rgba(0,0,0,0.15)]"
+      className="flex shrink-0 items-center justify-center rounded-full font-semibold text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.35),0_1px_2px_rgba(0,0,0,0.12)]"
       style={{
         width: size,
         height: size,
-        fontSize: size * 0.34,
+        fontSize: size * 0.42,
         background: `linear-gradient(150deg, ${gradient[0]}, ${gradient[1]})`,
       }}
       aria-hidden

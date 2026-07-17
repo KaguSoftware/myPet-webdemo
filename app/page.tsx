@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
 import EditStatSheet from "@/components/EditStatSheet";
-import StreakCalendarSheet from "@/components/StreakCalendarSheet";
 import { Icon } from "@/components/Icons";
 import { Chevron, Chip, Group, Row } from "@/components/ui";
 import { dailyTarget, formatAge, formatWeight, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
@@ -15,12 +14,8 @@ export default function Home() {
   const { state, hydrated, addWeight, editPet, toast } = useStore();
   const [petIndex, setPetIndex] = useState(0);
   const [editingStat, setEditingStat] = useState<"weight" | "age" | null>(null);
-  const [streakSheetOpen, setStreakSheetOpen] = useState(false);
-  const [justStreaked, setJustStreaked] = useState(false);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const didSwipe = useRef(false);
-
-  const prevStreakRef = useRef(state.streak);
 
   const changePet = (dir: 1 | -1) =>
     setPetIndex((i) => Math.min(state.pets.length - 1, Math.max(0, i + dir)));
@@ -34,17 +29,6 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.activities, pet?.id]
   );
-
-  // Streak-up: pop the flame when the streak grows (the 🔥 toast fires from the store).
-  useEffect(() => {
-    if (state.streak > prevStreakRef.current) {
-      setJustStreaked(true);
-      const t = setTimeout(() => setJustStreaked(false), 700);
-      prevStreakRef.current = state.streak;
-      return () => clearTimeout(t);
-    }
-    prevStreakRef.current = state.streak;
-  }, [state.streak]);
 
   if (!hydrated || !pet) {
     return (
@@ -81,18 +65,6 @@ export default function Home() {
         title="Home"
         subtitle={`Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}, ${me?.name}`}
         bell
-        trailing={
-          <button
-            onClick={() => setStreakSheetOpen(true)}
-            aria-label={`${state.streak}-day streak`}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-full bg-card px-2.5 py-1 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05)] transition-transform active:scale-95"
-          >
-            <span className={`inline-flex ${justStreaked ? "animate-coin-bump" : ""}`}>
-              <Icon name="flame" size={16} className="text-orange" />
-            </span>
-            <span className="text-[11px] font-bold leading-none text-label">{state.streak}</span>
-          </button>
-        }
       />
 
       {/* Pet hero card */}
@@ -216,7 +188,7 @@ export default function Home() {
         onSave={(v) => {
           const kg = unitToKg(v, state.units);
           addWeight(pet.id, kg);
-          toast("⚖️", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
+          toast("scale", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
         }}
       />
       <EditStatSheet
@@ -227,11 +199,9 @@ export default function Home() {
         initialValue={pet.ageYears}
         onSave={(ageYears) => {
           editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg, cupGrams: pet.cupGrams });
-          toast("🎂", `${pet.name}'s age updated`, formatAge(ageYears));
+          toast("calendar", `${pet.name}'s age updated`, formatAge(ageYears));
         }}
       />
-
-      <StreakCalendarSheet open={streakSheetOpen} onClose={() => setStreakSheetOpen(false)} />
     </div>
   );
 }

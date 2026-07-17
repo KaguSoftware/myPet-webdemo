@@ -56,7 +56,7 @@ export default function PixelChart({
       <div className="flex flex-col items-center py-3 text-center">
         {latest ? (
           <>
-            <span className="font-pixel text-[16px] text-label">{formatWeight(latest.kg, units)}</span>
+            <span className="text-[17px] font-bold text-label">{formatWeight(latest.kg, units)}</span>
             <p className="mt-1.5 text-[12px] text-label-2">Log another weight to see the trend.</p>
           </>
         ) : (
@@ -100,11 +100,10 @@ export default function PixelChart({
   const bandTop = target ? y(target[1]) : 0;
   const bandBot = target ? y(target[0]) : 0;
 
-  // stepped path
+  // straight line segments between points — a calm, standard health-app trend line
   let d = `M ${x(0)} ${y(points[0].kg)}`;
   for (let i = 1; i < points.length; i++) {
-    const midX = (x(i - 1) + x(i)) / 2;
-    d += ` L ${midX} ${y(points[i - 1].kg)} L ${midX} ${y(points[i].kg)} L ${x(i)} ${y(points[i].kg)}`;
+    d += ` L ${x(i)} ${y(points[i].kg)}`;
   }
 
   const last = points[points.length - 1];
@@ -115,7 +114,7 @@ export default function PixelChart({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="font-pixel text-[10px] text-label">{formatWeight(last.kg, units)}</span>
+        <span className="text-[15px] font-bold text-label">{formatWeight(last.kg, units)}</span>
         <span className={`min-w-0 truncate text-[12px] font-semibold ${delta >= 0 ? "text-orange" : "text-green"}`}>
           {delta >= 0 ? "▲" : "▼"} {formatWeight(Math.abs(delta), units)}
           {spanLabel ? ` over ${spanLabel}` : ""}
@@ -141,20 +140,20 @@ export default function PixelChart({
           </span>
         )}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height} shapeRendering="crispEdges" className="overflow-visible">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height} className="overflow-visible">
         {/* gridlines */}
         {[0.25, 0.5, 0.75].map((g) => (
           <line key={g} x1={pad} x2={W - pad} y1={pad + g * (H - pad * 2)} y2={pad + g * (H - pad * 2)} stroke="var(--color-sep)" strokeWidth={0.4} />
         ))}
         {/* target band */}
         {target && (
-          <rect x={pad} y={bandTop} width={W - pad * 2} height={Math.max(0, bandBot - bandTop)} fill="var(--color-green-soft)" />
+          <rect x={pad} y={bandTop} width={W - pad * 2} height={Math.max(0, bandBot - bandTop)} rx={1} fill="var(--color-green-soft)" />
         )}
-        {/* stepped line */}
-        <path d={d} fill="none" stroke="var(--color-accent)" strokeWidth={1.6} strokeLinejoin="miter" />
-        {/* points as pixel squares */}
+        {/* trend line */}
+        <path d={d} fill="none" stroke="var(--color-accent)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+        {/* data points */}
         {points.map((p, i) => (
-          <rect key={i} x={x(i) - 1.1} y={y(p.kg) - 1.1} width={2.2} height={2.2} fill="var(--color-accent)" />
+          <circle key={i} cx={x(i)} cy={y(p.kg)} r={1.4} fill="var(--color-card)" stroke="var(--color-accent)" strokeWidth={1} />
         ))}
       </svg>
       {(target || onAddWeight) && (

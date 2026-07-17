@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import BackBar from "@/components/BackBar";
 import PageLoading from "@/components/PageLoading";
 import Sheet from "@/components/Sheet";
+import StreakCalendarSheet from "@/components/StreakCalendarSheet";
 import { InitialAvatar } from "@/components/PetAvatar";
 import { Icon } from "@/components/Icons";
 import { AccentButton, Chevron, ConfirmRow, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
@@ -23,6 +24,7 @@ export default function AccountSettingsPage() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [streakOpen, setStreakOpen] = useState(false);
 
   if (!hydrated) return <PageLoading title="Account" compact />;
 
@@ -42,7 +44,7 @@ export default function AccountSettingsPage() {
     setPwOpen(false);
     setNewPw("");
     setConfirmPw("");
-    toast("🔒", "Password updated", "Use it next time you log in");
+    toast("lock", "Password updated", "Use it next time you log in");
   }
 
   async function changeEmail() {
@@ -54,7 +56,7 @@ export default function AccountSettingsPage() {
     if (error) return setFormError(friendlyAuthError(error.message));
     setEmailOpen(false);
     setNewEmail("");
-    toast("📧", "Confirm your new email", "We sent a link to finish the change");
+    toast("bell", "Confirm your new email", "We sent a link to finish the change");
   }
 
   async function deleteAccount() {
@@ -64,13 +66,13 @@ export default function AccountSettingsPage() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         setDeleting(false);
-        toast("⚠️", "Couldn't delete account", body.error ?? "Please try again");
+        toast("alert", "Couldn't delete account", body.error ?? "Please try again");
         return;
       }
       window.location.assign("/login");
     } catch {
       setDeleting(false);
-      toast("⚠️", "Couldn't delete account", "Please try again");
+      toast("alert", "Couldn't delete account", "Please try again");
     }
   }
 
@@ -113,6 +115,13 @@ export default function AccountSettingsPage() {
       <SectionHeader>App</SectionHeader>
       <Group>
         <Row
+          onClick={() => setStreakOpen(true)}
+          leading={<IconCircle icon="flame" tint="text-orange" bg="bg-orange-soft" />}
+          title="Day streak"
+          subtitle={state.streak === 1 ? "1 day" : `${state.streak} days`}
+          trailing={<Chevron />}
+        />
+        <Row
           leading={<IconCircle icon="sparkles" tint="text-label-2" bg="bg-fill" />}
           title="Replay intro"
           onClick={() => {
@@ -133,6 +142,8 @@ export default function AccountSettingsPage() {
       </p>
 
       <div className="h-4" />
+
+      <StreakCalendarSheet open={streakOpen} onClose={() => setStreakOpen(false)} />
 
       <Sheet
         open={pwOpen}

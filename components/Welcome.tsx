@@ -24,14 +24,14 @@ export default function Welcome() {
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-bg md:rounded-[2.7rem]">
-      <div className="arcade-stage flex flex-1 flex-col items-center justify-center px-7 text-center">
+      <div className={`flex flex-1 flex-col items-center justify-center px-7 text-center ${step === 0 ? "arcade-stage" : ""}`}>
         {step === 0 && (
           <>
             <div className="flex items-end gap-3">
               <PixelPet pet={catPet} size={92} idle />
               {dogPet && <PixelPet pet={dogPet} size={92} idle />}
             </div>
-            <h1 className="font-pixel mt-8 text-[20px] leading-relaxed text-label">PetPal</h1>
+            <h1 className="mt-8 text-[28px] font-bold tracking-[-0.02em] text-label">PetPal</h1>
             <p className="mt-3 max-w-[280px] text-[15px] leading-relaxed text-label-2">
               The family hub for taking care of your pets — together. Let&apos;s take a quick look.
             </p>

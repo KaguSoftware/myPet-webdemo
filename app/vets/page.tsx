@@ -57,7 +57,7 @@ export default function VetsPage() {
                 <button
                   onClick={() => {
                     unbookVetById(v.id);
-                    toast("↩️", "Request cancelled", `Cancelled your visit with ${v.name}`);
+                    toast("refresh", "Request cancelled", `Cancelled your visit with ${v.name}`);
                   }}
                   className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-green-soft px-3.5 text-[13px] font-semibold text-green transition-transform active:scale-95"
                 >
@@ -66,7 +66,7 @@ export default function VetsPage() {
               ) : (
                 <button
                   onClick={() => setSelected(v)}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-3.5 text-[13px] font-semibold text-white shadow-[0_3px_10px_oklch(0.55_0.19_258/0.3)] transition-transform active:scale-95"
+                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-3.5 text-[13px] font-semibold text-white shadow-[0_3px_10px_oklch(0.55_0.2_285/0.3)] transition-transform active:scale-95"
                 >
                   Book
                 </button>
@@ -105,13 +105,13 @@ export default function VetsPage() {
               <AccentButton
                 onClick={() => {
                   bookVetById(selected.id);
-                  toast("📅", "Appointment requested", `${selected.name} will confirm shortly`);
+                  toast("calendar", "Appointment requested", `${selected.name} will confirm shortly`);
                   setSelected(null);
                 }}
               >
                 Request appointment
               </AccentButton>
-              <p className="mt-2.5 text-center text-[12px] text-label-3">Demo — no real booking is made.</p>
+              <p className="mt-2.5 text-center text-[12px] text-label-3">Nothing is booked until the clinic confirms your request.</p>
             </div>
           </>
         )}

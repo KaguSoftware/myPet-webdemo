@@ -421,7 +421,7 @@ export default function PlanPage() {
                 cupGrams: pet.cupGrams,
                 customPlan: { ...pet.customPlan, [f.key]: value },
               });
-              toast("📋", `${f.title} target updated`, `${value} ${f.subtitle.toLowerCase()}`);
+              toast("list", `${f.title} target updated`, `${value} ${f.subtitle.toLowerCase()}`);
             }}
           />
         ))}
@@ -448,7 +448,7 @@ export default function PlanPage() {
                   cadences: { ...pet.customPlan?.cadences, [f.id]: value },
                 },
               });
-              toast("📋", `${f.title} updated`, value);
+              toast("list", `${f.title} updated`, value);
             }}
           />
         ))}
