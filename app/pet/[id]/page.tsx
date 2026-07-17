@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import BackBar from "@/components/BackBar";
+import Meds from "@/components/Meds";
 import PageLoading from "@/components/PageLoading";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import PixelChart from "@/components/pixel/PixelChart";
@@ -18,7 +19,7 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
   const [scrollTop] = useState(0); // header handled inline here (nested route, simple sticky)
   const [editing, setEditing] = useState<"weight" | "age" | null>(null);
 
-  if (!hydrated) return <PageLoading title="Pet" />;
+  if (!hydrated) return <PageLoading title="Pet" compact />;
 
   const pet = state.pets.find((p) => p.id === id);
   if (!pet) {
@@ -41,7 +42,7 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="px-4 pt-3">
-      <BackBar />
+      <BackBar title={pet.name} />
 
       {/* Hero */}
       <div className="flex flex-col items-center rounded-sheet bg-card px-5 py-6 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_8px_24px_oklch(0.2_0.01_264/0.05)]">
@@ -58,7 +59,7 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
           <Chip>{pet.owned.length} items</Chip>
         </div>
         <Link href="/pets" className="mt-4 w-full max-w-55">
-          <AccentButton variant="tinted" className="h-10.5! text-[15px]!">
+          <AccentButton variant="tinted" size="sm">
             <Icon name="sparkles" size={16} /> Dress up
           </AccentButton>
         </Link>
@@ -128,6 +129,9 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
           );
         })}
       </Group>
+
+      {/* Medications */}
+      <Meds pet={pet} />
 
       {/* Plan summary */}
       {state.premium && plan && (

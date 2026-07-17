@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import BackBar from "@/components/BackBar";
-import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
-import StreakCalendarSheet from "@/components/StreakCalendarSheet";
 import Sheet from "@/components/Sheet";
 import { InitialAvatar } from "@/components/PetAvatar";
 import { Icon } from "@/components/Icons";
@@ -17,7 +15,6 @@ import { useStore } from "@/lib/store";
 export default function AccountSettingsPage() {
   const router = useRouter();
   const { state, hydrated, signOut, setSeenWelcome, userEmail, toast } = useStore();
-  const [streakSheetOpen, setStreakSheetOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [newPw, setNewPw] = useState("");
@@ -27,7 +24,7 @@ export default function AccountSettingsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  if (!hydrated) return <PageLoading title="Account" />;
+  if (!hydrated) return <PageLoading title="Account" compact />;
 
   const currentMember = state.members.find((m) => m.id === state.currentMemberId);
 
@@ -79,10 +76,9 @@ export default function AccountSettingsPage() {
 
   return (
     <div className="px-4">
-      <Header title="Account" />
-      <BackBar />
+      <BackBar title="Account" />
 
-      <SectionHeader>Signed in</SectionHeader>
+      <SectionHeader>Account</SectionHeader>
       <Group>
         {userEmail && (
           <Row leading={<IconCircle icon="person" tint="text-label-2" bg="bg-fill" />} title={userEmail} subtitle="Account email" />
@@ -94,21 +90,6 @@ export default function AccountSettingsPage() {
             subtitle={`${currentMember.role} · switch in Family`}
           />
         )}
-      </Group>
-
-      <SectionHeader>Progress</SectionHeader>
-      <Group>
-        <Row
-          onClick={() => setStreakSheetOpen(true)}
-          leading={<IconCircle icon="flame" tint="text-orange" bg="bg-orange-soft" />}
-          title={`${state.streak}-day streak`}
-          subtitle="Synced to your account"
-          trailing={<Chevron />}
-        />
-      </Group>
-
-      <SectionHeader>Security</SectionHeader>
-      <Group>
         <Row
           onClick={() => {
             setFormError(null);
@@ -141,10 +122,6 @@ export default function AccountSettingsPage() {
           trailing={<Icon name="chevron-right" size={15} className="text-label-3" />}
         />
         <Row destructive onClick={signOut} title="Sign out" />
-      </Group>
-
-      <SectionHeader>Danger zone</SectionHeader>
-      <Group>
         <ConfirmRow
           label={deleting ? "Deleting…" : "Delete account"}
           confirmLabel="Tap again to permanently delete"
@@ -219,7 +196,6 @@ export default function AccountSettingsPage() {
         </div>
       </Sheet>
 
-      <StreakCalendarSheet open={streakSheetOpen} onClose={() => setStreakSheetOpen(false)} />
     </div>
   );
 }

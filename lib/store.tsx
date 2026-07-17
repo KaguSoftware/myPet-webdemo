@@ -559,37 +559,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [toast]
   );
 
-  // Toasts a summary of any outstanding Log care warnings (basic-needs
-  // alerts like "hasn't been fed", and /plan over/under-target health
-  // alerts) — run on login/reload and whenever a family member switches
-  // accounts, so whoever's looking at the app is nudged toward the pet(s)
-  // that need attention. A ref-backed flag per reminder id keeps this from
-  // re-toasting the same still-outstanding warning on every switch.
+  // Tracks outstanding Log care warnings (basic-needs alerts like "hasn't
+  // been fed", and /plan over/under-target health alerts) — run on
+  // login/reload and whenever a family member switches accounts. These no
+  // longer raise a summary toast (the notification bell's badge surfaces the
+  // same outstanding-alert count without covering the page); the ref-backed
+  // per-member flag is kept so each warning is only ever counted as "newly
+  // seen" once per member.
   const notifiedWarningIdsRef = useRef<Set<string>>(new Set());
-  const notifyCareWarnings = useCallback(
-    (forMemberId: string, remindersList: Reminder[], petsList: Pet[]) => {
-      const active = remindersList.filter((r) => r.alert && !r.done && !notifiedWarningIdsRef.current.has(`${forMemberId}:${r.id}`));
-      if (active.length === 0) return;
-      active.forEach((r) => notifiedWarningIdsRef.current.add(`${forMemberId}:${r.id}`));
-      // Gate on the member being switched TO (passed in), not currentMember()
-      // — stateRef.current.currentMemberId still lags a render behind on switch.
-      const recipient = stateRef.current.members.find((m) => m.id === forMemberId);
-      const allowed = active.filter((r) => (r.vetId ? (recipient?.notifyVetSuggestions ?? true) : (recipient?.notifyCareReminders ?? true)));
-      if (allowed.length === 0) return;
-      const timeoutId = setTimeout(() => {
-        pendingNotificationTimeoutsRef.current.delete(timeoutId);
-        if (allowed.length === 1) {
-          const pet = petsList.find((p) => p.id === allowed[0].petId);
-          toast("🚨", allowed[0].title, pet ? `${pet.name} needs attention` : undefined);
-        } else {
-          const petNames = Array.from(new Set(allowed.map((r) => petsList.find((p) => p.id === r.petId)?.name).filter((n): n is string => !!n)));
-          toast("🚨", `${allowed.length} care warnings need attention`, petNames.join(", "));
-        }
-      }, 400);
-      pendingNotificationTimeoutsRef.current.add(timeoutId);
-    },
-    [toast]
-  );
+  const notifyCareWarnings = useCallback((forMemberId: string, remindersList: Reminder[]) => {
+    const active = remindersList.filter((r) => r.alert && !r.done && !notifiedWarningIdsRef.current.has(`${forMemberId}:${r.id}`));
+    active.forEach((r) => notifiedWarningIdsRef.current.add(`${forMemberId}:${r.id}`));
+  }, []);
 
   // Raises a care-plan health alert: an auto-generated reminder (with a
   // suggested vet) plus a toast, at most once per pet per day. Used both for
@@ -931,7 +912,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       // Signing in surfaces any already-outstanding warnings too, not just
       // ones raised by the checks above.
-      notifyCareWarnings(currentMemberId, reminderList, pets);
+      notifyCareWarnings(currentMemberId, reminderList);
 
       supabase.from("households").update({ last_seen_at: Date.now() }).eq("id", h.id).then();
     }
@@ -1092,7 +1073,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const prevId = stateRef.current.currentMemberId;
       setState((p) => ({ ...p, currentMemberId: id }));
       notifyRecentActivity(id, stateRef.current.activities, stateRef.current.pets, stateRef.current.members);
-      notifyCareWarnings(id, stateRef.current.reminders, stateRef.current.pets);
+      notifyCareWarnings(id, stateRef.current.reminders);
       const h = hid();
       const uid = userIdRef.current;
       // Persist "view as" on the current user's OWN membership row, not the

@@ -4,12 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import BackBar from "@/components/BackBar";
 import EmptyState from "@/components/EmptyState";
-import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
 import Paywall from "@/components/Paywall";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
-import { ACTION_ICON, Icon } from "@/components/Icons";
+import { Icon } from "@/components/Icons";
 import { AccentButton, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
 import { ACTIONS, Activity, VET, VETS } from "@/lib/data";
 import { dueLabel, timeAgo, useStore } from "@/lib/store";
@@ -31,14 +30,28 @@ export default function ActivityPage() {
   const [bookOpen, setBookOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
 
-  if (!hydrated) return <PageLoading title="Activity" subtitle="Notifications & family feed" />;
+  if (!hydrated) return <PageLoading title="Activity" compact />;
 
   const member = (id: string) => state.members.find((m) => m.id === id);
   const petById = (id: string) => state.pets.find((p) => p.id === id);
   const cat = state.pets.find((p) => p.breed === "British Shorthair") ?? state.pets[0];
 
-  // Needs attention — the outstanding care alerts (same set the bell badges).
-  const alerts = state.reminders.filter((r) => r.alert && !r.done).sort((a, b) => a.due - b.due);
+  // Needs attention — the outstanding care alerts (same set the bell badges),
+  // deduped (the data can hold identical entries) and grouped per pet so a bad
+  // day reads as one calm block per pet instead of a wall of red cards.
+  const seenAlert = new Set<string>();
+  const alerts = state.reminders
+    .filter((r) => r.alert && !r.done)
+    .sort((a, b) => a.due - b.due)
+    .filter((r) => {
+      const key = `${r.petId}|${r.title}`;
+      if (seenAlert.has(key)) return false;
+      seenAlert.add(key);
+      return true;
+    });
+  const alertGroups = state.pets
+    .map((p) => ({ pet: p, items: alerts.filter((r) => r.petId === p.id) }))
+    .filter((g) => g.items.length > 0);
 
   // Family feed
   const sorted = [...state.activities].sort((a, b) => b.ts - a.ts).slice(0, 40);
@@ -52,45 +65,44 @@ export default function ActivityPage() {
 
   return (
     <div className="px-4">
-      <Header title="Activity" subtitle="Notifications & family feed" />
-      <BackBar />
+      <BackBar title="Activity" />
 
-      {/* Needs attention */}
-      {alerts.length > 0 && (
+      {/* Needs attention — one group per pet, standard rows */}
+      {alertGroups.length > 0 && (
         <>
           <SectionHeader>Needs attention</SectionHeader>
-          <div className="flex flex-col gap-2">
-            {alerts.map((r) => {
-              const pet = petById(r.petId);
-              const alertVet = r.vetId ? VETS.find((v) => v.id === r.vetId) ?? VET : null;
-              return (
-                <div key={r.id} className="rounded-card bg-[oklch(0.6_0.21_25/0.06)] p-3.5">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red text-white">
-                      <Icon name="bell" size={18} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-semibold leading-snug text-red">{r.title}</p>
-                      <p className="mt-0.5 text-[12px] font-medium text-label-2">
-                        {pet ? `${pet.name} · ` : ""}
-                        {dueLabel(r.due)}
-                      </p>
-                    </div>
-                  </div>
-                  {alertVet && (
-                    <button
-                      onClick={() => {
-                        bookVetById(alertVet.id);
-                        toast("🩺", `Vet visit requested`, `${alertVet.name} will follow up about ${pet?.name}`);
-                      }}
-                      className="mt-2.5 ml-12 flex h-8 w-fit items-center gap-1.5 rounded-full bg-red px-3 text-[13px] font-semibold text-white transition-transform active:scale-95"
-                    >
-                      <Icon name="cross" size={14} /> Book vet — {alertVet.name}
-                    </button>
-                  )}
+          <div className="flex flex-col gap-3">
+            {alertGroups.map(({ pet, items }) => (
+              <Group key={pet.id}>
+                <div className="flex items-center gap-2.5 px-4 pt-3 pb-1">
+                  <PetAvatar pet={pet} size="xs" showCosmetics={false} />
+                  <span className="text-[13px] font-semibold text-label-2">{pet.name}</span>
                 </div>
-              );
-            })}
+                {items.map((r) => {
+                  const alertVet = r.vetId ? VETS.find((v) => v.id === r.vetId) ?? VET : null;
+                  return (
+                    <Row
+                      key={r.id}
+                      title={<span className="text-red">{r.title}</span>}
+                      subtitle={dueLabel(r.due)}
+                      trailing={
+                        alertVet ? (
+                          <button
+                            onClick={() => {
+                              bookVetById(alertVet.id);
+                              toast("🩺", `Vet visit requested`, `${alertVet.name} will follow up about ${pet.name}`);
+                            }}
+                            className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-red px-3 text-[13px] font-semibold text-white transition-transform active:scale-95"
+                          >
+                            <Icon name="cross" size={14} /> Book vet
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                  );
+                })}
+              </Group>
+            ))}
           </div>
         </>
       )}
@@ -114,13 +126,10 @@ export default function ActivityPage() {
                 <Icon name="check" size={15} /> Appointment requested — the clinic will confirm shortly
               </p>
             ) : (
-              <AccentButton variant="tinted" className="mt-3 h-10.5! text-[15px]!" onClick={() => setBookOpen(true)}>
+              <AccentButton variant="tinted" size="sm" className="mt-3" onClick={() => setBookOpen(true)}>
                 <Icon name="calendar" size={17} /> Book appointment
               </AccentButton>
             )}
-            <Link href="/vets" className="mt-2 flex items-center justify-center gap-1 text-[13px] font-semibold text-accent">
-              Browse all vets near you <Icon name="chevron-right" size={13} />
-            </Link>
           </div>
         </>
       ) : (
@@ -142,6 +151,26 @@ export default function ActivityPage() {
         </>
       )}
 
+      {/* Reminders + vet marketplace live here now (moved off the Care tab) */}
+      <Group className="mt-8">
+        <Link href="/reminders" className="block">
+          <Row
+            leading={<IconCircle icon="bell" tint="text-accent" bg="bg-accent-soft" />}
+            title="Reminders"
+            subtitle="Tasks & alerts the whole family sees"
+            trailing={<Icon name="chevron-right" size={15} className="text-label-3" />}
+          />
+        </Link>
+        <Link href="/vets" className="block">
+          <Row
+            leading={<IconCircle icon="cross" tint="text-green" bg="bg-green-soft" />}
+            title="Find a vet"
+            subtitle="Browse clinics near you"
+            trailing={<Icon name="chevron-right" size={15} className="text-label-3" />}
+          />
+        </Link>
+      </Group>
+
       {/* Family feed */}
       <SectionHeader>Recent activity</SectionHeader>
       {groups.length === 0 ? (
@@ -156,18 +185,10 @@ export default function ActivityPage() {
                 const p = petById(a.petId);
                 if (!m || !p) return null;
                 const isYou = m.id === state.currentMemberId;
-                const ai = ACTION_ICON[a.type];
                 return (
                   <Row
                     key={a.id}
-                    leading={
-                      <span className="relative shrink-0" style={{ width: 40, height: 38 }}>
-                        <InitialAvatar name={m.name} gradient={m.gradient} size={32} />
-                        <span className="absolute -bottom-1 -right-1 rounded-full bg-card p-[1.5px] shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
-                          <PetAvatar pet={p} size="xs" showCosmetics={false} />
-                        </span>
-                      </span>
-                    }
+                    leading={<InitialAvatar name={m.name} gradient={m.gradient} size={32} />}
                     title={
                       <>
                         <span className="font-semibold">{isYou ? "You" : m.name}</span>{" "}
@@ -176,11 +197,6 @@ export default function ActivityPage() {
                       </>
                     }
                     subtitle={a.note ?? timeAgo(a.ts)}
-                    trailing={
-                      <span className={`flex h-8 w-8 items-center justify-center rounded-full ${ai.bg} ${ai.tint}`}>
-                        <Icon name={ai.icon} size={16} />
-                      </span>
-                    }
                   />
                 );
               })}

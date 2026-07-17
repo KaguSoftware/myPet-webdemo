@@ -2,44 +2,38 @@
 
 import { useState } from "react";
 import BackBar from "@/components/BackBar";
-import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
-import { AccentButton, Group, IconCircle, SectionHeader } from "@/components/ui";
-import { VET, VETS } from "@/lib/data";
+import { AccentButton, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
 import { dueLabel, useStore } from "@/lib/store";
 
 export default function RemindersPage() {
-  const { state, hydrated, addReminder, toggleReminder, deleteReminder, bookVetById, toast } = useStore();
+  const { state, hydrated, addReminder, toggleReminder, deleteReminder, toast } = useStore();
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [petId, setPetId] = useState("");
   const [days, setDays] = useState(1);
 
-  if (!hydrated) return <PageLoading title="Reminders" />;
+  if (!hydrated) return <PageLoading title="Reminders" compact />;
 
   // Default to the first pet until the user explicitly picks one — the raw
   // useState initializer ran while the store was still empty, so petId can't
   // seed itself from state.pets.
   const activePetId = petId || state.pets[0]?.id || "";
-  // The premium smart-reminder card is authored around the British Shorthair care
-  // plan — name the real pet instead of a hardcoded "Whiskers" (matches Activity).
-  const cat = state.pets.find((p) => p.breed === "British Shorthair") ?? state.pets[0];
   const upcoming = state.reminders.filter((r) => !r.done).sort((a, b) => a.due - b.due);
   const done = state.reminders.filter((r) => r.done);
   const petOf = (id: string) => state.pets.find((p) => p.id === id);
 
+  // One calm row per reminder — alerts get red title text only (the red wall,
+  // dedupe, and book-vet actions live on /activity).
   const renderRow = (r: (typeof state.reminders)[number]) => {
     const pet = petOf(r.petId);
     const isAlert = r.alert && !r.done;
-    const alertVet = isAlert && r.vetId ? VETS.find((v) => v.id === r.vetId) ?? VET : null;
     return (
-      <div
+      <Row
         key={r.id}
-        className={`flex flex-col gap-2 px-4 py-2.5 min-h-13 ${isAlert ? "bg-[oklch(0.6_0.21_25/0.06)]" : ""}`}
-      >
-        <div className="flex items-center gap-3">
+        leading={
           <button
             onClick={() => {
               toggleReminder(r.id);
@@ -48,20 +42,17 @@ export default function RemindersPage() {
             }}
             aria-label={r.done ? "Mark as not done" : "Mark as done"}
             className={`flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-all duration-200 active:scale-90 ${
-              r.done ? "border-accent bg-accent text-white" : isAlert ? "border-red" : "border-[oklch(0.22_0.01_264/0.25)] bg-transparent"
+              r.done ? "border-accent bg-accent text-white" : "border-[oklch(0.22_0.01_264/0.25)] bg-transparent"
             }`}
           >
             {r.done && <Icon name="check" size={14} />}
           </button>
-          <div className="min-w-0 flex-1">
-            <p className={`text-[16px] font-medium ${r.done ? "text-label-3 line-through" : isAlert ? "text-red" : "text-label"}`}>
-              {r.title}
-            </p>
-            <p className="text-[13px] text-label-2">
-              {pet ? `${pet.name} · ` : ""}
-              {r.done ? "completed" : dueLabel(r.due)}
-            </p>
-          </div>
+        }
+        title={
+          <span className={r.done ? "text-label-3 line-through" : isAlert ? "text-red" : undefined}>{r.title}</span>
+        }
+        subtitle={`${pet ? `${pet.name} · ` : ""}${r.done ? "completed" : dueLabel(r.due)}`}
+        trailing={
           <button
             onClick={() => deleteReminder(r.id)}
             aria-label={`Delete ${r.title}`}
@@ -69,54 +60,25 @@ export default function RemindersPage() {
           >
             <Icon name="xmark" size={15} />
           </button>
-        </div>
-        {alertVet && (
-          <button
-            onClick={() => {
-              bookVetById(alertVet.id);
-              toast("🩺", `Vet visit requested`, `${alertVet.name} will follow up about ${pet?.name}`);
-            }}
-            className="ml-9 flex h-8 w-fit items-center gap-1.5 rounded-full bg-red px-3 text-[13px] font-semibold text-white transition-transform active:scale-95"
-          >
-            <Icon name="cross" size={14} /> Book vet — {alertVet.name}
-          </button>
-        )}
-      </div>
+        }
+      />
     );
   };
 
   return (
     <div className="px-4">
-      <Header
+      <BackBar
         title="Reminders"
         trailing={
           <button
             onClick={() => setAddOpen(true)}
             aria-label="Add reminder"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white shadow-[0_3px_10px_oklch(0.55_0.19_258/0.35)] transition-transform active:scale-90"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-[0_3px_10px_oklch(0.55_0.19_258/0.35)] transition-transform active:scale-90"
           >
-            <Icon name="plus" size={19} />
+            <Icon name="plus" size={17} />
           </button>
         }
       />
-      <BackBar />
-
-      {state.premium && (
-        <div className="rounded-card bg-card p-4 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05)] ring-1 ring-accent/15">
-          <div className="flex items-start gap-3">
-            <IconCircle icon="stethoscope" tint="text-accent" bg="bg-accent-soft" />
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">Smart reminder · PetPal+</p>
-              <p className="mt-1 text-[15px] font-semibold leading-snug text-label">
-                {cat?.name}&apos;s 6-month vet checkup — in one week
-              </p>
-              <p className="mt-0.5 text-[13px] leading-snug text-label-2">
-                From the British Shorthair care plan. We suggest {VET.name} — book from Activity.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       <SectionHeader>Upcoming</SectionHeader>
       <Group flush>

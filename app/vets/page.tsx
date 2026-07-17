@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import BackBar from "@/components/BackBar";
-import Header from "@/components/Header";
 import { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
@@ -28,9 +27,7 @@ export default function VetsPage() {
 
   return (
     <div className="px-4">
-      <Header title="Find a Vet" subtitle="Trusted clinics near you" />
-
-      <BackBar />
+      <BackBar title="Find a Vet" />
 
       <div className="space-y-3 pb-4">
         {VETS.map((v) => {
@@ -38,53 +35,40 @@ export default function VetsPage() {
           return (
             <div
               key={v.id}
-              className={`rounded-card bg-card p-4 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05)] ${v.sponsored ? "ring-1 ring-accent/20" : ""}`}
+              className={`flex items-center gap-3 rounded-card bg-card p-4 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05)] ${v.sponsored ? "ring-1 ring-accent/20" : ""}`}
             >
-              {v.sponsored && (
-                <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
-                  <Icon name="sparkles" size={10} /> Sponsored
-                </span>
-              )}
-              <div className="flex items-start gap-3">
-                <InitialAvatar name={v.name.replace("Dr. ", "")} gradient={v.gradient} size={46} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[16px] font-bold text-label">{v.name}</p>
-                  <p className="text-[13px] font-medium text-label-2">{v.clinic}</p>
-                  <div className="mt-1 flex items-center gap-2 text-[12px] font-medium text-label-2">
-                    <Stars rating={v.rating} /> {v.rating}
-                    <span className="flex items-center gap-0.5">
-                      <Icon name="pin" size={11} className="text-label-3" /> {v.distanceKm} km
+              <InitialAvatar name={v.name.replace("Dr. ", "")} gradient={v.gradient} size={46} />
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 text-[16px] font-bold text-label">
+                  <span className="truncate">{v.name}</span>
+                  {v.sponsored && (
+                    <span className="shrink-0 rounded-full bg-accent-soft px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-accent">
+                      Ad
                     </span>
-                    <span className={v.openNow ? "text-green" : "text-label-3"}>{v.openNow ? "Open" : "Closed"}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                {v.specialties.map((s) => (
-                  <Chip key={s}>{s}</Chip>
-                ))}
+                  )}
+                </p>
+                <p className="truncate text-[13px] font-medium text-label-2">{v.clinic}</p>
+                <p className="mt-0.5 flex items-center gap-1.5 text-[12px] font-medium text-label-2">
+                  <Icon name="star" size={11} className="text-orange" /> {v.rating} · {v.distanceKm} km ·{" "}
+                  <span className={v.openNow ? "text-green" : "text-label-3"}>{v.openNow ? "Open" : "Closed"}</span>
+                </p>
               </div>
               {booked ? (
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="flex h-10.5 flex-1 items-center justify-center gap-2 rounded-ios bg-green-soft text-[15px] font-semibold text-green">
-                    <Icon name="check" size={15} /> Requested
-                  </span>
-                  <button
-                    onClick={() => {
-                      unbookVetById(v.id);
-                      toast("↩️", "Request cancelled", `Cancelled your visit with ${v.name}`);
-                    }}
-                    className="flex h-10.5 items-center justify-center rounded-ios bg-fill px-4 text-[15px] font-semibold text-label-2 transition-transform active:scale-[0.97]"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                <button
+                  onClick={() => {
+                    unbookVetById(v.id);
+                    toast("↩️", "Request cancelled", `Cancelled your visit with ${v.name}`);
+                  }}
+                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-green-soft px-3.5 text-[13px] font-semibold text-green transition-transform active:scale-95"
+                >
+                  <Icon name="check" size={14} /> Requested
+                </button>
               ) : (
                 <button
                   onClick={() => setSelected(v)}
-                  className="mt-3 flex h-10.5 w-full items-center justify-center gap-2 rounded-ios bg-accent text-[15px] font-semibold text-white shadow-[0_4px_14px_oklch(0.55_0.19_258/0.3)] transition-transform active:scale-[0.97]"
+                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-3.5 text-[13px] font-semibold text-white shadow-[0_3px_10px_oklch(0.55_0.19_258/0.3)] transition-transform active:scale-95"
                 >
-                  <Icon name="calendar" size={15} /> Book appointment
+                  Book
                 </button>
               )}
             </div>
@@ -107,6 +91,11 @@ export default function VetsPage() {
                   <Stars rating={selected.rating} /> {selected.rating} · {selected.distanceKm} km
                 </p>
               </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {selected.specialties.map((s) => (
+                <Chip key={s}>{s}</Chip>
+              ))}
             </div>
             <Group className="mt-5">
               <Row leading={<IconCircle icon="cross" tint="text-accent" bg="bg-accent-soft" />} title={`Checkup — ${cat?.name}`} subtitle="General wellness visit" />

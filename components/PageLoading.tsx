@@ -1,5 +1,6 @@
 "use client";
 
+import BackBar from "./BackBar";
 import Header from "./Header";
 
 /**
@@ -10,10 +11,19 @@ import Header from "./Header";
  * a few pulsing skeleton rows so the chrome doesn't pop and no false empty
  * state ever shows.
  */
-export default function PageLoading({ title, subtitle }: { title: string; subtitle?: string }) {
+export default function PageLoading({
+  title,
+  subtitle,
+  compact = false,
+}: {
+  title: string;
+  subtitle?: string;
+  /** Pushed pages render a BackBar instead of the large-title Header — match it. */
+  compact?: boolean;
+}) {
   return (
     <div className="px-4">
-      <Header title={title} subtitle={subtitle} />
+      {compact ? <BackBar title={title} /> : <Header title={title} subtitle={subtitle} />}
       <div className="mt-3 space-y-2.5" aria-hidden>
         {[0, 1, 2].map((i) => (
           <div key={i} className="h-17 animate-pulse rounded-card bg-card opacity-60" />

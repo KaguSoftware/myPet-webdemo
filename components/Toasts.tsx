@@ -1,7 +1,6 @@
 "use client";
 
 import { useStore } from "@/lib/store";
-import { Icon } from "./Icons";
 
 // Severity is derived from the emoji each toast already carries (no call-site
 // changes): alerts/errors read red, celebrations/confirmations read green, and
@@ -20,34 +19,22 @@ function severityOf(emoji: string): "alert" | "success" | "info" {
 }
 
 export default function Toasts() {
-  const { toasts, dismissToast, stopNotifications } = useStore();
+  const { toasts, dismissToast } = useStore();
   return (
     <div className="pointer-events-none absolute right-0 top-0 z-50 flex w-full max-w-82.5 flex-col items-end gap-2 px-3 pt-4 md:pt-13">
-      {toasts.length > 0 && (
-        <button
-          onClick={stopNotifications}
-          className="glass-strong pointer-events-auto flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-semibold text-label shadow-[0_6px_18px_oklch(0.2_0.01_264/0.18)] animate-toast-in"
-        >
-          <Icon name="xmark" size={13} />
-          Close notifications
-        </button>
-      )}
       {toasts.map((t) => (
         <div
           key={t.id}
-          className="glass-strong pointer-events-auto flex w-full items-center gap-3 rounded-[1.4rem] px-3.5 py-3 text-left animate-toast-in"
+          className="glass-strong pointer-events-auto flex w-full items-center gap-2.5 rounded-[1.4rem] px-3 py-2.5 text-left animate-toast-in"
         >
           <span
             aria-hidden
-            className={`flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-[10px] text-[20px] leading-none text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)] ${TILE_BY_SEVERITY[severityOf(t.emoji)]}`}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] text-[17px] leading-none text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)] ${TILE_BY_SEVERITY[severityOf(t.emoji)]}`}
           >
             {t.emoji}
           </span>
           <button onClick={() => dismissToast(t.id)} className="min-w-0 flex-1 text-left">
-            <span className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-[14px] font-semibold text-label">{t.title}</span>
-              {!t.action && <span className="shrink-0 text-[11px] font-medium text-label-3">now</span>}
-            </span>
+            <span className="block truncate text-[14px] font-semibold text-label">{t.title}</span>
             {t.body && <span className="block truncate text-[13px] text-label-2">{t.body}</span>}
           </button>
           {t.action && (

@@ -6,12 +6,14 @@ import { useStore } from "@/lib/store";
 
 /**
  * Persistent top-right bell → the Activity notification hub. The badge counts
- * outstanding care alerts (reminders flagged `alert` and not done) — the same
- * set that drives the "N care warnings need attention" toast in the store.
+ * outstanding care alerts (reminders flagged `alert` and not done), deduped by
+ * pet+title — the same count Home's attention banner and /activity show.
  */
 export default function NotificationBell() {
   const { state } = useStore();
-  const count = state.reminders.filter((r) => r.alert && !r.done).length;
+  const count = new Set(
+    state.reminders.filter((r) => r.alert && !r.done).map((r) => `${r.petId}|${r.title}`)
+  ).size;
   return (
     <Link
       href="/activity"

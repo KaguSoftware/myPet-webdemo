@@ -12,10 +12,13 @@ const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/settings", label: "Settings", icon: "gear" },
 ];
 
-/** Pushed detail routes keep their parent tab lit (order = most specific first). */
+/** Pushed detail routes keep their parent tab lit (order = most specific first).
+ * Reminders/vets/activity are all reached via Home (attention banner, next-up
+ * row) or the bell, so they light the Home tab. */
 const SUBROUTE_PARENT: [prefix: string, parent: string][] = [
-  ["/reminders", "/plan"],
-  ["/vets", "/logs"],
+  ["/reminders", "/"],
+  ["/vets", "/"],
+  ["/activity", "/"],
   ["/settings", "/settings"],
   ["/pet/", "/"],
 ];

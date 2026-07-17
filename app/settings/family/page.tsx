@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import BackBar from "@/components/BackBar";
-import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
@@ -75,7 +74,7 @@ export default function FamilySettingsPage() {
     setEditMemberRole(m.role);
   };
 
-  if (!hydrated) return <PageLoading title="Family" />;
+  if (!hydrated) return <PageLoading title="Family" compact />;
 
   // On a shared device, the Family section is protected by the household's
   // family password. Show an unlock gate until it's entered this visit.
@@ -94,8 +93,7 @@ export default function FamilySettingsPage() {
     };
     return (
       <div className="px-4">
-        <Header title="Family" />
-        <BackBar />
+        <BackBar title="Family" />
         <div className="mt-6 flex flex-col items-center rounded-card bg-card px-6 py-9 text-center shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)]">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-soft text-accent">
             <Icon name="lock" size={26} />
@@ -126,8 +124,7 @@ export default function FamilySettingsPage() {
 
   return (
     <div className="px-4">
-      <Header title="Family" subtitle={`${state.members.length} member${state.members.length === 1 ? "" : "s"}`} />
-      <BackBar />
+      <BackBar title="Family" />
 
       {/* Members */}
       <SectionHeader
