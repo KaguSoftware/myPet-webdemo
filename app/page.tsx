@@ -2,6 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import EmptyState from "@/components/EmptyState";
 import Header from "@/components/Header";
 import PetAvatar from "@/components/PetAvatar";
 import EditStatSheet from "@/components/EditStatSheet";
@@ -12,6 +14,7 @@ import { dueLabel, useStore } from "@/lib/store";
 
 export default function Home() {
   const { state, hydrated, addWeight, editPet, toast } = useStore();
+  const router = useRouter();
   const [petIndex, setPetIndex] = useState(0);
   const [editingStat, setEditingStat] = useState<"weight" | "age" | null>(null);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
@@ -34,9 +37,21 @@ export default function Home() {
     return (
       <div className="px-4">
         <Header title="Home" />
-        <div className="mt-10 flex flex-col items-center gap-2 text-center">
-          <p className="text-[14px] text-label-2">{hydrated ? "No pets yet." : "Loading your household…"}</p>
-        </div>
+        {hydrated ? (
+          <div className="mt-4">
+            <EmptyState
+              icon="paw"
+              title="No pets yet"
+              body="Add your first pet to start tracking their care together."
+              cta="Add a pet"
+              onCta={() => router.push("/pets")}
+            />
+          </div>
+        ) : (
+          <div className="mt-10 flex flex-col items-center gap-2 text-center">
+            <p className="text-[14px] text-label-2">Loading your household…</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -106,11 +121,17 @@ export default function Home() {
           </div>
         </Link>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <button onClick={() => setEditingStat("age")}>
-            <Chip>{formatAge(pet.ageYears)}</Chip>
+          <button onClick={() => setEditingStat("age")} aria-label="Edit age" className="transition-transform active:scale-95">
+            <Chip>
+              {formatAge(pet.ageYears)}
+              <Icon name="chevron-right" size={9} className="text-label-3" />
+            </Chip>
           </button>
-          <button onClick={() => setEditingStat("weight")}>
-            <Chip>{formatWeight(pet.weightKg, state.units)}</Chip>
+          <button onClick={() => setEditingStat("weight")} aria-label="Edit weight" className="transition-transform active:scale-95">
+            <Chip>
+              {formatWeight(pet.weightKg, state.units)}
+              <Icon name="chevron-right" size={9} className="text-label-3" />
+            </Chip>
           </button>
         </div>
         <div className="mt-4">
@@ -171,7 +192,7 @@ export default function Home() {
             title={nextReminder ? nextReminder.title : "No upcoming reminders"}
             subtitle={
               nextReminder
-                ? `${pet.name} · due ${dueLabel(nextReminder.due)}`
+                ? `${pet.name} · ${dueLabel(nextReminder.due) === "overdue" ? "overdue" : `due ${dueLabel(nextReminder.due)}`}`
                 : "Tap to add one for the family"
             }
             trailing={<Chevron />}
@@ -198,7 +219,16 @@ export default function Home() {
         label="Age (years)"
         initialValue={pet.ageYears}
         onSave={(ageYears) => {
-          editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg, cupGrams: pet.cupGrams });
+          // Typing an age switches the pet back to approximate-age mode — a
+          // stored birth date would otherwise silently win on next load.
+          editPet(pet.id, {
+            name: pet.name,
+            breed: pet.breed,
+            ageYears,
+            weightKg: pet.weightKg,
+            cupGrams: pet.cupGrams,
+            ...(pet.birthDate != null ? { birthDate: null } : {}),
+          });
           toast("calendar", `${pet.name}'s age updated`, formatAge(ageYears));
         }}
       />

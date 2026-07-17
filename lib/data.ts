@@ -11,6 +11,7 @@ export interface Cosmetic {
 }
 
 export interface WeightPoint {
+  id: string;
   ts: number;
   kg: number;
 }
@@ -29,6 +30,27 @@ export interface Med {
   frequency?: string;
 }
 
+export interface Vaccination {
+  id: string;
+  petId: string;
+  name: string;
+  /** ms epoch */
+  dateGiven: number;
+  /** ms epoch — when the next shot/booster is due, if known */
+  nextDue?: number;
+  notes?: string;
+}
+
+export interface VetVisit {
+  id: string;
+  petId: string;
+  /** ms epoch — when the visit happened */
+  ts: number;
+  vetName?: string;
+  reason?: string;
+  notes?: string;
+}
+
 export interface Pet {
   id: string;
   name: string;
@@ -44,6 +66,15 @@ export interface Pet {
   weights: WeightPoint[];
   supplies: Supply[];
   meds: Med[];
+  vaccinations: Vaccination[];
+  vetVisits: VetVisit[];
+  /** ms epoch when the pet row was created — the "gotcha day" milestone. */
+  createdAt: number;
+  /** ms epoch. When set, ageYears is derived from it at hydration. */
+  birthDate?: number;
+  microchip?: string;
+  allergies?: string;
+  notes?: string;
   /** Grams in one full cup of food — used to size the Fed portion picker. */
   cupGrams: number;
   /** User-entered daily targets for a pet whose breed has no CARE_PLANS entry
@@ -121,6 +152,47 @@ export interface Reminder {
   /** Care-warning kind (fed/water/litter/walk) for stable raise/resolve
    * matching that survives a pet rename. Only set on care-warning reminders. */
   alertKind?: string;
+  /** Recurrence — on check-off the due date rolls forward instead of completing. */
+  repeatKind?: RepeatKind;
+  /** Days between occurrences; only used when repeatKind is "every_n_days". */
+  repeatInterval?: number;
+  /** Set on auto-created vaccine reminders — links back to the vaccination record. */
+  vaccinationId?: string;
+}
+
+export type RepeatKind = "daily" | "weekly" | "every_n_days";
+
+/** Next occurrence strictly after now, preserving the reminder's time-of-day. */
+export function nextRepeatDue(due: number, kind: RepeatKind, interval?: number, now: number = Date.now()): number {
+  const stepDays = kind === "daily" ? 1 : kind === "weekly" ? 7 : Math.max(1, Math.round(interval ?? 1));
+  const step = stepDays * 86_400_000;
+  let next = due + step;
+  while (next <= now) next += step;
+  return next;
+}
+
+const YEAR_MS = 365.25 * 86_400_000;
+
+export function ageYearsFromBirthDate(birthDateMs: number, now: number = Date.now()): number {
+  return Math.max(0, (now - birthDateMs) / YEAR_MS);
+}
+
+/** The pet's next birthday (ms epoch) and the age it turns then. */
+export function nextBirthday(birthDateMs: number, now: number = Date.now()): { date: number; turns: number } {
+  const birth = new Date(birthDateMs);
+  const d = new Date(now);
+  const candidate = new Date(d.getFullYear(), birth.getMonth(), birth.getDate());
+  if (candidate.getTime() <= now) candidate.setFullYear(candidate.getFullYear() + 1);
+  return { date: candidate.getTime(), turns: candidate.getFullYear() - birth.getFullYear() };
+}
+
+/** The next anniversary (ms epoch) of a starting date — used for "gotcha day". */
+export function nextAnniversary(startMs: number, now: number = Date.now()): number {
+  const start = new Date(startMs);
+  const d = new Date(now);
+  const candidate = new Date(d.getFullYear(), start.getMonth(), start.getDate());
+  if (candidate.getTime() <= now) candidate.setFullYear(candidate.getFullYear() + 1);
+  return candidate.getTime();
 }
 
 export interface AppState {

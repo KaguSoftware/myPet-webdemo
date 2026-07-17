@@ -7,7 +7,7 @@ import PageLoading from "@/components/PageLoading";
 import PetAvatar, { InitialAvatar } from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
 import { Icon } from "@/components/Icons";
-import { AccentButton, Chevron, ConfirmRow, Group, IconCircle, Row, SectionHeader } from "@/components/ui";
+import { AccentButton, Chevron, ConfirmRow, Group, IconCircle, Row, SectionHeader, Segmented } from "@/components/ui";
 import { Member, Pet, formatAge, formatWeight, isAdminRole, kgToUnit, unitToKg, weightUnitLabel } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
@@ -47,6 +47,10 @@ export default function FamilySettingsPage() {
   const [editPetAge, setEditPetAge] = useState("");
   const [editPetWeight, setEditPetWeight] = useState("");
   const [editPetCup, setEditPetCup] = useState("");
+  const [editPetSex, setEditPetSex] = useState<"male" | "female" | "unset">("unset");
+  const [editPetBirth, setEditPetBirth] = useState("");
+  const [editPetChip, setEditPetChip] = useState("");
+  const [editPetAllergies, setEditPetAllergies] = useState("");
 
   const [deletingPet, setDeletingPet] = useState<Pet | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -55,9 +59,13 @@ export default function FamilySettingsPage() {
     setEditingPet(p);
     setEditPetName(p.name);
     setEditPetBreed(p.breed);
-    setEditPetAge(String(p.ageYears));
+    setEditPetAge(String(Math.round(p.ageYears * 10) / 10));
     setEditPetWeight(String(kgToUnit(p.weightKg, state.units)));
     setEditPetCup(String(p.cupGrams));
+    setEditPetSex(p.sex ?? "unset");
+    setEditPetBirth(p.birthDate != null ? new Date(p.birthDate).toISOString().slice(0, 10) : "");
+    setEditPetChip(p.microchip ?? "");
+    setEditPetAllergies(p.allergies ?? "");
   };
 
   const [addMemberOpen, setAddMemberOpen] = useState(false);
@@ -223,16 +231,40 @@ export default function FamilySettingsPage() {
               title="Family ID"
               subtitle={state.familyId ? `${state.familyId.slice(0, 8)}…` : "Loading…"}
               trailing={
-                <button
-                  onClick={() => {
-                    if (!state.familyId) return;
-                    navigator.clipboard.writeText(state.familyId);
-                    toast("list", "Family ID copied", "");
-                  }}
-                  className="text-[13px] font-semibold text-accent"
-                >
-                  Copy
-                </button>
+                <span className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      if (!state.familyId) return;
+                      navigator.clipboard.writeText(state.familyId);
+                      toast("list", "Family ID copied", "");
+                    }}
+                    className="text-[13px] font-semibold text-accent"
+                  >
+                    Copy
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!state.familyId) return;
+                      const url = `${window.location.origin}/join?f=${state.familyId}`;
+                      const text = "Join our PetPal household to share pet care:";
+                      // navigator.share throws AbortError when the user closes
+                      // the OS sheet — that's a cancel, not a failure.
+                      if (navigator.share) {
+                        try {
+                          await navigator.share({ title: "Join our PetPal family", text, url });
+                          return;
+                        } catch (e) {
+                          if ((e as DOMException)?.name === "AbortError") return;
+                        }
+                      }
+                      await navigator.clipboard.writeText(`${text} ${url}`);
+                      toast("people", "Invite link copied", "Send it to a family member");
+                    }}
+                    className="text-[13px] font-semibold text-accent"
+                  >
+                    Invite
+                  </button>
+                </span>
               }
             />
             <Row
@@ -328,6 +360,43 @@ export default function FamilySettingsPage() {
               </div>
             </div>
 
+            <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Sex</p>
+            <Segmented
+              options={[
+                { value: "male", label: "Male" },
+                { value: "female", label: "Female" },
+                { value: "unset", label: "Not set" },
+              ]}
+              value={editPetSex}
+              onChange={setEditPetSex}
+            />
+            <p className="mt-1.5 px-1 text-[12px] text-label-3">Used for the age-and-sex-specific weight &amp; feeding guide.</p>
+
+            <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Birth date (optional)</p>
+            <input
+              type="date"
+              value={editPetBirth}
+              onChange={(e) => setEditPetBirth(e.target.value)}
+              className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow focus:ring-accent/60"
+            />
+            {editPetBirth && <p className="mt-1.5 px-1 text-[12px] text-label-3">With a birth date set, age is calculated automatically.</p>}
+
+            <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Microchip number (optional)</p>
+            <input
+              value={editPetChip}
+              onChange={(e) => setEditPetChip(e.target.value)}
+              placeholder="e.g. 985112003456789"
+              className="w-full rounded-ios bg-card px-4 py-3.5 font-mono text-[15px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:font-sans placeholder:text-label-3 focus:ring-accent/60"
+            />
+
+            <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Allergies &amp; alerts (optional)</p>
+            <input
+              value={editPetAllergies}
+              onChange={(e) => setEditPetAllergies(e.target.value)}
+              placeholder="e.g. Chicken allergy, sensitive stomach"
+              className="w-full rounded-ios bg-card px-4 py-3.5 text-[16px] font-medium text-label shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-label-3 focus:ring-accent/60"
+            />
+
             <p className="mt-5 mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-label-2">Cup size (grams of food per cup)</p>
             <input
               type="number"
@@ -341,12 +410,21 @@ export default function FamilySettingsPage() {
               <AccentButton
                 disabled={!editPetName.trim() || !editPetBreed.trim()}
                 onClick={() => {
+                  const birthDate = editPetBirth ? new Date(`${editPetBirth}T12:00:00`).getTime() : null;
+                  if (birthDate != null && birthDate > Date.now()) {
+                    toast("alert", "Birth date is in the future", "Pick the actual birth date");
+                    return;
+                  }
                   editPet(editingPet.id, {
                     name: editPetName.trim(),
                     breed: editPetBreed.trim(),
                     ageYears: Number(editPetAge) || editingPet.ageYears,
                     weightKg: unitToKg(Number(editPetWeight) || kgToUnit(editingPet.weightKg, state.units), state.units),
                     cupGrams: Math.round(Number(editPetCup)) || editingPet.cupGrams,
+                    sex: editPetSex === "unset" ? null : editPetSex,
+                    birthDate,
+                    microchip: editPetChip.trim() || null,
+                    allergies: editPetAllergies.trim() || null,
                   });
                   toast("paw", `${editPetName.trim()} updated`, "");
                   setEditingPet(null);

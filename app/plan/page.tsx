@@ -8,6 +8,7 @@ import Paywall from "@/components/Paywall";
 import EmptyState from "@/components/EmptyState";
 import EditStatSheet from "@/components/EditStatSheet";
 import EditTextSheet from "@/components/EditTextSheet";
+import FeedPortionSheet from "@/components/FeedPortionSheet";
 import PetAvatar from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
 import { ACTION_ICON, Icon, IconName } from "@/components/Icons";
@@ -103,8 +104,9 @@ const GUIDE_GROUP_BY_TITLE: Record<string, GuideGroupKey> = {
 
 export default function PlanPage() {
   const router = useRouter();
-  const { state, hydrated, editPet, toast } = useStore();
+  const { state, hydrated, editPet, logAction, toast } = useStore();
   const [petId, setPetId] = useState(state.pets[0]?.id ?? "");
+  const [feedPortionOpen, setFeedPortionOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<CustomTargetKey | null>(null);
   const [editingCadence, setEditingCadence] = useState<string | null>(null);
@@ -243,6 +245,15 @@ export default function PlanPage() {
                 return (
                   <Row
                     key={item.title}
+                    onClick={
+                      complete
+                        ? undefined
+                        : () => {
+                            if (item.action === "fed") setFeedPortionOpen(true);
+                            else logAction(pet.id, item.action!);
+                          }
+                    }
+                    ariaLabel={complete ? undefined : `Log ${item.title.toLowerCase()} for ${pet.name}`}
                     leading={
                       complete ? (
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green text-white">
@@ -452,6 +463,8 @@ export default function PlanPage() {
             }}
           />
         ))}
+
+      <FeedPortionSheet pet={pet} open={feedPortionOpen} onClose={() => setFeedPortionOpen(false)} />
     </div>
   );
 }

@@ -21,7 +21,7 @@ function toneOf(icon: IconName): "alert" | "success" | "info" {
 export default function Toasts() {
   const { toasts, dismissToast } = useStore();
   return (
-    <div className="pointer-events-none absolute right-0 top-0 z-50 flex w-full max-w-82.5 flex-col items-end gap-2 px-3 pt-4 md:pt-13">
+    <div className="pointer-events-none absolute right-0 top-0 z-50 flex w-full max-w-82.5 flex-col items-end gap-2 px-3 pt-4 md:pt-13 print:hidden">
       {toasts.map((t) => (
         <div
           key={t.id}
@@ -39,7 +39,10 @@ export default function Toasts() {
           </button>
           {t.action && (
             <button
-              onClick={t.action.onClick}
+              onClick={() => {
+                t.action!.onClick();
+                dismissToast(t.id);
+              }}
               className="shrink-0 rounded-full bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-white transition-transform active:scale-95"
             >
               {t.action.label}

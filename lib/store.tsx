@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ACTIONS, ActionType, ADMIN_ROLE, Activity, AppState, CosmeticSlot, Med, Member, Pet, Reminder, VET, cosmetic, dailyGramTarget, dailyTarget } from "./data";
+import { ACTIONS, ActionType, ADMIN_ROLE, Activity, AppState, CosmeticSlot, Med, Member, Pet, RepeatKind, Reminder, Vaccination, VET, VetVisit, ageYearsFromBirthDate, cosmetic, dailyGramTarget, dailyTarget, nextRepeatDue } from "./data";
 import { ACTION_ICON, type IconName } from "@/components/Icons";
 
 // Verb used in alert copy for each loggable action that can carry a /plan daily target.
@@ -72,11 +72,14 @@ interface Store {
   state: AppState;
   hydrated: boolean;
   userEmail: string | null;
-  toast: (icon: IconName, title: string, body?: string) => void;
+  toast: (icon: IconName, title: string, body?: string, action?: Toast["action"]) => void;
   toasts: Toast[];
   dismissToast: (id: number) => void;
   stopNotifications: () => void;
-  logAction: (petId: string, type: ActionType, grams?: number) => boolean;
+  /** Log a care action. `ts` (default now) allows retro logging — earlier today or yesterday. */
+  logAction: (petId: string, type: ActionType, grams?: number, ts?: number) => boolean;
+  /** Compensating undo for a just-logged action: removes the activity, takes back the coins, recomputes the streak. */
+  undoLogAction: (activityId: string) => void;
   switchMember: (id: string) => void;
   setPremium: (on: boolean) => void;
   buyCosmetic: (petId: string, cosmeticId: string) => void;
@@ -96,10 +99,25 @@ interface Store {
   }) => void;
   editPet: (
     petId: string,
-    patch: { name: string; breed: string; ageYears: number; weightKg: number; cupGrams: number; customPlan?: Pet["customPlan"] }
+    patch: {
+      name: string;
+      breed: string;
+      ageYears: number;
+      weightKg: number;
+      cupGrams: number;
+      customPlan?: Pet["customPlan"];
+      /** Optional identity fields — only keys PRESENT in the patch are written (pass null to clear). */
+      sex?: "male" | "female" | null;
+      birthDate?: number | null;
+      microchip?: string | null;
+      allergies?: string | null;
+      notes?: string | null;
+    }
   ) => void;
   deletePet: (petId: string) => void;
-  addWeight: (petId: string, kg: number) => void;
+  /** Append a weight point. `ts` (default now) allows date-picked entries; the headline weight always tracks the latest point. */
+  addWeight: (petId: string, kg: number, ts?: number) => void;
+  deleteWeight: (petId: string, weightId: string) => void;
   addMember: (name: string, role: string) => void;
   editMember: (memberId: string, patch: { name: string; role: string }) => void;
   removeMember: (memberId: string) => void;
@@ -109,6 +127,12 @@ interface Store {
   useSupply: (petId: string, supplyId: string) => void;
   addMed: (petId: string, name: string, dosage?: string, frequency?: string) => void;
   deleteMed: (petId: string, medId: string) => void;
+  /** Record a vaccination; when `nextDue` is set a linked reminder is created with it. */
+  addVaccination: (petId: string, input: { name: string; dateGiven: number; nextDue?: number; notes?: string }) => void;
+  deleteVaccination: (petId: string, vaccinationId: string) => void;
+  /** Record a vet visit. Does NOT log a "vet" activity — pair with logAction when the feed entry is wanted. */
+  addVetVisit: (petId: string, input: { ts: number; vetName?: string; reason?: string; notes?: string }) => void;
+  deleteVetVisit: (petId: string, visitId: string) => void;
   setSeenWelcome: (seen: boolean) => void;
   setUnits: (units: "kg" | "lb") => void;
   /** Set, change, or remove (pass null) the family password. Verifies `currentPassword` against the stored hash first if one is already set — returns false and toasts on mismatch. */
@@ -340,9 +364,15 @@ type PetRow = {
   gradient_to: string;
   cup_grams: number | null;
   custom_plan: Pet["customPlan"] | null;
-  weights?: { ts: number; kg: number; created_at?: string }[];
+  birth_date: number | null;
+  microchip: string | null;
+  allergies: string | null;
+  notes: string | null;
+  weights?: { id: string; ts: number; kg: number; created_at?: string }[];
   supplies?: { supply_key: string; name: string; icon: string; level: number }[];
   meds?: { id: string; name: string; dosage: string | null; frequency: string | null }[];
+  vaccinations?: { id: string; pet_id: string; name: string; date_given: number; next_due: number | null; notes: string | null }[];
+  vet_visits?: { id: string; pet_id: string; ts: number; vet_name: string | null; reason: string | null; notes: string | null }[];
 };
 
 // One nested query (household + every child table via FK embedding) instead
@@ -355,6 +385,18 @@ type PetRow = {
 // can't infer which one to embed through and errors with PGRST201 (ambiguous
 // embed) without it.
 const HOUSEHOLD_SELECT = `
+  *,
+  members!members_household_id_fkey(*),
+  pets(*, weights(*), supplies(*), meds(*), vaccinations(*), vet_visits(*)),
+  activities(*),
+  reminders(*),
+  booked_vets(vet_id)
+`;
+
+// Pre-0013 fallback: if the health tables don't exist yet (migrations
+// 0013/0014 not applied), the embed above errors — retry without them so the
+// app still hydrates. Health features stay inert until the SQL is run.
+const LEGACY_HOUSEHOLD_SELECT = `
   *,
   members!members_household_id_fkey(*),
   pets(*, weights(*), supplies(*), meds(*)),
@@ -389,7 +431,7 @@ type HouseholdRow = {
   }[];
   pets: (PetRow & { created_at: string })[];
   activities: { id: string; pet_id: string; member_id: string; type: ActionType; ts: number; note: string | null; grams: number | null }[];
-  reminders: { id: string; pet_id: string; title: string; emoji: string; due: number; done: boolean; source: "manual" | "plan"; alert: boolean | null; vet_id: string | null; alert_kind: string | null }[];
+  reminders: { id: string; pet_id: string; title: string; emoji: string; due: number; done: boolean; source: "manual" | "plan"; alert: boolean | null; vet_id: string | null; alert_kind: string | null; repeat_kind: RepeatKind | "none" | null; repeat_interval: number | null; vaccination_id: string | null }[];
   booked_vets: { vet_id: string }[];
 };
 
@@ -409,6 +451,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // logAction/buyCosmetic so two rapid taps can't both compute from the same
   // stale render and lose an increment. Reset from the server in load().
   const rewardsRef = useRef({ coins: state.coins });
+  // True when hydration had to fall back to the pre-0013 select — reminder
+  // inserts then omit the v2 columns so they still succeed on the old schema.
+  const legacySchemaRef = useRef(false);
   const notifiedActivityIdsRef = useRef<Set<string>>(new Set());
   // setTimeout ids for the staggered "what everyone else did" toast batch
   // (see notifyRecentActivity below) — lets stopNotifications cancel any
@@ -434,9 +479,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    (icon: IconName, title: string, body?: string) => {
+    (icon: IconName, title: string, body?: string, action?: Toast["action"]) => {
       const id = Date.now() + Math.floor(Math.random() * 1000);
-      setToasts((t) => [...t.slice(-2), { id, icon, title, body }]);
+      setToasts((t) => [...t.slice(-2), { id, icon, title, body, action }]);
       setTimeout(() => dismissToast(id), 4200);
     },
     [dismissToast]
@@ -730,10 +775,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       // Single nested query for household + members/pets/weights/supplies/
       // activities/reminders/booked_vets in one round trip.
+      const fetchHousehold = async (id: string) => {
+        let res = await supabase.from("households").select(HOUSEHOLD_SELECT).eq("id", id).maybeSingle<HouseholdRow>();
+        if (res.error && /vaccinations|vet_visits/i.test(res.error.message ?? "")) {
+          console.warn("[petpal] health tables missing — apply migrations 0013/0014; loading without them for now");
+          legacySchemaRef.current = true;
+          res = await supabase.from("households").select(LEGACY_HOUSEHOLD_SELECT).eq("id", id).maybeSingle<HouseholdRow>();
+        }
+        return res;
+      };
+
       let household: HouseholdRow | null = null;
       let householdErr: { code?: string; message?: string; details?: string; hint?: string } | null = null;
       if (activeId) {
-        const res = await supabase.from("households").select(HOUSEHOLD_SELECT).eq("id", activeId).maybeSingle<HouseholdRow>();
+        const res = await fetchHousehold(activeId);
         household = res.data;
         householdErr = res.error;
       }
@@ -750,15 +805,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         );
         // bootstrapHousehold only inserts the bare household row (plus its
         // seed children separately) — refetch nested so the shape matches.
-        finalHousehold = bootstrapped
-          ? (
-              await supabase
-                .from("households")
-                .select(HOUSEHOLD_SELECT)
-                .eq("id", bootstrapped.id)
-                .maybeSingle<HouseholdRow>()
-            ).data
-          : null;
+        finalHousehold = bootstrapped ? (await fetchHousehold(bootstrapped.id)).data : null;
       }
       if (!finalHousehold || cancelled) {
         setHydrated(true);
@@ -778,15 +825,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const reminders = [...(h.reminders ?? [])].sort((a, b) => Number(a.due) - Number(b.due));
       const bookedVets = h.booked_vets ?? [];
 
-      const pets: Pet[] = petRows.map((p: PetRow) => ({
+      const pets: Pet[] = petRows.map((p: PetRow & { created_at: string }) => ({
         id: p.id,
         name: p.name,
         species: p.species,
         breed: p.breed,
         sex: p.sex ?? undefined,
         emoji: p.emoji,
-        ageYears: p.age_years,
+        ageYears: p.birth_date != null ? ageYearsFromBirthDate(Number(p.birth_date)) : p.age_years,
         weightKg: p.weight_kg,
+        createdAt: Date.parse(p.created_at),
+        birthDate: p.birth_date != null ? Number(p.birth_date) : undefined,
+        microchip: p.microchip ?? undefined,
+        allergies: p.allergies ?? undefined,
+        notes: p.notes ?? undefined,
         owned: p.owned,
         equipped: p.equipped,
         gradient: [p.gradient_from, p.gradient_to],
@@ -794,9 +846,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         customPlan: p.custom_plan ?? undefined,
         weights: [...(p.weights ?? [])]
           .sort((a, b) => Number(a.ts) - Number(b.ts))
-          .map((w) => ({ ts: Number(w.ts), kg: Number(w.kg) })),
+          .map((w) => ({ id: w.id, ts: Number(w.ts), kg: Number(w.kg) })),
         supplies: (p.supplies ?? []).map((s) => ({ id: s.supply_key, name: s.name, icon: s.icon, level: s.level })),
         meds: (p.meds ?? []).map((m) => ({ id: m.id, name: m.name, dosage: m.dosage ?? undefined, frequency: m.frequency ?? undefined })),
+        vaccinations: [...(p.vaccinations ?? [])]
+          .sort((a, b) => Number(b.date_given) - Number(a.date_given))
+          .map(
+            (v): Vaccination => ({
+              id: v.id,
+              petId: v.pet_id,
+              name: v.name,
+              dateGiven: Number(v.date_given),
+              nextDue: v.next_due != null ? Number(v.next_due) : undefined,
+              notes: v.notes ?? undefined,
+            })
+          ),
+        vetVisits: [...(p.vet_visits ?? [])]
+          .sort((a, b) => Number(b.ts) - Number(a.ts))
+          .map(
+            (v): VetVisit => ({
+              id: v.id,
+              petId: v.pet_id,
+              ts: Number(v.ts),
+              vetName: v.vet_name ?? undefined,
+              reason: v.reason ?? undefined,
+              notes: v.notes ?? undefined,
+            })
+          ),
       }));
 
       if (cancelled) return;
@@ -846,6 +922,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         alert: r.alert ?? false,
         vetId: r.vet_id ?? undefined,
         alertKind: r.alert_kind ?? undefined,
+        repeatKind: r.repeat_kind && r.repeat_kind !== "none" ? r.repeat_kind : undefined,
+        repeatInterval: r.repeat_interval ?? undefined,
+        vaccinationId: r.vaccination_id ?? undefined,
       }));
       // Derive the streak from real history so the headline always matches the
       // calendar's lit days; persist it back if the stored value drifted.
@@ -916,6 +995,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // ones raised by the checks above.
       notifyCareWarnings(currentMemberId, reminderList);
 
+      // Vaccine-due catch-up: any vaccination coming due within 30 days (or up
+      // to a week overdue) that has no linked reminder gets one. Same
+      // optimistic-insert-with-self-rollback shape as the care alerts above.
+      const vaccSoon = Date.now() + 30 * 86_400_000;
+      const vaccGrace = Date.now() - 7 * 86_400_000;
+      pets.forEach((p) => {
+        p.vaccinations.forEach((v) => {
+          if (v.nextDue == null || v.nextDue > vaccSoon || v.nextDue < vaccGrace) return;
+          if (reminderList.some((r) => r.vaccinationId === v.id)) return;
+          const rid = crypto.randomUUID();
+          const reminder: Reminder = {
+            id: rid,
+            petId: p.id,
+            title: `${p.name} — ${v.name} due`,
+            emoji: "💉",
+            due: v.nextDue,
+            done: false,
+            source: "manual",
+            vaccinationId: v.id,
+          };
+          setState((prev) => ({ ...prev, reminders: [...prev.reminders, reminder] }));
+          supabase
+            .from("reminders")
+            .insert({ id: rid, household_id: h.id, pet_id: p.id, title: reminder.title, emoji: "💉", due: v.nextDue, done: false, source: "manual", vaccination_id: v.id })
+            .then(({ error }) => {
+              if (error) {
+                console.error("[petpal] vaccine reminder insert failed:", error);
+                setState((prev) => ({ ...prev, reminders: prev.reminders.filter((r) => r.id !== rid) }));
+              }
+            });
+        });
+      });
+
       supabase.from("households").update({ last_seen_at: Date.now() }).eq("id", h.id).then();
     }
 
@@ -938,8 +1050,64 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, toast, notifyRecentActivity, raiseFeedingAlert, checkCareAlerts, notifyCareWarnings]);
 
+  // Compensating undo for a just-logged action. The activity insert already
+  // fired, so this deletes it back out; coins go through rewardsRef (the sole
+  // authoritative coins path) and the streak is recomputed from what remains.
+  // The supply drained by the original log is topped back up with the same
+  // formula logAction used, clamped to 100.
+  const undoLogAction = useCallback(
+    (activityId: string) => {
+      const removed = stateRef.current.activities.find((a) => a.id === activityId);
+      if (!removed) return;
+      const pet = stateRef.current.pets.find((p) => p.id === removed.petId);
+      const remaining = stateRef.current.activities.filter((a) => a.id !== activityId);
+      rewardsRef.current = { coins: Math.max(0, rewardsRef.current.coins - 5) };
+      const newStreak = computeStreak(remaining);
+      // Mirror logAction's supply drain in reverse (litter/walk: broom −15;
+      // fed-with-grams: bowl −10 per full cup).
+      const refill =
+        pet &&
+        (removed.type === "litter" || removed.type === "walk"
+          ? { supply: pet.supplies.find((s) => s.icon === "broom"), amount: 15 }
+          : removed.type === "fed" && removed.grams != null
+            ? { supply: pet.supplies.find((s) => s.icon === "bowl"), amount: 10 * (removed.grams / pet.cupGrams) }
+            : null);
+      setState((prev) => ({
+        ...prev,
+        coins: Math.max(0, prev.coins - 5),
+        streak: newStreak,
+        activities: prev.activities.filter((a) => a.id !== activityId),
+        pets:
+          refill?.supply != null
+            ? prev.pets.map((p) =>
+                p.id === removed.petId
+                  ? {
+                      ...p,
+                      supplies: p.supplies.map((s) =>
+                        s.id === refill.supply!.id ? { ...s, level: Math.min(100, s.level + refill.amount) } : s
+                      ),
+                    }
+                  : p
+              )
+            : prev.pets,
+      }));
+      syncCounters();
+      const ops: PromiseLike<{ error: unknown }>[] = [supabase.from("activities").delete().eq("id", activityId)];
+      if (refill?.supply != null) {
+        const level = Math.min(100, refill.supply.level + refill.amount);
+        ops.push(supabase.from("supplies").update({ level }).eq("pet_id", removed.petId).eq("supply_key", refill.supply.id));
+      }
+      Promise.all(ops).then((results) => {
+        const failed = results.find((r) => r && r.error);
+        if (failed) console.error("[petpal] undo log failed:", failed.error);
+      });
+      toast(ACTION_ICON[removed.type].icon, "Log removed", `${pet?.name ?? "Pet"} — entry undone`);
+    },
+    [supabase, syncCounters, toast]
+  );
+
   const logAction = useCallback(
-    (petId: string, type: ActionType, grams?: number): boolean => {
+    (petId: string, type: ActionType, grams?: number, tsArg?: number): boolean => {
       const h = hid();
       if (!h) return false;
       const pet = stateRef.current.pets.find((p) => p.id === petId);
@@ -950,7 +1118,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       const id = crypto.randomUUID();
-      const ts = Date.now();
+      const ts = tsArg ?? Date.now();
+      // Retro logs (earlier today / yesterday) skip the same-day alert
+      // machinery below — a backfilled entry must not raise or resolve
+      // "today"-shaped warnings.
+      const isToday = sameCalendarDay(ts, Date.now());
       const memberId = stateRef.current.currentMemberId;
       // Logging litter (cats) or a walk (dogs) drains the sanitation supply,
       // matched by icon rather than a hardcoded id — seed cats use "litter",
@@ -997,8 +1169,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
 
       const time = new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const timeLabel = isToday ? time : `${time} yesterday`;
       const gramsNote = type === "fed" && grams != null ? `${Math.round(grams)} g · ` : "";
-      toast(ACTION_ICON[type].icon, `${pet.name} — ${ACTIONS[type].label.toLowerCase()} at ${time}`, `Family notified · ${gramsNote}+5 coins`);
+      toast(ACTION_ICON[type].icon, `${pet.name} — ${ACTIONS[type].label.toLowerCase()} at ${timeLabel}`, `Family notified · ${gramsNote}+5 coins`, {
+        label: "Undo",
+        onClick: () => undoLogAction(id),
+      });
       if (newStreak > before.streak) toast("flame", `${newStreak}-day streak!`, "You're on a roll — keep it going");
 
       // Persist the activity (+ any supply drain) per-row; on failure roll the
@@ -1026,7 +1202,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Logging fed/water/litter/walk resolves that kind's outstanding
       // "hasn't happened in a while" warning for this pet (matched by
       // (pet, kind), same as raiseCareAlert — survives a rename).
-      if (type === "fed" || type === "water" || type === "litter" || type === "walk") {
+      if (isToday && (type === "fed" || type === "water" || type === "litter" || type === "walk")) {
         const careAlerts = stateRef.current.reminders.filter(
           (r) => r.alert && !r.vetId && r.petId === petId && !r.done && r.alertKind === type
         );
@@ -1042,7 +1218,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Over-target check: raise a health alert and suggest a vet visit.
       // Feeding is judged on grams fed today vs the pet's daily gram target;
       // every other tracked action is judged on raw tap count vs its /plan
-      // (or species-default) daily target.
+      // (or species-default) daily target. Skipped for retro logs — a
+      // backfilled yesterday entry can't mean "way more than usual today".
+      if (!isToday) return true;
       if (type === "fed" && grams != null) {
         const gramTarget = dailyGramTarget(pet);
         if (gramTarget) {
@@ -1067,7 +1245,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       return true;
     },
-    [supabase, toast, persist, syncCounters, raiseFeedingAlert]
+    [supabase, toast, persist, syncCounters, raiseFeedingAlert, undoLogAction]
   );
 
   const switchMember = useCallback(
@@ -1175,19 +1353,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         reminders: [...prev.reminders, { ...r, id, done: false, source: "manual" }],
       }));
+      const row: Record<string, unknown> = {
+        id,
+        household_id: h,
+        pet_id: r.petId,
+        title: r.title,
+        emoji: r.emoji,
+        due: r.due,
+        done: false,
+        source: "manual",
+        alert: r.alert ?? false,
+        vet_id: r.vetId ?? null,
+      };
+      if (!legacySchemaRef.current) {
+        row.repeat_kind = r.repeatKind ?? "none";
+        row.repeat_interval = r.repeatInterval ?? null;
+        row.vaccination_id = r.vaccinationId ?? null;
+      }
       persist(
-        supabase.from("reminders").insert({
-          id,
-          household_id: h,
-          pet_id: r.petId,
-          title: r.title,
-          emoji: r.emoji,
-          due: r.due,
-          done: false,
-          source: "manual",
-          alert: r.alert ?? false,
-          vet_id: r.vetId ?? null,
-        }),
+        supabase.from("reminders").insert(row),
         {
           rollback: () => setState((prev) => ({ ...prev, reminders: prev.reminders.filter((x) => x.id !== id) })),
           message: "Reminder wasn't saved",
@@ -1201,6 +1385,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (id: string) => {
       const r = stateRef.current.reminders.find((x) => x.id === id);
       if (!r) return;
+      // Recurring reminders never complete — checking one off rolls its due
+      // date forward to the next occurrence instead. (Alert reminders never
+      // carry repeatKind, so the alert/bell machinery is untouched.)
+      if (!r.done && r.repeatKind) {
+        const prevDue = r.due;
+        const next = nextRepeatDue(r.due, r.repeatKind, r.repeatInterval);
+        setState((prev) => ({
+          ...prev,
+          reminders: prev.reminders.map((x) => (x.id === id ? { ...x, due: next } : x)),
+        }));
+        persist(supabase.from("reminders").update({ due: next }).eq("id", id), {
+          rollback: () =>
+            setState((prev) => ({ ...prev, reminders: prev.reminders.map((x) => (x.id === id ? { ...x, due: prevDue } : x)) })),
+          message: "Couldn't update reminder",
+        });
+        return;
+      }
       const done = !r.done;
       setState((prev) => ({
         ...prev,
@@ -1261,12 +1462,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         { id: species === "cat" ? "litter" : "poopbags", name: species === "cat" ? "Litter" : "Poop bags", icon: "broom", level: 100 },
         { id: "treats", name: "Treats", icon: "star", level: 100 },
       ];
-      const weights = [{ ts: Date.now(), kg: weightKg }];
+      const weights = [{ id: crypto.randomUUID(), ts: Date.now(), kg: weightKg }];
       setState((prev) => ({
         ...prev,
         pets: [
           ...prev.pets,
-          { id, name, species, breed, sex, emoji: species === "cat" ? "🐱" : "🐶", ageYears, weightKg, owned: [], equipped: {}, gradient, weights, supplies, meds: [], cupGrams, customPlan },
+          { id, name, species, breed, sex, emoji: species === "cat" ? "🐱" : "🐶", ageYears, weightKg, owned: [], equipped: {}, gradient, weights, supplies, meds: [], vaccinations: [], vetVisits: [], createdAt: Date.now(), cupGrams, customPlan },
         ],
       }));
       const rollback = () => setState((prev) => ({ ...prev, pets: prev.pets.filter((p) => p.id !== id) }));
@@ -1298,7 +1499,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         const [{ error: weightError }, { error: supplyError }] = await Promise.all([
-          supabase.from("weights").insert({ pet_id: id, ts: weights[0].ts, kg: weightKg }),
+          supabase.from("weights").insert({ id: weights[0].id, pet_id: id, ts: weights[0].ts, kg: weightKg }),
           supabase.from("supplies").insert(supplies.map((s) => ({ pet_id: id, supply_key: s.id, name: s.name, icon: s.icon, level: s.level }))),
         ]);
         if (weightError || supplyError) {
@@ -1318,7 +1519,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const editPet = useCallback(
     (
       petId: string,
-      patch: { name: string; breed: string; ageYears: number; weightKg: number; cupGrams: number; customPlan?: Pet["customPlan"] }
+      patch: {
+        name: string;
+        breed: string;
+        ageYears: number;
+        weightKg: number;
+        cupGrams: number;
+        customPlan?: Pet["customPlan"];
+        sex?: "male" | "female" | null;
+        birthDate?: number | null;
+        microchip?: string | null;
+        allergies?: string | null;
+        notes?: string | null;
+      }
     ) => {
       const prev = stateRef.current.pets.find((p) => p.id === petId);
       // If the weight changed, append a history point (and persist it) so the
@@ -1326,24 +1539,50 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // here bypassed the weights table entirely.
       const weightChanged = prev != null && patch.weightKg !== prev.weightKg;
       const ts = Date.now();
+      const weightId = crypto.randomUUID();
+      // A set birth date wins over a hand-typed age — the two must never disagree.
+      const ageYears = patch.birthDate != null ? ageYearsFromBirthDate(patch.birthDate) : patch.ageYears;
+      // Identity fields are presence-guarded so narrow callers (e.g. the age
+      // chip editor) can never wipe sex/microchip/etc. they didn't touch.
+      const identity: Partial<Pet> = {};
+      if ("sex" in patch) identity.sex = patch.sex ?? undefined;
+      if ("birthDate" in patch) identity.birthDate = patch.birthDate ?? undefined;
+      if ("microchip" in patch) identity.microchip = patch.microchip ?? undefined;
+      if ("allergies" in patch) identity.allergies = patch.allergies ?? undefined;
+      if ("notes" in patch) identity.notes = patch.notes ?? undefined;
       setState((s) => ({
         ...s,
         pets: s.pets.map((p) =>
           p.id === petId
-            ? { ...p, ...patch, weights: weightChanged ? [...p.weights, { ts, kg: patch.weightKg }] : p.weights }
+            ? {
+                ...p,
+                name: patch.name,
+                breed: patch.breed,
+                ageYears,
+                weightKg: patch.weightKg,
+                cupGrams: patch.cupGrams,
+                ...("customPlan" in patch ? { customPlan: patch.customPlan } : {}),
+                ...identity,
+                weights: weightChanged ? [...p.weights, { id: weightId, ts, kg: patch.weightKg }] : p.weights,
+              }
             : p
         ),
       }));
       const updateRow: Record<string, unknown> = {
         name: patch.name,
         breed: patch.breed,
-        age_years: patch.ageYears,
+        age_years: ageYears,
         weight_kg: patch.weightKg,
         cup_grams: patch.cupGrams,
       };
       if ("customPlan" in patch) updateRow.custom_plan = patch.customPlan ?? null;
+      if ("sex" in patch) updateRow.sex = patch.sex ?? null;
+      if ("birthDate" in patch) updateRow.birth_date = patch.birthDate ?? null;
+      if ("microchip" in patch) updateRow.microchip = patch.microchip ?? null;
+      if ("allergies" in patch) updateRow.allergies = patch.allergies ?? null;
+      if ("notes" in patch) updateRow.notes = patch.notes ?? null;
       const ops: PromiseLike<{ error: unknown }>[] = [supabase.from("pets").update(updateRow).eq("id", petId)];
-      if (weightChanged) ops.push(supabase.from("weights").insert({ pet_id: petId, ts, kg: patch.weightKg }));
+      if (weightChanged) ops.push(supabase.from("weights").insert({ id: weightId, pet_id: petId, ts, kg: patch.weightKg }));
       persist(ops, {
         rollback: () => prev && setState((s) => ({ ...s, pets: s.pets.map((p) => (p.id === petId ? prev : p)) })),
         message: "Couldn't save pet changes",
@@ -1366,27 +1605,70 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addWeight = useCallback(
-    (petId: string, kg: number) => {
-      const ts = Date.now();
+    (petId: string, kg: number, tsArg?: number) => {
+      const ts = tsArg ?? Date.now();
+      const id = crypto.randomUUID();
       const prev = stateRef.current.pets.find((p) => p.id === petId);
+      if (!prev) return;
+      // Date-picked entries can land mid-history — keep the list sorted and
+      // let the headline weight track whatever point is now latest.
+      const weights = [...prev.weights, { id, ts, kg }].sort((a, b) => a.ts - b.ts);
+      const latestKg = weights[weights.length - 1].kg;
       setState((s) => ({
         ...s,
-        pets: s.pets.map((p) =>
-          p.id === petId ? { ...p, weightKg: kg, weights: [...p.weights, { ts, kg }] } : p
-        ),
+        pets: s.pets.map((p) => (p.id === petId ? { ...p, weightKg: latestKg, weights } : p)),
       }));
       persist(
         [
-          supabase.from("weights").insert({ pet_id: petId, ts, kg }),
-          supabase.from("pets").update({ weight_kg: kg }).eq("id", petId),
+          supabase.from("weights").insert({ id, pet_id: petId, ts, kg }),
+          supabase.from("pets").update({ weight_kg: latestKg }).eq("id", petId),
         ],
         {
-          rollback: () => prev && setState((s) => ({ ...s, pets: s.pets.map((p) => (p.id === petId ? prev : p)) })),
+          rollback: () => setState((s) => ({ ...s, pets: s.pets.map((p) => (p.id === petId ? prev : p)) })),
           message: "Couldn't save weight",
         }
       );
     },
     [supabase, persist]
+  );
+
+  const deleteWeight = useCallback(
+    (petId: string, weightId: string) => {
+      const pet = stateRef.current.pets.find((p) => p.id === petId);
+      const removed = pet?.weights.find((w) => w.id === weightId);
+      if (!pet || !removed) return;
+      if (pet.weights.length <= 1) {
+        toast("scale", "Can't delete the only entry", `${pet.name} needs at least one weight on record`);
+        return;
+      }
+      const remaining = pet.weights.filter((w) => w.id !== weightId);
+      const latestKg = remaining[remaining.length - 1].kg;
+      const beforeKg = pet.weightKg;
+      undoableDelete({
+        remove: () =>
+          setState((prev) => ({
+            ...prev,
+            pets: prev.pets.map((p) =>
+              p.id === petId ? { ...p, weightKg: latestKg, weights: p.weights.filter((w) => w.id !== weightId) } : p
+            ),
+          })),
+        restore: () =>
+          setState((prev) => ({
+            ...prev,
+            pets: prev.pets.map((p) =>
+              p.id === petId && !p.weights.some((w) => w.id === weightId)
+                ? { ...p, weightKg: beforeKg, weights: [...p.weights, removed].sort((a, b) => a.ts - b.ts) }
+                : p
+            ),
+          })),
+        commit: () => {
+          supabase.from("weights").delete().eq("id", weightId).then();
+          supabase.from("pets").update({ weight_kg: latestKg }).eq("id", petId).then();
+        },
+        message: "Weight entry deleted",
+      });
+    },
+    [supabase, undoableDelete, toast]
   );
 
   const addMember = useCallback(
@@ -1590,6 +1872,163 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [supabase, undoableDelete]
   );
 
+  const addVaccination = useCallback(
+    (petId: string, input: { name: string; dateGiven: number; nextDue?: number; notes?: string }) => {
+      const h = hid();
+      const pet = stateRef.current.pets.find((p) => p.id === petId);
+      if (!h || !pet) return;
+      const id = crypto.randomUUID();
+      const vacc: Vaccination = { id, petId, name: input.name, dateGiven: input.dateGiven, nextDue: input.nextDue, notes: input.notes };
+      const reminder: Reminder | null =
+        input.nextDue != null
+          ? {
+              id: crypto.randomUUID(),
+              petId,
+              title: `${pet.name} — ${input.name} due`,
+              emoji: "💉",
+              due: input.nextDue,
+              done: false,
+              source: "manual",
+              vaccinationId: id,
+            }
+          : null;
+      setState((prev) => ({
+        ...prev,
+        pets: prev.pets.map((p) =>
+          p.id === petId ? { ...p, vaccinations: [vacc, ...p.vaccinations].sort((a, b) => b.dateGiven - a.dateGiven) } : p
+        ),
+        reminders: reminder ? [...prev.reminders, reminder] : prev.reminders,
+      }));
+      // Sequenced, not parallel: the reminder row's vaccination_id FK needs the
+      // vaccination row to exist first.
+      const op = (async () => {
+        const r1 = await supabase.from("vaccinations").insert({
+          id,
+          pet_id: petId,
+          name: input.name,
+          date_given: input.dateGiven,
+          next_due: input.nextDue ?? null,
+          notes: input.notes ?? null,
+        });
+        if (r1.error || !reminder) return r1;
+        return supabase.from("reminders").insert({
+          id: reminder.id,
+          household_id: h,
+          pet_id: petId,
+          title: reminder.title,
+          emoji: reminder.emoji,
+          due: reminder.due,
+          done: false,
+          source: "manual",
+          vaccination_id: id,
+        });
+      })();
+      persist(op, {
+        rollback: () =>
+          setState((prev) => ({
+            ...prev,
+            pets: prev.pets.map((p) => (p.id === petId ? { ...p, vaccinations: p.vaccinations.filter((v) => v.id !== id) } : p)),
+            reminders: reminder ? prev.reminders.filter((r) => r.id !== reminder.id) : prev.reminders,
+          })),
+        message: "Couldn't save vaccination",
+      });
+    },
+    [supabase, persist]
+  );
+
+  const deleteVaccination = useCallback(
+    (petId: string, vaccinationId: string) => {
+      const pet = stateRef.current.pets.find((p) => p.id === petId);
+      const removed = pet?.vaccinations.find((v) => v.id === vaccinationId);
+      if (!removed) return;
+      // The DB cascades the linked reminder away with the vaccination — mirror
+      // that locally in remove/restore.
+      const removedReminders = stateRef.current.reminders.filter((r) => r.vaccinationId === vaccinationId);
+      undoableDelete({
+        remove: () =>
+          setState((prev) => ({
+            ...prev,
+            pets: prev.pets.map((p) =>
+              p.id === petId ? { ...p, vaccinations: p.vaccinations.filter((v) => v.id !== vaccinationId) } : p
+            ),
+            reminders: prev.reminders.filter((r) => r.vaccinationId !== vaccinationId),
+          })),
+        restore: () =>
+          setState((prev) => ({
+            ...prev,
+            pets: prev.pets.map((p) =>
+              p.id === petId && !p.vaccinations.some((v) => v.id === vaccinationId)
+                ? { ...p, vaccinations: [...p.vaccinations, removed].sort((a, b) => b.dateGiven - a.dateGiven) }
+                : p
+            ),
+            reminders: [...prev.reminders, ...removedReminders.filter((r) => !prev.reminders.some((x) => x.id === r.id))],
+          })),
+        commit: () => supabase.from("vaccinations").delete().eq("id", vaccinationId).then(),
+        message: `${removed.name} removed`,
+      });
+    },
+    [supabase, undoableDelete]
+  );
+
+  const addVetVisit = useCallback(
+    (petId: string, input: { ts: number; vetName?: string; reason?: string; notes?: string }) => {
+      const pet = stateRef.current.pets.find((p) => p.id === petId);
+      if (!pet) return;
+      const id = crypto.randomUUID();
+      const visit: VetVisit = { id, petId, ts: input.ts, vetName: input.vetName, reason: input.reason, notes: input.notes };
+      setState((prev) => ({
+        ...prev,
+        pets: prev.pets.map((p) => (p.id === petId ? { ...p, vetVisits: [visit, ...p.vetVisits].sort((a, b) => b.ts - a.ts) } : p)),
+      }));
+      persist(
+        supabase.from("vet_visits").insert({
+          id,
+          pet_id: petId,
+          ts: input.ts,
+          vet_name: input.vetName ?? null,
+          reason: input.reason ?? null,
+          notes: input.notes ?? null,
+        }),
+        {
+          rollback: () =>
+            setState((prev) => ({
+              ...prev,
+              pets: prev.pets.map((p) => (p.id === petId ? { ...p, vetVisits: p.vetVisits.filter((v) => v.id !== id) } : p)),
+            })),
+          message: "Couldn't save the vet visit",
+        }
+      );
+    },
+    [supabase, persist]
+  );
+
+  const deleteVetVisit = useCallback(
+    (petId: string, visitId: string) => {
+      const pet = stateRef.current.pets.find((p) => p.id === petId);
+      const removed = pet?.vetVisits.find((v) => v.id === visitId);
+      if (!removed) return;
+      undoableDelete({
+        remove: () =>
+          setState((prev) => ({
+            ...prev,
+            pets: prev.pets.map((p) => (p.id === petId ? { ...p, vetVisits: p.vetVisits.filter((v) => v.id !== visitId) } : p)),
+          })),
+        restore: () =>
+          setState((prev) => ({
+            ...prev,
+            pets: prev.pets.map((p) =>
+              p.id === petId && !p.vetVisits.some((v) => v.id === visitId)
+                ? { ...p, vetVisits: [...p.vetVisits, removed].sort((a, b) => b.ts - a.ts) }
+                : p
+            ),
+          })),
+        commit: () => supabase.from("vet_visits").delete().eq("id", visitId).then(),
+        message: "Vet visit removed",
+      });
+    },
+    [supabase, undoableDelete]
+  );
+
   const setSeenWelcome = useCallback(
     (seen: boolean) => {
       setState((p) => ({ ...p, seenWelcome: seen }));
@@ -1733,6 +2172,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         dismissToast,
         stopNotifications,
         logAction,
+        undoLogAction,
         switchMember,
         setPremium,
         buyCosmetic,
@@ -1744,6 +2184,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         editPet,
         deletePet,
         addWeight,
+        deleteWeight,
         addMember,
         editMember,
         removeMember,
@@ -1753,6 +2194,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         useSupply,
         addMed,
         deleteMed,
+        addVaccination,
+        deleteVaccination,
+        addVetVisit,
+        deleteVetVisit,
         setSeenWelcome,
         setUnits,
         setFamilyPassword,
