@@ -145,7 +145,7 @@ export default function FamilySettingsPage() {
                 onClick={() => {
                   if (!active) {
                     switchMember(m.id);
-                    toast("👤", `Viewing as ${m.name}`, "Actions will be logged as them");
+                    toast("person", `Viewing as ${m.name}`, "Actions will be logged as them");
                   }
                 }}
                 aria-label={active ? `${m.name}, current member` : `View the demo as ${m.name}`}
@@ -227,7 +227,7 @@ export default function FamilySettingsPage() {
                   onClick={() => {
                     if (!state.familyId) return;
                     navigator.clipboard.writeText(state.familyId);
-                    toast("📋", "Family ID copied", "");
+                    toast("list", "Family ID copied", "");
                   }}
                   className="text-[13px] font-semibold text-accent"
                 >
@@ -348,7 +348,7 @@ export default function FamilySettingsPage() {
                     weightKg: unitToKg(Number(editPetWeight) || kgToUnit(editingPet.weightKg, state.units), state.units),
                     cupGrams: Math.round(Number(editPetCup)) || editingPet.cupGrams,
                   });
-                  toast("🐾", `${editPetName.trim()} updated`, "");
+                  toast("paw", `${editPetName.trim()} updated`, "");
                   setEditingPet(null);
                 }}
               >
@@ -406,7 +406,7 @@ export default function FamilySettingsPage() {
                   setDeletingPet(null);
                   setDeleteConfirm("");
                   setEditingPet(null);
-                  toast("👋", `${name} was removed`, "");
+                  toast("person", `${name} was removed`, "");
                 }}
                 className="bg-red! text-white! shadow-none!"
               >
@@ -541,7 +541,7 @@ export default function FamilySettingsPage() {
                 disabled={!editMemberName.trim()}
                 onClick={() => {
                   editMember(editingMember.id, { name: editMemberName.trim(), role: editMemberRole.trim() || "Member" });
-                  toast("👤", `${editMemberName.trim()} updated`, "");
+                  toast("person", `${editMemberName.trim()} updated`, "");
                   setEditingMember(null);
                 }}
               >
@@ -558,7 +558,7 @@ export default function FamilySettingsPage() {
                     const name = editingMember.name;
                     removeMember(editingMember.id);
                     setEditingMember(null);
-                    toast("👋", `${name} was removed`, "");
+                    toast("person", `${name} was removed`, "");
                   }}
                 />
               </Group>

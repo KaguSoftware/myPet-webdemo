@@ -6,8 +6,6 @@ import Header from "@/components/Header";
 import PageLoading from "@/components/PageLoading";
 import PetAvatar from "@/components/PetAvatar";
 import Sheet from "@/components/Sheet";
-import PixelSprite from "@/components/pixel/PixelSprite";
-import { SMILEY_SPRITE, WARNING_SPRITE } from "@/components/pixel/hudSprites";
 import { ACTION_ICON, Icon } from "@/components/Icons";
 import { AccentButton, Chevron, Group, Row, SectionHeader, Segmented } from "@/components/ui";
 import { ACTIONS, ActionType, CARE_PLANS, PORTIONS } from "@/lib/data";
@@ -52,7 +50,7 @@ export default function LogsPage() {
         : todays.filter((a) => a.type === "fed").length >= (plan?.items.find((i) => i.action === "fed")?.perDay ?? 2);
     const prev = prevDayDoneRef.current;
     if (prev && prev.petId === pet.id && !prev.done && dayDone) {
-      toast("🎉", "All caught up today!", `${pet.name}'s care is all done for today`);
+      toast("star", "All caught up today!", `${pet.name}'s care is all done for today`);
     }
     prevDayDoneRef.current = { petId: pet.id, done: dayDone };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -102,7 +100,7 @@ export default function LogsPage() {
     if (!treatsSupply) return;
     consumeSupply(pet.id, treatsSupply.id);
     setFeedPortionOpen(false);
-    toast("🦴", `${pet.name} got a treat`, `${treatsSupply.name} · ${Math.max(0, treatsSupply.level - 15)}% left`);
+    toast("star", `${pet.name} got a treat`, `${treatsSupply.name} · ${Math.max(0, treatsSupply.level - 15)}% left`);
   };
 
   return (
@@ -162,27 +160,20 @@ export default function LogsPage() {
               className="relative flex flex-col items-start gap-2.5 rounded-card bg-card p-3.5 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.04)] transition-transform duration-150 active:scale-[0.96]"
             >
               {flash && (
-                <span className="font-pixel animate-coin-pop pointer-events-none absolute right-2 top-1 z-10 text-[9px] text-orange">
+                <span className="animate-coin-pop pointer-events-none absolute right-2 top-1 z-10 text-[12px] font-bold text-orange">
                   +5
                 </span>
               )}
               {warning && (
-                <span className="pointer-events-none absolute right-2 top-2 z-10" aria-label={`${ACTIONS[type].label} warning`}>
-                  <PixelSprite sprite={WARNING_SPRITE} size={12} className="pixelated" />
+                <span className="pointer-events-none absolute right-2 top-2 z-10 text-red" aria-label={`${ACTIONS[type].label} warning`}>
+                  <Icon name="alert" size={14} />
                 </span>
               )}
               <span className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-300 ${flash ? "bg-green text-white" : `${a.bg} ${a.tint}`}`}>
                 {flash ? <Icon name="check" size={18} className="animate-pop" /> : <Icon name={a.icon} size={19} />}
               </span>
               <span className="flex items-center gap-1 text-[13px] font-semibold text-label">
-                {type === "meds" && pet.meds.length === 0 ? (
-                  <>
-                    No meds
-                    <PixelSprite sprite={SMILEY_SPRITE} size={13} className="pixelated" />
-                  </>
-                ) : (
-                  ACTIONS[type].label
-                )}
+                {type === "meds" && pet.meds.length === 0 ? "No meds" : ACTIONS[type].label}
               </span>
             </button>
           );

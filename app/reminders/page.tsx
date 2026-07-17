@@ -37,8 +37,8 @@ export default function RemindersPage() {
           <button
             onClick={() => {
               toggleReminder(r.id);
-              if (!r.done) toast("✅", `Done: ${r.title}`, "Marked complete for the family");
-              else toast("↩️", `Reopened: ${r.title}`, "Marked as not done");
+              if (!r.done) toast("check", `Done: ${r.title}`, "Marked complete for the family");
+              else toast("refresh", `Reopened: ${r.title}`, "Marked as not done");
             }}
             aria-label={r.done ? "Mark as not done" : "Mark as done"}
             className={`flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-all duration-200 active:scale-90 ${
@@ -73,7 +73,7 @@ export default function RemindersPage() {
           <button
             onClick={() => setAddOpen(true)}
             aria-label="Add reminder"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-[0_3px_10px_oklch(0.55_0.19_258/0.35)] transition-transform active:scale-90"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-[0_3px_10px_oklch(0.55_0.2_285/0.35)] transition-transform active:scale-90"
           >
             <Icon name="plus" size={17} />
           </button>
@@ -159,7 +159,7 @@ export default function RemindersPage() {
               addReminder({ petId: activePetId, title: title.trim(), emoji: "📝", due: Date.now() + days * 86_400_000 });
               setAddOpen(false);
               setTitle("");
-              toast("⏰", "Reminder added", "Visible to the whole family");
+              toast("clock", "Reminder added", "Visible to the whole family");
             }}
           >
             Add reminder

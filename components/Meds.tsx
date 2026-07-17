@@ -107,7 +107,7 @@ export default function Meds({ pet }: { pet: Pet }) {
               addMed(pet.id, name.trim(), dosage.trim() || undefined, frequency.trim() || undefined);
               setAddOpen(false);
               reset();
-              toast("💊", `${name.trim()} added`, `${pet.name}'s meds list`);
+              toast("pill", `${name.trim()} added`, `${pet.name}'s meds list`);
             }}
           >
             Add med

@@ -5,7 +5,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyAuthError } from "@/lib/authErrors";
-import { AccentButton } from "@/components/ui";
+import { AccentButton, IconCircle } from "@/components/ui";
+import BrandMark from "@/components/BrandMark";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function SignupPage() {
   if (confirmSent) {
     return (
       <div className="flex min-h-full flex-col items-center justify-center px-6 text-center">
-        <div className="mb-3 text-[40px]">📬</div>
+        <div className="mb-4"><IconCircle icon="bell" tint="text-accent" bg="bg-accent-soft" size={56} iconSize={26} /></div>
         <h1 className="text-[18px] font-semibold text-label">Check your email</h1>
         <p className="mt-2 text-[15px] text-label-2">We sent a confirmation link to {email}. Confirm it, then log in.</p>
         <Link href="/login" className="mt-6 font-semibold text-accent">
@@ -55,8 +56,7 @@ export default function SignupPage() {
   return (
     <div className="flex min-h-full flex-col justify-center px-6 py-12">
       <div className="mb-10 text-center">
-        <div className="mb-3 text-[40px] leading-none">🐾</div>
-        <h1 className="font-pixel text-[22px] text-label">PetPal</h1>
+        <BrandMark />
         <p className="mt-2 text-[15px] text-label-2">Create your household</p>
       </div>
 

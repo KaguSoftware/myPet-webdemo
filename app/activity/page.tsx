@@ -90,7 +90,7 @@ export default function ActivityPage() {
                           <button
                             onClick={() => {
                               bookVetById(alertVet.id);
-                              toast("🩺", `Vet visit requested`, `${alertVet.name} will follow up about ${pet.name}`);
+                              toast("stethoscope", `Vet visit requested`, `${alertVet.name} will follow up about ${pet.name}`);
                             }}
                             className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-red px-3 text-[13px] font-semibold text-white transition-transform active:scale-95"
                           >
@@ -111,7 +111,7 @@ export default function ActivityPage() {
       {state.premium ? (
         <>
           <SectionHeader>Health · PetPal+</SectionHeader>
-          <div className="rounded-card bg-card p-4 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_6px_20px_oklch(0.55_0.19_258/0.08)] ring-1 ring-accent/15">
+          <div className="rounded-card bg-card p-4 shadow-[0_1px_2px_oklch(0.2_0.01_264/0.05),0_6px_20px_oklch(0.55_0.2_285/0.08)] ring-1 ring-accent/15">
             <div className="flex items-start gap-3">
               <IconCircle icon="stethoscope" tint="text-accent" bg="bg-accent-soft" />
               <div className="min-w-0 flex-1">
@@ -234,7 +234,7 @@ export default function ActivityPage() {
             onClick={() => {
               bookVetById(VET.id);
               setBookOpen(false);
-              toast("📅", "Appointment requested", `${VET.name} will confirm shortly`);
+              toast("calendar", "Appointment requested", `${VET.name} will confirm shortly`);
             }}
           >
             Request appointment

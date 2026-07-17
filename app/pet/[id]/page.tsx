@@ -115,7 +115,7 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
                   <button
                     onClick={() => {
                       restockSupply(pet.id, s.id);
-                      toast("📦", `${s.name} restocked`, "Back to 100%");
+                      toast("box", `${s.name} restocked`, "Back to 100%");
                     }}
                     className="flex items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1 text-[12px] font-semibold text-accent transition-transform active:scale-95"
                   >
@@ -194,7 +194,7 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
         onSave={(v) => {
           const kg = unitToKg(v, state.units);
           addWeight(pet.id, kg);
-          toast("⚖️", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
+          toast("scale", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
         }}
       />
       <EditStatSheet
@@ -205,7 +205,7 @@ export default function PetDetailPage({ params }: { params: Promise<{ id: string
         initialValue={pet.ageYears}
         onSave={(ageYears) => {
           editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg, cupGrams: pet.cupGrams });
-          toast("🎂", `${pet.name}'s age updated`, formatAge(ageYears));
+          toast("calendar", `${pet.name}'s age updated`, formatAge(ageYears));
         }}
       />
     </div>

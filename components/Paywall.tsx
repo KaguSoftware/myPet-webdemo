@@ -17,7 +17,7 @@ export default function Paywall({ open, onClose }: { open: boolean; onClose: () 
   return (
     <Sheet open={open} onClose={onClose}>
       <div className="flex flex-col items-center pt-2 text-center">
-        <span className="flex h-[64px] w-[64px] items-center justify-center rounded-[16px] bg-linear-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.48_0.19_262)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_8px_20px_oklch(0.55_0.19_258/0.35)]">
+        <span className="flex h-[64px] w-[64px] items-center justify-center rounded-[16px] bg-linear-to-b from-[oklch(0.62_0.19_285)] to-[oklch(0.48_0.19_290)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_8px_20px_oklch(0.55_0.2_285/0.35)]">
           <Icon name="sparkles" size={32} />
         </span>
         <h2 className="mt-3 text-[24px] font-bold tracking-[-0.02em] text-label">PetPal+</h2>
@@ -45,7 +45,7 @@ export default function Paywall({ open, onClose }: { open: boolean; onClose: () 
           onClick={() => {
             setPremium(true);
             onClose();
-            toast("✨", "Welcome to PetPal+", "Care plans and smart reminders unlocked");
+            toast("sparkles", "Welcome to PetPal+", "Care plans and smart reminders unlocked");
           }}
         >
           Try free for 1 month

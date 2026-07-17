@@ -43,8 +43,8 @@ export default function TabBar() {
                 active ? "text-accent" : "text-label-2 active:text-label"
               }`}
             >
-              <Icon name={t.icon} size={22} className={`transition-transform duration-200 ${active ? "scale-110" : "opacity-80"}`} />
-              <span className={`font-pixel text-[8px] leading-none ${active ? "opacity-100" : "opacity-80"}`}>{t.label}</span>
+              <Icon name={t.icon} size={22} className={`transition-transform duration-200 ${active ? "scale-105" : "opacity-80"}`} />
+              <span className={`text-[10px] font-medium leading-none tracking-[0.01em] ${active ? "opacity-100" : "opacity-80"}`}>{t.label}</span>
             </Link>
           );
         })}

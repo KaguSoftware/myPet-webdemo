@@ -29,7 +29,7 @@ export default function GeneralSettingsPage() {
               value={state.units}
               onChange={(u) => {
                 setUnits(u);
-                toast("⚖️", `Weights now shown in ${u === "kg" ? "kilograms" : "pounds"}`, "");
+                toast("scale", `Weights now shown in ${u === "kg" ? "kilograms" : "pounds"}`, "");
               }}
             />
           </div>
@@ -55,7 +55,7 @@ export default function GeneralSettingsPage() {
               onClick={() => {
                 if (!currentMember) return;
                 setNotificationPref(n.key, !on);
-                toast("🔔", `${n.label} turned ${on ? "off" : "on"}`, "");
+                toast("bell", `${n.label} turned ${on ? "off" : "on"}`, "");
               }}
               trailing={
                 <span aria-hidden className={`flex h-6 w-10 items-center rounded-full p-0.5 transition-colors ${on ? "justify-end bg-green" : "justify-start bg-fill"}`}>

@@ -1,20 +1,20 @@
 "use client";
 
 import { useStore } from "@/lib/store";
+import { Icon, IconName } from "./Icons";
 
-// Severity is derived from the emoji each toast already carries (no call-site
-// changes): alerts/errors read red, celebrations/confirmations read green, and
-// everything else stays the neutral indigo. Keeps the emoji glyph on top.
-const TILE_BY_SEVERITY: Record<"alert" | "success" | "info", string> = {
+// Tone is derived from the toast's icon: alerts/errors read red, confirmations
+// and celebrations read green, everything else stays the neutral indigo.
+const ALERT_ICONS = new Set<IconName>(["alert", "trash"]);
+const SUCCESS_ICONS = new Set<IconName>(["check", "star", "flame"]);
+const TILE_BY_TONE: Record<"alert" | "success" | "info", string> = {
   alert: "bg-linear-to-b from-[oklch(0.62_0.2_25)] to-[oklch(0.52_0.2_28)]",
   success: "bg-linear-to-b from-[oklch(0.66_0.16_155)] to-[oklch(0.55_0.16_158)]",
-  info: "bg-linear-to-b from-[oklch(0.62_0.19_258)] to-[oklch(0.5_0.19_262)]",
+  info: "bg-linear-to-b from-[oklch(0.6_0.19_285)] to-[oklch(0.48_0.19_288)]",
 };
-const ALERT_EMOJI = new Set(["🚨", "⚠️"]);
-const SUCCESS_EMOJI = new Set(["✅", "⭐", "🎉", "🔥"]);
-function severityOf(emoji: string): "alert" | "success" | "info" {
-  if (ALERT_EMOJI.has(emoji)) return "alert";
-  if (SUCCESS_EMOJI.has(emoji)) return "success";
+function toneOf(icon: IconName): "alert" | "success" | "info" {
+  if (ALERT_ICONS.has(icon)) return "alert";
+  if (SUCCESS_ICONS.has(icon)) return "success";
   return "info";
 }
 
@@ -29,9 +29,9 @@ export default function Toasts() {
         >
           <span
             aria-hidden
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] text-[17px] leading-none text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)] ${TILE_BY_SEVERITY[severityOf(t.emoji)]}`}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.4)] ${TILE_BY_TONE[toneOf(t.icon)]}`}
           >
-            {t.emoji}
+            <Icon name={t.icon} size={17} />
           </span>
           <button onClick={() => dismissToast(t.id)} className="min-w-0 flex-1 text-left">
             <span className="block truncate text-[14px] font-semibold text-label">{t.title}</span>

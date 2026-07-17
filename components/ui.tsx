@@ -159,7 +159,7 @@ export function AccentButton({
   className?: string;
 }) {
   const styles = {
-    primary: "bg-accent text-white shadow-[0_4px_14px_oklch(0.55_0.19_258/0.3)]",
+    primary: "bg-accent text-white shadow-[0_4px_14px_oklch(0.55_0.2_285/0.3)]",
     tinted: "bg-accent-soft text-accent",
     gray: "bg-fill text-label",
   }[variant];
@@ -239,7 +239,7 @@ export function CoinPill({ amount }: { amount: number }) {
       className={`flex items-center gap-1.5 rounded-full bg-orange-soft px-2.5 py-1.5 text-[oklch(0.5_0.13_60)] ${bump ? "animate-coin-bump" : ""}`}
     >
       <PixelSprite sprite={COIN_SPRITE} size={13} className="pixelated" />
-      <span className="font-pixel text-[10px]">{amount.toLocaleString()}</span>
+      <span className="text-[13px] font-semibold leading-none">{amount.toLocaleString()}</span>
     </span>
   );
 }

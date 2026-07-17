@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ACTIONS, ActionType, ADMIN_ROLE, Activity, AppState, CosmeticSlot, Med, Member, Pet, Reminder, VET, cosmetic, dailyGramTarget, dailyTarget } from "./data";
+import { ACTION_ICON, type IconName } from "@/components/Icons";
 
 // Verb used in alert copy for each loggable action that can carry a /plan daily target.
 export const ALERT_VERB: Partial<Record<ActionType, string>> = {
@@ -18,11 +19,11 @@ export const ALERT_VERB: Partial<Record<ActionType, string>> = {
 // species the check applies to (litter is cat-only, walk is dog-only; fed
 // and water apply to both, with cats needing them sooner than dogs).
 type CareAlertKind = "fed" | "water" | "litter" | "walk";
-const CARE_ALERT_CONFIG: Record<CareAlertKind, { verb: string; noun: string; emoji: string; hours: Partial<Record<Pet["species"], number>> }> = {
-  fed: { verb: "feed", noun: "food", emoji: "🍖", hours: { cat: 8, dog: 12 } },
-  water: { verb: "give water to", noun: "water", emoji: "💧", hours: { cat: 8, dog: 12 } },
-  litter: { verb: "clean the litter box for", noun: "a clean litter box", emoji: "🧹", hours: { cat: 24 } },
-  walk: { verb: "take for a walk", noun: "a walk", emoji: "🦮", hours: { dog: 12 } },
+const CARE_ALERT_CONFIG: Record<CareAlertKind, { verb: string; noun: string; emoji: string; icon: IconName; hours: Partial<Record<Pet["species"], number>> }> = {
+  fed: { verb: "feed", noun: "food", emoji: "🍖", icon: "bowl", hours: { cat: 8, dog: 12 } },
+  water: { verb: "give water to", noun: "water", emoji: "💧", icon: "drop", hours: { cat: 8, dog: 12 } },
+  litter: { verb: "clean the litter box for", noun: "a clean litter box", emoji: "🧹", icon: "broom", hours: { cat: 24 } },
+  walk: { verb: "take for a walk", noun: "a walk", emoji: "🦮", icon: "paw", hours: { dog: 12 } },
 };
 
 function sameCalendarDay(a: number, b: number) {
@@ -59,7 +60,8 @@ function computeStreak(activities: { ts: number }[]): number {
 
 export interface Toast {
   id: number;
-  emoji: string;
+  /** Icon shown in the toast's tinted tile — the UI never renders emoji. */
+  icon: IconName;
   title: string;
   body?: string;
   /** Optional inline action (e.g. "Undo") rendered as a button inside the toast. */
@@ -70,7 +72,7 @@ interface Store {
   state: AppState;
   hydrated: boolean;
   userEmail: string | null;
-  toast: (emoji: string, title: string, body?: string) => void;
+  toast: (icon: IconName, title: string, body?: string) => void;
   toasts: Toast[];
   dismissToast: (id: number) => void;
   stopNotifications: () => void;
@@ -432,9 +434,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    (emoji: string, title: string, body?: string) => {
+    (icon: IconName, title: string, body?: string) => {
       const id = Date.now() + Math.floor(Math.random() * 1000);
-      setToasts((t) => [...t.slice(-2), { id, emoji, title, body }]);
+      setToasts((t) => [...t.slice(-2), { id, icon, title, body }]);
       setTimeout(() => dismissToast(id), 4200);
     },
     [dismissToast]
@@ -454,7 +456,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!failed) return;
         console.error("[petpal] write failed:", failed.error);
         o.rollback();
-        toast("⚠️", o.message, "That change didn't save — reverted");
+        toast("alert", o.message, "That change didn't save — reverted");
       });
     },
     [toast]
@@ -478,7 +480,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...t.slice(-2),
         {
           id,
-          emoji: "🗑️",
+          icon: "trash",
           title: o.message,
           body: "Tap Undo to restore",
           action: {
@@ -516,7 +518,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .then(({ error }) => {
           if (error) {
             console.error("[petpal] counter sync failed:", error);
-            toast("⚠️", "Progress didn't save", "Coins may reset on reload — try again");
+            toast("alert", "Progress didn't save", "Coins may reset on reload — try again");
           }
         });
     }, 250);
@@ -550,7 +552,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           pendingNotificationTimeoutsRef.current.delete(timeoutId);
           const recipient = stateRef.current.members.find((mm) => mm.id === forMemberId);
           if (recipient?.notifyFamilyActivity ?? true) {
-            toast(action.emoji, `${member.name} ${action.verb} ${pet.name}`, `${time} · ${timeAgo(a.ts)}`);
+            toast(ACTION_ICON[a.type].icon, `${member.name} ${action.verb} ${pet.name}`, `${time} · ${timeAgo(a.ts)}`);
           }
         }, i * 1400);
         pendingNotificationTimeoutsRef.current.add(timeoutId);
@@ -603,7 +605,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         });
       if (currentMember()?.notifyVetSuggestions ?? true) {
-        toast("🚨", title, kind === "over" ? `Might be worth keeping an eye on ${pet.name}` : "Might be worth a vet check");
+        toast("alert", title, kind === "over" ? `Might be worth keeping an eye on ${pet.name}` : "Might be worth a vet check");
       }
     },
     [supabase, toast]
@@ -620,7 +622,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (kind: CareAlertKind, pet: Pet, remindersSnapshot: Reminder[], ts: number) => {
       const h = hid();
       if (!h) return;
-      const { verb, noun, emoji } = CARE_ALERT_CONFIG[kind];
+      const { verb, noun, emoji, icon } = CARE_ALERT_CONFIG[kind];
       const title = `Don't forget to ${verb} ${pet.name}`;
       // Match on (pet, kind) — NOT the title — so a rename doesn't orphan the
       // alert or let a duplicate for the new name coexist with the old one.
@@ -639,7 +641,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         });
       if (currentMember()?.notifyCareReminders ?? true) {
-        toast(emoji, title, `${pet.name} hasn't had ${noun} in a while`);
+        toast(icon, title, `${pet.name} hasn't had ${noun} in a while`);
       }
     },
     [supabase, toast]
@@ -761,7 +763,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!finalHousehold || cancelled) {
         setHydrated(true);
         if (!finalHousehold) {
-          toast("⚠️", "Couldn't set up your household", bootstrapErrRef.current ?? "unknown error — check console");
+          toast("alert", "Couldn't set up your household", bootstrapErrRef.current ?? "unknown error — check console");
         }
         return;
       }
@@ -943,7 +945,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const pet = stateRef.current.pets.find((p) => p.id === petId);
       if (!pet) return false;
       if (type === "meds" && pet.meds.length === 0) {
-        toast("🙂", "No meds", `${pet.name} isn't on any medication right now`);
+        toast("pill", "No meds", `${pet.name} isn't on any medication right now`);
         return false;
       }
 
@@ -996,8 +998,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       const time = new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       const gramsNote = type === "fed" && grams != null ? `${Math.round(grams)} g · ` : "";
-      toast(ACTIONS[type].emoji, `${pet.name} — ${ACTIONS[type].label.toLowerCase()} at ${time}`, `Family notified 📣 · ${gramsNote}+5 coins`);
-      if (newStreak > before.streak) toast("🔥", `${newStreak}-day streak!`, "You're on a roll — keep it going");
+      toast(ACTION_ICON[type].icon, `${pet.name} — ${ACTIONS[type].label.toLowerCase()} at ${time}`, `Family notified · ${gramsNote}+5 coins`);
+      if (newStreak > before.streak) toast("flame", `${newStreak}-day streak!`, "You're on a roll — keep it going");
 
       // Persist the activity (+ any supply drain) per-row; on failure roll the
       // whole slice back. Coins/streak go through the debounced syncCounters
@@ -1110,7 +1112,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!pet) return;
       if (pet.owned.includes(cosmeticId)) return; // already owned — never double-charge
       if (rewardsRef.current.coins < item.price) {
-        toast("🪙", "Not enough coins", `${item.name} costs ${item.price} coins`);
+        toast("coin", "Not enough coins", `${item.name} costs ${item.price} coins`);
         return;
       }
       const owned = [...pet.owned, cosmeticId];
@@ -1242,7 +1244,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const h = hid();
       if (!h) {
         console.error("[petpal] addPet called before household loaded");
-        toast("⚠️", "Couldn't add pet", "Your household hasn't finished loading — try again in a moment");
+        toast("alert", "Couldn't add pet", "Your household hasn't finished loading — try again in a moment");
         return;
       }
       const id = crypto.randomUUID();
@@ -1291,7 +1293,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         });
         if (petError) {
           console.error("[petpal] pet insert failed:", petError);
-          toast("⚠️", `${name} wasn't saved`, "It'll disappear on reload — please try again");
+          toast("alert", `${name} wasn't saved`, "It'll disappear on reload — please try again");
           rollback();
           return;
         }
@@ -1301,13 +1303,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ]);
         if (weightError || supplyError) {
           console.error("[petpal] pet setup insert failed:", weightError ?? supplyError);
-          toast("⚠️", `${name} wasn't saved`, "Setup didn't finish — please try again");
+          toast("alert", `${name} wasn't saved`, "Setup didn't finish — please try again");
           // Undo the pet too so the partial row doesn't linger without supplies.
           await supabase.from("pets").delete().eq("id", id);
           rollback();
           return;
         }
-        toast("🐾", `${name} joined the family`, "Care tracking is ready");
+        toast("paw", `${name} joined the family`, "Care tracking is ready");
       })();
     },
     [supabase, toast]
@@ -1391,7 +1393,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (name: string, role: string) => {
       const h = hid();
       if (!h) {
-        toast("⚠️", "Couldn't add member", "Your household hasn't finished loading — try again in a moment");
+        toast("alert", "Couldn't add member", "Your household hasn't finished loading — try again in a moment");
         return;
       }
       const id = crypto.randomUUID();
@@ -1410,11 +1412,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .then(({ error }) => {
           if (error) {
             console.error("[petpal] member insert failed:", error);
-            toast("⚠️", `${name} wasn't saved`, "It'll disappear on reload — please try again");
+            toast("alert", `${name} wasn't saved`, "It'll disappear on reload — please try again");
             setState((prev) => ({ ...prev, members: prev.members.filter((m) => m.id !== id) }));
             return;
           }
-          toast("👤", `${name} joined the household`, "");
+          toast("person", `${name} joined the household`, "");
         });
     },
     [supabase, toast]
@@ -1438,7 +1440,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const removeMember = useCallback(
     (memberId: string) => {
       if (stateRef.current.members.length <= 1) {
-        toast("⚠️", "Can't remove the last member", "A household needs at least one member");
+        toast("alert", "Can't remove the last member", "A household needs at least one member");
         return;
       }
       const before = {
@@ -1629,18 +1631,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const storedHash = data?.family_password_hash ?? null;
         const providedHash = currentPassword ? await sha256Hex(currentPassword) : null;
         if (!storedHash || storedHash !== providedHash) {
-          toast("🔒", "Incorrect current password", "");
+          toast("lock", "Incorrect current password", "");
           return false;
         }
       }
       const newHash = newPassword ? await sha256Hex(newPassword) : null;
       const { error } = await supabase.from("households").update({ family_password_hash: newHash }).eq("id", h);
       if (error) {
-        toast("⚠️", "Couldn't update the family password", "");
+        toast("alert", "Couldn't update the family password", "");
         return false;
       }
       setState((prev) => ({ ...prev, familyPasswordSet: !!newHash }));
-      toast(newHash ? "🔒" : "🔓", newHash ? "Family password set" : "Family password removed", "");
+      toast("lock", newHash ? "Family password set" : "Family password removed", "");
       return true;
     },
     [supabase, toast]
@@ -1670,13 +1672,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         const notFound = (error as { code?: string }).code === "P0002" || /not found/i.test(error.message ?? "");
         toast(
-          "⚠️",
+          "alert",
           notFound ? "Couldn't find that household" : "Couldn't join household",
           notFound ? "Check the Family ID and try again" : "Please try again"
         );
         return false;
       }
-      toast("🏡", "Joined household", "Loading it now…");
+      toast("home", "Joined household", "Loading it now…");
       // Full reload so the store re-hydrates against the newly-active household.
       window.location.reload();
       return true;
@@ -1690,7 +1692,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!uid || householdId === stateRef.current.activeHouseholdId) return;
       const { error } = await supabase.from("user_profiles").upsert({ user_id: uid, active_household_id: householdId });
       if (error) {
-        toast("⚠️", "Couldn't switch household", "Please try again");
+        toast("alert", "Couldn't switch household", "Please try again");
         return;
       }
       window.location.reload();

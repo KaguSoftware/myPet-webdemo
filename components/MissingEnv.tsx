@@ -1,3 +1,5 @@
+import { Icon } from "./Icons";
+
 /**
  * Shown inside the phone frame when the Supabase env vars are missing, instead
  * of letting the client crash on `createClient()`. Purely presentational — no
@@ -6,8 +8,10 @@
 export default function MissingEnv() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-8 text-center">
-      <div className="mb-4 text-[40px] leading-none">🔌</div>
-      <h1 className="font-pixel text-[17px] text-label">Configuration needed</h1>
+      <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent-soft text-accent">
+        <Icon name="gear" size={26} />
+      </span>
+      <h1 className="text-[18px] font-bold text-label">Configuration needed</h1>
       <p className="mt-3 text-[14px] leading-relaxed text-label-2">
         PetPal can&apos;t reach its backend. Add your Supabase keys to a{" "}
         <code className="rounded bg-fill px-1 py-0.5 text-[12px]">.env.local</code> file and restart.

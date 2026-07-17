@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyAuthError } from "@/lib/authErrors";
 import { AccentButton } from "@/components/ui";
+import BrandMark from "@/components/BrandMark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,8 +33,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-full flex-col justify-center px-6 py-12">
       <div className="mb-10 text-center">
-        <div className="mb-3 text-[40px] leading-none">🐾</div>
-        <h1 className="font-pixel text-[22px] text-label">PetPal</h1>
+        <BrandMark />
         <p className="mt-2 text-[15px] text-label-2">Log in to your household</p>
       </div>
 

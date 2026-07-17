@@ -332,14 +332,14 @@ function PetsPageContent() {
   const buy = (c: Cosmetic) => {
     buyCosmetic(pet.id, c.id);
     react();
-    toast("🛍️", `${c.name} purchased`, `${pet.name} is wearing it now`);
+    toast("bag", `${c.name} purchased`, `${pet.name} is wearing it now`);
   };
   const toggle = (c: Cosmetic) => {
     const wasEquipped = pet.equipped[c.slot] === c.id;
     toggleEquip(pet.id, c.id);
     react();
-    if (wasEquipped) toast("🐾", `Took off the ${c.name}`, `${pet.name}'s look updated`);
-    else toast("🐾", `${pet.name} is wearing the ${c.name}`, "Looking sharp");
+    if (wasEquipped) toast("paw", `Took off the ${c.name}`, `${pet.name}'s look updated`);
+    else toast("paw", `${pet.name} is wearing the ${c.name}`, "Looking sharp");
   };
 
   return (
@@ -400,7 +400,7 @@ function PetsPageContent() {
           className={`glass-strong absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-transform active:scale-95 ${threeD ? "text-accent" : "text-label-2"}`}
         >
           <Icon name="cube" size={15} />
-          <span className="font-pixel text-[8px]">3D</span>
+          <span className="text-[12px] font-semibold leading-none">3D</span>
         </button>
 
         <div className="arcade-stage flex flex-col items-center px-5 pb-5 pt-2">
@@ -442,7 +442,7 @@ function PetsPageContent() {
           </div>
 
           {threeD && (
-            <p className="font-pixel -mt-4 mb-2 text-[8px] text-label-3">drag to spin · springs back</p>
+            <p className="-mt-4 mb-2 text-[12px] font-medium text-label-3">Drag to spin</p>
           )}
 
           <h2 className="text-[20px] font-bold tracking-[-0.01em] text-label">{pet.name}</h2>
@@ -532,7 +532,7 @@ function PetsPageContent() {
         onSave={(v) => {
           const kg = unitToKg(v, state.units);
           addWeight(pet.id, kg);
-          toast("⚖️", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
+          toast("scale", `${pet.name}'s weight updated`, formatWeight(kg, state.units));
         }}
       />
       <EditStatSheet
@@ -543,7 +543,7 @@ function PetsPageContent() {
         initialValue={pet.ageYears}
         onSave={(ageYears) => {
           editPet(pet.id, { name: pet.name, breed: pet.breed, ageYears, weightKg: pet.weightKg, cupGrams: pet.cupGrams });
-          toast("🎂", `${pet.name}'s age updated`, formatAge(ageYears));
+          toast("calendar", `${pet.name}'s age updated`, formatAge(ageYears));
         }}
       />
     </div>

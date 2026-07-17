@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyAuthError } from "@/lib/authErrors";
-import { AccentButton } from "@/components/ui";
+import { AccentButton, IconCircle } from "@/components/ui";
+import BrandMark from "@/components/BrandMark";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -40,14 +41,13 @@ export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-full flex-col justify-center px-6 py-12">
       <div className="mb-10 text-center">
-        <div className="mb-3 text-[40px] leading-none">🐾</div>
-        <h1 className="font-pixel text-[22px] text-label">PetPal</h1>
+        <BrandMark />
         <p className="mt-2 text-[15px] text-label-2">Choose a new password</p>
       </div>
 
       {done ? (
         <div className="text-center">
-          <div className="mb-3 text-[36px] leading-none">✅</div>
+          <div className="mb-3 flex justify-center"><IconCircle icon="check" tint="text-green" bg="bg-green-soft" size={48} iconSize={22} /></div>
           <p className="text-[15px] font-semibold text-label">Password updated</p>
           <p className="mt-1 text-[14px] text-label-2">Taking you to your household…</p>
         </div>
